@@ -1,0 +1,350 @@
+{
+  "schemaVersion": 2,
+  "runner": "node:test/exact-scenario",
+  "testedRevision": "uncommitted",
+  "inputDigest": "608f73a3e5f649b8e37f09f641d31c7def41e8656a874db165c302d0e3181f42",
+  "outcome": "passed",
+  "scenarios": [
+    {
+      "id": "scn.dashboard.0c4e91ab73f2",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.dashboard.54a702fd89c3",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.dashboard.60b4ae93f7c1",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.dashboard.73fa18c5b2d0",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.dashboard.b1c6f804d3e9",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.todo.31ac09e7f482",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.todo.4bd8e1603ca9",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.todo.678c20e4b91f",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.todo.82e61fc5d9a7",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.todo.d23a76bf490e",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.todo.f98c1437a6d2",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.1ae4d6739cb0",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.1c7ab038e529",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.29f07d86bc4e",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.3a70c9d1ef24",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.5e9a130cd7b4",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.72d4b0e91fac",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.732cf49a0e18",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.845e10cb79d6",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.8d2e41b70ca3",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.a2c7e48b610f",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.b5e72a0c4d89",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.c905a1e37fd8",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.d6f8012b3ea5",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.e3817b0dcf54",
+      "outcome": "passed"
+    },
+    {
+      "id": "scn.verify.f41ca285d706",
+      "outcome": "passed"
+    }
+  ],
+  "executions": [
+    {
+      "path": "tests/cli.test.mjs",
+      "selector": "emits identical default JSON for identical inputs",
+      "scenarioIds": [
+        "scn.verify.d6f8012b3ea5"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/cli.test.mjs",
+      "selector": "exposes an executable verify command",
+      "scenarioIds": [
+        "scn.verify.5e9a130cd7b4"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/cli.test.mjs",
+      "selector": "omits volatile metadata from the deterministic payload",
+      "scenarioIds": [
+        "scn.verify.3a70c9d1ef24"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/cli.test.mjs",
+      "selector": "returns stable failure exit codes",
+      "scenarioIds": [
+        "scn.verify.a2c7e48b610f"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/recording-links.test.mjs",
+      "selector": "maps recordings to only their covered requirement scenarios",
+      "scenarioIds": [
+        "scn.dashboard.0c4e91ab73f2"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/scenario-runner.test.mjs",
+      "selector": "maps a failing test and returns a failed outcome",
+      "scenarioIds": [
+        "scn.verify.1c7ab038e529"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/scenario-runner.test.mjs",
+      "selector": "maps a passing test to only its anchored scenario",
+      "scenarioIds": [
+        "scn.verify.8d2e41b70ca3"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/server.test.mjs",
+      "selector": "runs implementation verification from the dashboard endpoint",
+      "scenarioIds": [
+        "scn.dashboard.73fa18c5b2d0"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/server.test.mjs",
+      "selector": "serves a verification summary with requirement links",
+      "scenarioIds": [
+        "scn.dashboard.60b4ae93f7c1",
+        "scn.dashboard.b1c6f804d3e9"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/server.test.mjs",
+      "selector": "serves allowlisted artifacts and rejects arbitrary paths",
+      "scenarioIds": [
+        "scn.dashboard.54a702fd89c3"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/server.test.mjs",
+      "selector": "serves allowlisted end-to-end recordings with range support",
+      "scenarioIds": [
+        "scn.dashboard.0c4e91ab73f2"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/server.test.mjs",
+      "selector": "serves the initial task list and accurate summary",
+      "scenarioIds": [
+        "scn.todo.82e61fc5d9a7"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/todo-store.test.mjs",
+      "selector": "creates a trimmed open task",
+      "scenarioIds": [
+        "scn.todo.f98c1437a6d2"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/todo-store.test.mjs",
+      "selector": "filters tasks by completion state",
+      "scenarioIds": [
+        "scn.todo.31ac09e7f482"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/todo-store.test.mjs",
+      "selector": "rejects blank and overlong task text",
+      "scenarioIds": [
+        "scn.todo.4bd8e1603ca9"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/todo-store.test.mjs",
+      "selector": "removes only the selected task",
+      "scenarioIds": [
+        "scn.todo.d23a76bf490e"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/todo-store.test.mjs",
+      "selector": "toggles a task and updates the summary",
+      "scenarioIds": [
+        "scn.todo.678c20e4b91f"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/validation-contract.test.mjs",
+      "selector": "full validation command and pinned OpenSpec dependency are documented",
+      "scenarioIds": [
+        "scn.verify.29f07d86bc4e"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/verifier.test.mjs",
+      "selector": "detects an anchor that names no declared identity",
+      "scenarioIds": [
+        "scn.verify.e3817b0dcf54"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/verifier.test.mjs",
+      "selector": "implementation mode resolves every requirement and scenario anchor",
+      "scenarioIds": [
+        "scn.verify.732cf49a0e18"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/verifier.test.mjs",
+      "selector": "parses all stable identities and parent relationships",
+      "scenarioIds": [
+        "scn.verify.c905a1e37fd8"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/verifier.test.mjs",
+      "selector": "proposal mode accepts complete planned targets",
+      "scenarioIds": [
+        "scn.verify.845e10cb79d6"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/verifier.test.mjs",
+      "selector": "rejects anchors without their planned declaration target",
+      "scenarioIds": [
+        "scn.verify.b5e72a0c4d89"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/verifier.test.mjs",
+      "selector": "report preserves independent linkage, execution, and review states",
+      "scenarioIds": [
+        "scn.verify.f41ca285d706"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/verifier.test.mjs",
+      "selector": "reports duplicate identities with a stable code",
+      "scenarioIds": [
+        "scn.verify.1ae4d6739cb0"
+      ],
+      "outcome": "passed",
+      "reason": null
+    },
+    {
+      "path": "tests/verifier.test.mjs",
+      "selector": "resolves anchors to nearby planned declarations",
+      "scenarioIds": [
+        "scn.verify.72d4b0e91fac"
+      ],
+      "outcome": "passed",
+      "reason": null
+    }
+  ]
+}

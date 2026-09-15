@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Todo product and OpenSpec verification dashboard showcase" />
+    <meta name="theme-color" content="#f2f1eb" />
+    <title>Trace — Stele Spec showcase</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body data-view="product">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="noise" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="#product" aria-label="Trace home">
+        <span class="brand-mark">T</span>
+        <span>TRACE</span>
+      </a>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a class="nav-item active" data-view="product" href="#product" aria-current="page">Todo workspace</a>
+        <a class="nav-item" data-view="verification" href="#verification">
+          Verification
+          <span class="nav-status" id="nav-status" aria-label="Verification status"></span>
+        </a>
+      </nav>
+      <div class="repo-pill"><span class="pulse"></span> local / todo-showcase</div>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+      <section class="view active" id="product-view" aria-labelledby="product-title">
+        <div class="product-shell">
+          <header class="todo-heading">
+            <div>
+              <p class="eyebrow">My tasks</p>
+              <h1 id="product-title">Things to do.</h1>
+            </div>
+            <p>Keep today focused, one clear task at a time.</p>
+          </header>
+
+          <div class="todo-panel">
+            <div class="date-row">
+              <div>
+                <p class="eyebrow">Today</p>
+                <h2 id="today-label">Thursday, September 10</h2>
+              </div>
+              <div class="remaining"><strong id="open-count">0</strong><span>open</span></div>
+            </div>
+
+            <form id="todo-form" novalidate>
+              <label class="sr-only" for="todo-input">New task</label>
+              <div class="input-wrap">
+                <span aria-hidden="true">＋</span>
+                <input id="todo-input" name="title" maxlength="120" autocomplete="off" placeholder="What needs your attention?" />
+                <button type="submit">Add task</button>
+              </div>
+              <p class="form-message" id="form-message" role="alert"></p>
+            </form>
+
+            <div class="todo-toolbar">
+              <div class="filters" role="group" aria-label="Filter tasks">
+                <button class="filter active" data-filter="all" type="button" aria-pressed="true">All <span id="all-badge">0</span></button>
+                <button class="filter" data-filter="open" type="button" aria-pressed="false">Open</button>
+                <button class="filter" data-filter="done" type="button" aria-pressed="false">Done</button>
+              </div>
+              <span class="sync-note">Session memory · resets on restart</span>
+            </div>
+
+            <ul class="todo-list" id="todo-list" aria-live="polite"></ul>
+            <div class="empty-state" id="empty-state" hidden>
+              <span>✓</span>
+              <h3>Nothing here</h3>
+              <p>Change the filter or add a task above.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="verification-view" aria-labelledby="verification-title">
+        <div class="dashboard-shell">
+          <div class="dashboard-head">
+            <div>
+              <p class="eyebrow">Delivery evidence</p>
+              <h1 id="verification-title">The artifact room</h1>
+              <p>Follow the change from agreed behavior to linked code, executed tests, and review.</p>
+            </div>
+            <button class="run-button" id="run-validation" type="button">
+              <span class="run-icon" aria-hidden="true">▶</span>
+              <span><strong>Run validation</strong><small>Implementation mode</small></span>
+            </button>
+          </div>
+
+          <div class="validation-progress" id="validation-progress" role="status" aria-live="polite" hidden>
+            <span class="spinner" aria-hidden="true"></span>
+            <div><strong>Checking the current workspace…</strong><small>IDs → anchors → report</small></div>
+          </div>
+
+          <div class="stage-grid" id="stage-grid" aria-label="Verification stages"></div>
+
+          <div class="dashboard-grid">
+            <section class="matrix-panel" aria-labelledby="matrix-title">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Traceability matrix</p>
+                  <h2 id="matrix-title">Requirements & evidence</h2>
+                </div>
+                <div class="matrix-count" id="matrix-count">—</div>
+              </div>
+              <div class="requirement-list" id="requirement-list"></div>
+            </section>
+
+            <aside class="artifact-panel" aria-labelledby="artifact-title">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Source of truth</p>
+                  <h2 id="artifact-title">Artifact explorer</h2>
+                </div>
+              </div>
+              <div class="artifact-tabs" id="artifact-tabs" role="tablist" aria-label="OpenSpec artifacts"></div>
+              <div class="artifact-path" id="artifact-path">Select an artifact</div>
+              <pre class="artifact-content" id="artifact-content" role="tabpanel" tabindex="0"><code>Loading artifacts…</code></pre>
+            </aside>
+          </div>
+
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

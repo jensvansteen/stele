@@ -1,0 +1,34 @@
+{
+  "name": "stele-spec",
+  "version": "0.2.0",
+  "type": "module",
+  "bin": {
+    "stele": "./bin/stele.mjs"
+  },
+  "description": "Deterministic verification for plain-English OpenSpec requirements, implementations, and tests",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "files": [
+    "bin/",
+    "tools/",
+    "templates/",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "node server.mjs",
+    "test": "node --test --test-reporter=spec tests/*.test.mjs",
+    "stele": "node bin/stele.mjs",
+    "verify": "node bin/stele.mjs verify --stage implementation --report artifacts/verification-report.json",
+    "verify:proposal": "node bin/stele.mjs verify --stage proposal --report artifacts/proposal-report.json",
+    "test:scenarios": "node bin/stele.mjs test --evidence artifacts/test-results.json",
+    "validate": "node bin/stele.mjs validate --report artifacts/verification-report.json --evidence artifacts/test-results.json",
+    "openspec:validate": "openspec validate todo-showcase --strict --no-interactive"
+  },
+  "dependencies": {
+    "@fission-ai/openspec": "1.13.0"
+  },
+  "bundledDependencies": [
+    "@fission-ai/openspec"
+  ]
+}

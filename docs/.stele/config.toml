@@ -1,0 +1,12 @@
+# This project layers Stele-style identity onto OpenSpec rather than docs/spec tables.
+requirement_pattern = "^Verification-ID:\\s*(req\\.[a-z0-9]+\\.[a-f0-9]{12})$"
+scenario_pattern = "^Verification-ID:\\s*(scn\\.[a-z0-9]+\\.[a-f0-9]{12})$"
+spec_file_layout = "openspec/{specs,changes/*/specs}/**/spec.md"
+
+[rules]
+"stable-id-uniqueness" = "fail"
+"no-dangling-anchors" = "fail"
+"implementation-linkage" = "fail"
+"anchor-target-resolution" = "fail"
+"execution-evidence" = "fail"
+"deterministic-output" = "fail"

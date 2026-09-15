@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "recordings": [
+    {
+      "id": "todo-workflow",
+      "title": "Todo workflow",
+      "description": "Create a task, mark it complete, and inspect the completed filter.",
+      "relativePath": "openspec-todo-e2e/20260914-152019.mp4",
+      "tailnetUrl": "http://100.95.204.42:7780/openspec-todo-e2e/20260914-152019.mp4",
+      "coveredScenarios": [
+        "scn.todo.f98c1437a6d2",
+        "scn.todo.678c20e4b91f",
+        "scn.todo.31ac09e7f482"
+      ]
+    },
+    {
+      "id": "verification-workflow",
+      "title": "Verification workflow",
+      "description": "Inspect traceability, browse source artifacts, and run implementation validation.",
+      "relativePath": "openspec-verification-e2e/20260914-152021.mp4",
+      "tailnetUrl": "http://100.95.204.42:7780/openspec-verification-e2e/20260914-152021.mp4",
+      "coveredScenarios": [
+        "scn.dashboard.60b4ae93f7c1",
+        "scn.dashboard.b1c6f804d3e9",
+        "scn.dashboard.73fa18c5b2d0",
+        "scn.dashboard.54a702fd89c3",
+        "scn.dashboard.0c4e91ab73f2"
+      ]
+    }
+  ]
+}
