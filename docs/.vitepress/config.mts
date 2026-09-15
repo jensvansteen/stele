@@ -19,7 +19,6 @@ export default defineConfig({
       { text: "Guide", link: "/guide/getting-started" },
       { text: "Concepts", link: "/concepts/openspec-and-stele" },
       { text: "Reference", link: "/reference/cli" },
-      { text: "Roadmap", link: "/roadmap/dashboard" },
     ],
     sidebar: [
       {
@@ -46,15 +45,7 @@ export default defineConfig({
         items: [
           { text: "CLI", link: "/reference/cli" },
           { text: "Package architecture", link: "/reference/architecture" },
-          { text: "Performance", link: "/reference/performance" },
           { text: "Examples", link: "/reference/examples" },
-        ],
-      },
-      {
-        text: "Direction",
-        items: [
-          { text: "Dashboard roadmap", link: "/roadmap/dashboard" },
-          { text: "Language adapters", link: "/roadmap/language-adapters" },
         ],
       },
     ],

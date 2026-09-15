@@ -29,7 +29,7 @@ The current `prepack` step builds for the machine creating the archive. A public
 
 The first adapter reads the standard OpenSpec change layout and invokes the pinned OpenSpec strict validator. OpenSpec remains the authority for proposal, design, task, requirement, scenario, and archive semantics.
 
-This specification adapter is separate from language and test-runner adapters. It explains where behavior is declared; it does not inspect implementation code or execute tests. The planned boundaries for deeper inspection are documented in [Language adapters](/roadmap/language-adapters).
+This specification adapter is separate from language and test-runner adapters. It explains where behavior is declared; it does not inspect implementation code or execute tests.
 
 ## Current anchor scanner
 

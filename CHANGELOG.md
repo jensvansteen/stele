@@ -6,7 +6,7 @@
 - Exposed the native Go executable directly through the npm package without a runtime Node launcher.
 - Added exact named TypeScript test selection for v0.1 consumers, race-enabled tests for the Go verifier, a strict coverage gate, `golangci-lint`, and Linux/macOS GitHub Actions.
 - Added repository-local planning and verification skills to the package initializer.
-- Added a VitePress documentation site with guides, concepts, CLI and architecture reference, measured performance, examples, and the dashboard roadmap.
+- Added a VitePress documentation site with guides, concepts, CLI and architecture reference, and examples.
 - Moved the Todo showcase and artifact dashboard into the independent `stele-examples` consumer repository.
 - Defined v0.1 consumer support as TypeScript-first; Go and other consumer languages remain future adapter work.
 
