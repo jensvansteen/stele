@@ -4,7 +4,7 @@ One rule organizes this model: **every scenario needs adequate verification evid
 
 A test is one evidence kind. Unit, integration, and end-to-end describe the level of that test. A conformance check compares something actual with an expected contract. A measurement compares an observed metric with a threshold. The verification plan declares the required evidence, adapters collect it, and the Stele core validates the results.
 
-::: warning Roadmap status
+::: warning Current support
 The current release resolves `@verifies` anchors to exact named TypeScript tests executed through Node. Go and other consumer languages need future adapters. The evidence kinds and policy schema on this page define the next compatible extension and are not enforced yet.
 :::
 

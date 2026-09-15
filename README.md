@@ -2,6 +2,8 @@
 
 Stele lets teams describe and maintain a codebase in plain English, then deterministically checks that every described behavior stays connected to implemented code and current, passing evidence.
 
+[Read the published Stele documentation](https://jensvansteen.github.io/stele/)
+
 [OpenSpec](https://github.com/Fission-AI/OpenSpec) is Stele's first specification foundation. Stele extends its requirements and scenarios with stable identities, planned code and test targets, exact execution, and reproducible evidence for CI and review. OpenSpec owns the behavioral source of truth; Stele verifies the evidence graph around it.
 
 The verifier is written in Go and distributed through an npm package. npm handles installation and pins the bundled OpenSpec CLI; the installed `stele` command invokes the native binary directly.
@@ -55,4 +57,4 @@ Development setup and repository architecture live in [Contributing](CONTRIBUTIN
 
 ## Current scope
 
-Version 0.1 provides the Go verifier, OpenSpec adapter, native CLI, project initializer, repository-local skills, deterministic reports, and exact TypeScript test selection for TypeScript consumers. Cross-platform npm release packaging, additional language adapters, and the generated artifact dashboard are the next product milestones.
+Version 0.1 provides the Go verifier, OpenSpec adapter, native CLI, project initializer, repository-local skills, deterministic reports, and exact TypeScript test selection for TypeScript consumers.

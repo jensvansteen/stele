@@ -5,3 +5,5 @@ artifacts/
 output/
 .playwright-cli/
 PLAN.md
+REPORT.md
+TRANSFER.md
