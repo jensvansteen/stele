@@ -4,7 +4,7 @@ Stele verifies that plain-English OpenSpec behavior is connected to its planned 
 
 ## Prerequisites
 
-- Node.js 20.19 or newer
+- Node.js 24 or newer, with native `.mts` execution
 - Go 1.24 or newer when developing Stele itself
 - An OpenSpec change with requirements and scenarios
 

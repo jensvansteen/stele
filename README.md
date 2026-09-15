@@ -33,7 +33,7 @@ A resolved anchor proves traceability. A passing execution proves the selected t
 
 ## Develop Stele
 
-Requirements: Node.js 20.19 or newer and Go 1.24 or newer.
+Requirements: Node.js 24 or newer and Go 1.24 or newer. Node 24 lets the package tooling and integration tests run directly as native `.mts` files.
 
 ```bash
 npm install

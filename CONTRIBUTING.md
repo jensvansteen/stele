@@ -1,6 +1,6 @@
 # Contributing
 
-Use Node.js 20.19 or newer and Go 1.24 or newer. Install dependencies with `npm install`, then run `npm run verify` before opening a pull request.
+Use Node.js 24 or newer and Go 1.24 or newer. Install dependencies with `npm install`, then run `npm run verify` before opening a pull request.
 
 Keep `cmd/stele/main.go` as a small composition root. Put private product code in `internal/stele` while it remains one cohesive verifier package. Place Go tests beside their implementation using the standard `foo_test.go` naming convention. Split packages only when a component has an independent responsibility and dependency direction, such as a future report server or another specification adapter.
 

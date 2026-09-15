@@ -36,14 +36,14 @@ jobs:
       - run: npm ci
       - run: npm run docs:build
       - uses: actions/configure-pages@v5
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.event.repository.private == false
       - uses: actions/upload-pages-artifact@v3
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.event.repository.private == false
         with:
           path: docs/.vitepress/dist
 
   deploy:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.event.repository.private == false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

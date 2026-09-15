@@ -7,7 +7,7 @@
   },
   "description": "Deterministic verification for plain-English OpenSpec requirements, implementations, and tests",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=24.0.0"
   },
   "files": [
     "dist/",
@@ -22,17 +22,17 @@
     "README.md"
   ],
   "scripts": {
-    "build": "node scripts/build-go.mjs",
+    "build": "node scripts/build-go.mts",
     "docs:build": "vitepress build docs",
     "docs:dev": "vitepress dev docs",
     "docs:preview": "vitepress preview docs",
-    "format:check": "node scripts/check-go-format.mjs",
+    "format:check": "node scripts/check-go-format.mts",
     "lint": "golangci-lint run ./...",
     "lint:fix": "golangci-lint run --fix ./...",
     "typecheck": "go vet ./...",
     "test:go": "go test -race ./...",
-    "test:coverage": "node scripts/check-go-coverage.mjs",
-    "test:node": "node --test --test-concurrency=1 --test-reporter=spec tests/cli.test.mjs tests/package-install.test.mjs",
+    "test:coverage": "node scripts/check-go-coverage.mts",
+    "test:node": "node --test --test-concurrency=1 --test-reporter=spec tests/cli.test.mts tests/package-install.test.mts",
     "test": "npm run format:check && npm run typecheck && npm run test:go && npm run test:coverage && npm run build && npm run test:node",
     "prepack": "npm run build",
     "stele": "npm run build --silent && ./dist/stele",
