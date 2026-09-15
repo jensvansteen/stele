@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,7 +38,8 @@ Verification-ID: scn.demo.bbbbbbbbbbbb
 
 func TestParseSpecsReportsAllShapeDiagnostics(t *testing.T) {
 	root := fixtureRoot(t)
-	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `Verification-ID: ignored
+	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `#### Scenario: Ignored before requirement
+Verification-ID: ignored
 ### Requirement: Missing everything
 ### Requirement: No scenarios
 Verification-ID: req.demo.111111111111
@@ -60,7 +62,15 @@ Verification-ID: scn.demo.777777777777
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, code := range []string{"ID_REQUIREMENT_MISSING", "SCENARIO_MISSING", "ID_FORMAT", "ID_MULTIPLE", "ID_SCENARIO_MISSING", "ID_DUPLICATE"} {
+	expectedCodes := []string{
+		"ID_REQUIREMENT_MISSING",
+		"SCENARIO_MISSING",
+		"ID_FORMAT",
+		"ID_MULTIPLE",
+		"ID_SCENARIO_MISSING",
+		"ID_DUPLICATE",
+	}
+	for _, code := range expectedCodes {
 		if !hasDiagnostic(parsed.Diagnostics, code) {
 			t.Errorf("missing %s in %#v", code, parsed.Diagnostics)
 		}
@@ -98,20 +108,28 @@ func TestParseSpecsReturnsFileErrors(t *testing.T) {
 
 	t.Run("scanner", func(t *testing.T) {
 		root := fixtureRoot(t)
-		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", string(make([]byte, 70_000)))
-		if _, err := ParseSpecs(root, "example"); err == nil {
+		content := "### Requirement: Parsed before scanner error\n" +
+			"Verification-ID: req.demo.aaaaaaaaaaaa\n" +
+			strings.Repeat("x", 70_000)
+		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", content)
+		parsed, err := ParseSpecs(root, "example")
+		if err == nil {
 			t.Fatal("expected scanner token error")
+		}
+		if len(parsed.Requirements) != 1 || parsed.Requirements[0].ID != "req.demo.aaaaaaaaaaaa" {
+			t.Fatalf("expected partial parse result, got %#v", parsed.Requirements)
 		}
 	})
 }
 
 func TestParseSpecsReportsStableDuplicateDiagnostic(t *testing.T) {
 	root := fixtureRoot(t)
-	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `### Requirement: One
+	writeFixture(t, root, "openspec/changes/example/specs/demo/one.md", `### Requirement: One
 Verification-ID: req.demo.aaaaaaaaaaaa
 #### Scenario: First
 Verification-ID: scn.demo.bbbbbbbbbbbb
-### Requirement: Two
+`)
+	writeFixture(t, root, "openspec/changes/example/specs/demo/two.md", `### Requirement: Two
 Verification-ID: req.demo.aaaaaaaaaaaa
 #### Scenario: Second
 Verification-ID: scn.demo.cccccccccccc

@@ -16,19 +16,54 @@ Verification-ID: scn.demo.cccccccccccc
 #### Scenario: Alpha
 Verification-ID: scn.demo.bbbbbbbbbbbb
 `)
-	writeFixture(t, root, "tests/z.test.mjs", "// @verifies scn.demo.cccccccccccc\ntest(\"zed\", () => {})\n")
-	writeFixture(t, root, "tests/a.test.mjs", "// @verifies scn.demo.bbbbbbbbbbbb\ntest(\"alpha\", () => {})\n// @verifies scn.demo.dddddddddddd\ntest(\"unknown\", () => {})\n")
-	writeFixture(t, root, "src/demo.mjs", "// @implements req.demo.aaaaaaaaaaaa\nfunction demo() {}\n")
+	writeFixture(t, root, "tests/z.test.ts", "// @verifies scn.demo.cccccccccccc\ntest(\"zed\", () => {})\n")
+	writeFixture(t, root, "tests/a.test.ts", `// @verifies scn.demo.bbbbbbbbbbbb
+test("alpha", () => {})
+// @verifies scn.demo.dddddddddddd
+test("unknown", () => {})
+`)
+	writeFixture(t, root, "src/demo.ts", "// @implements req.demo.aaaaaaaaaaaa\nfunction demo() {}\n")
 	anchors, err := DiscoverScenarioTests(root, "example")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(anchors) != 2 || anchors[0].Path != "tests/a.test.mjs" || anchors[1].Path != "tests/z.test.mjs" {
+	if len(anchors) != 2 || anchors[0].Path != "tests/a.test.ts" || anchors[1].Path != "tests/z.test.ts" {
 		t.Fatalf("unexpected discovered tests: %#v", anchors)
 	}
 
-	if got := selectScenarioTests(ParsedSpecs{}, []Anchor{{Kind: "test", ID: "unknown"}, {Kind: "code", ID: "unknown"}}); len(got) != 0 {
-		t.Fatalf("unexpected selected tests: %#v", got)
+	selected := selectScenarioTests(
+		ParsedSpecs{},
+		[]Anchor{{Kind: "test", ID: "unknown"}, {Kind: "code", ID: "unknown"}},
+	)
+	if len(selected) != 0 {
+		t.Fatalf("unexpected selected tests: %#v", selected)
+	}
+}
+
+func TestGroupScenarioTestsUsesTypedTargetsAndSortsIDs(t *testing.T) {
+	alpha, beta, empty := "alpha", "beta", ""
+	groups := groupScenarioTests([]Anchor{
+		{ID: "scn.demo.cccccccccccc", Path: "b.test.ts", Selector: &alpha},
+		{ID: "scn.demo.bbbbbbbbbbbb", Path: "a.test.ts", Selector: &alpha},
+		{ID: "scn.demo.aaaaaaaaaaaa", Path: "a.test.ts", Selector: &alpha},
+		{ID: "scn.demo.dddddddddddd", Path: "a.test.ts", Selector: &beta},
+		{ID: "scn.demo.eeeeeeeeeeee", Path: "a.test.ts"},
+		{ID: "scn.demo.ffffffffffff", Path: "a.test.ts", Selector: &empty},
+	})
+	if len(groups) != 4 {
+		t.Fatalf("groupScenarioTests returned %d groups: %#v", len(groups), groups)
+	}
+	if groups[0].Selector != nil {
+		t.Fatalf("group did not retain the first anchor's unresolved selector: %#v", groups[0])
+	}
+	if groups[1].Key.Selector != "alpha" || groups[2].Key.Selector != "beta" || groups[3].Key.Path != "b.test.ts" {
+		t.Fatalf("groups were not sorted by path and selector: %#v", groups)
+	}
+	if got := groups[1].IDs; len(got) != 2 || got[0] != "scn.demo.aaaaaaaaaaaa" || got[1] != "scn.demo.bbbbbbbbbbbb" {
+		t.Fatalf("shared target IDs were not sorted: %#v", got)
+	}
+	if supportedSource("README.md") {
+		t.Fatal("Markdown must not be scanned for anchors")
 	}
 }
 
@@ -48,11 +83,16 @@ func TestDiscoverScenarioTestsReturnsDependencyErrors(t *testing.T) {
 	})
 	t.Run("anchor", func(t *testing.T) {
 		root := fixtureRoot(t)
-		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", "### Requirement: Demo\nVerification-ID: req.demo.aaaaaaaaaaaa\n")
+		writeFixture(
+			t,
+			root,
+			"openspec/changes/example/specs/demo/spec.md",
+			"### Requirement: Demo\nVerification-ID: req.demo.aaaaaaaaaaaa\n",
+		)
 		if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink(filepath.Join(root, "missing.js"), filepath.Join(root, "src", "broken.js")); err != nil {
+		if err := os.Symlink(filepath.Join(root, "missing.ts"), filepath.Join(root, "src", "broken.ts")); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := DiscoverScenarioTests(root, "example"); err == nil {
@@ -64,7 +104,11 @@ func TestDiscoverScenarioTestsReturnsDependencyErrors(t *testing.T) {
 func TestRunScenarioTestsHandlesMissingAndUnresolvedTests(t *testing.T) {
 	t.Run("not run", func(t *testing.T) {
 		root := fixtureRoot(t)
-		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", "### Requirement: Demo\nVerification-ID: req.demo.aaaaaaaaaaaa\n#### Scenario: Missing\nVerification-ID: scn.demo.bbbbbbbbbbbb\n")
+		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `### Requirement: Demo
+Verification-ID: req.demo.aaaaaaaaaaaa
+#### Scenario: Missing
+Verification-ID: scn.demo.bbbbbbbbbbbb
+`)
 		evidence, err := RunScenarioTests(root, "example", "")
 		if err != nil {
 			t.Fatal(err)
@@ -76,8 +120,12 @@ func TestRunScenarioTestsHandlesMissingAndUnresolvedTests(t *testing.T) {
 
 	t.Run("target not resolved", func(t *testing.T) {
 		root := fixtureRoot(t)
-		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", "### Requirement: Demo\nVerification-ID: req.demo.aaaaaaaaaaaa\n#### Scenario: Unresolved\nVerification-ID: scn.demo.bbbbbbbbbbbb\n")
-		writeFixture(t, root, "tests/demo.test.mjs", "// @verifies scn.demo.bbbbbbbbbbbb\nconst value = 1;\n")
+		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `### Requirement: Demo
+Verification-ID: req.demo.aaaaaaaaaaaa
+#### Scenario: Unresolved
+Verification-ID: scn.demo.bbbbbbbbbbbb
+`)
+		writeFixture(t, root, "tests/demo.test.ts", "// @verifies scn.demo.bbbbbbbbbbbb\nconst value = 1;\n")
 		evidence, err := RunScenarioTests(root, "example", "")
 		if err != nil {
 			t.Fatal(err)
@@ -89,8 +137,14 @@ func TestRunScenarioTestsHandlesMissingAndUnresolvedTests(t *testing.T) {
 
 	t.Run("selected but not executed", func(t *testing.T) {
 		root := fixtureRoot(t)
-		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", "### Requirement: Demo\nVerification-ID: req.demo.aaaaaaaaaaaa\n#### Scenario: Selected\nVerification-ID: scn.demo.bbbbbbbbbbbb\n")
-		writeFixture(t, root, "tests/demo.test.mjs", "// @verifies scn.demo.bbbbbbbbbbbb\ntest(\"selected\", () => {});\n")
+		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `### Requirement: Demo
+Verification-ID: req.demo.aaaaaaaaaaaa
+#### Scenario: Selected
+Verification-ID: scn.demo.bbbbbbbbbbbb
+`)
+		writeFixture(t, root, "tests/demo.test.ts", `// @verifies scn.demo.bbbbbbbbbbbb
+test("selected", () => {});
+`)
 		original := runExactTest
 		t.Cleanup(func() { runExactTest = original })
 		runExactTest = func(string, string, string) (bool, bool, error) { return false, false, nil }
@@ -102,38 +156,92 @@ func TestRunScenarioTestsHandlesMissingAndUnresolvedTests(t *testing.T) {
 			t.Fatalf("unexpected evidence: %#v", evidence)
 		}
 	})
+
+	t.Run("executed failure without process error", func(t *testing.T) {
+		selector := "selected"
+		original := runExactTest
+		t.Cleanup(func() { runExactTest = original })
+		runExactTest = func(string, string, string) (bool, bool, error) { return false, true, nil }
+		execution := executeTestGroup("unused", testGroup{
+			Key:      testGroupKey{Path: "tests/demo.test.ts", Selector: selector},
+			Selector: &selector,
+			IDs:      []string{"scn.demo.bbbbbbbbbbbb"},
+		})
+		if execution.Outcome != "failed" || pointerValue(execution.Reason) != "test-process-failed" {
+			t.Fatalf("unexpected execution: %#v", execution)
+		}
+	})
 }
 
-func TestExecuteExactGoTest(t *testing.T) {
+func TestExecuteExactTypeScriptTest(t *testing.T) {
 	root := fixtureRoot(t)
-	writeFixture(t, root, "go.mod", "module example.test/demo\n\ngo 1.24\n")
-	writeFixture(t, root, "demo/demo_test.go", `package demo
-import "testing"
-func TestPass(t *testing.T) {}
-func TestFail(t *testing.T) { t.Fatal("no") }
-`)
+	testSource := `import test from "node:test";
+const value: number = 1;
+test("passes", () => { if (value !== 1) throw new Error("failed"); });
+`
 	for _, test := range []struct {
-		selector       string
-		passed, ran    bool
-		wantProcessErr bool
+		path string
 	}{
-		{"TestPass", true, true, false},
-		{"TestMissing", false, false, false},
-		{"TestFail", false, true, true},
+		{"tests/demo.test.ts"},
+		{"tests/demo.test.mts"},
 	} {
-		t.Run(test.selector, func(t *testing.T) {
-			passed, ran, err := executeExactTest(root, "demo/demo_test.go", test.selector)
-			if passed != test.passed || ran != test.ran || (err != nil) != test.wantProcessErr {
+		t.Run(test.path, func(t *testing.T) {
+			writeFixture(t, root, test.path, testSource)
+			passed, ran, err := executeExactTest(root, test.path, "passes")
+			if err != nil || !passed || !ran {
 				t.Fatalf("executeExactTest = %v, %v, %v", passed, ran, err)
 			}
 		})
 	}
 }
 
+func TestExecuteExactTestRejectsUnsupportedExtensions(t *testing.T) {
+	for _, test := range []struct {
+		path    string
+		message string
+	}{
+		{
+			"demo/demo_test.go",
+			`unsupported test file extension ".go"; supported extensions: .mts, .ts`,
+		},
+		{
+			"tests/demo.test.mjs",
+			`unsupported test file extension ".mjs"; supported extensions: .mts, .ts`,
+		},
+		{
+			"tests/demo.test.tsx",
+			`unsupported test file extension ".tsx"; supported extensions: .mts, .ts`,
+		},
+		{
+			"tests/demo",
+			`unsupported test file extension ""; supported extensions: .mts, .ts`,
+		},
+	} {
+		t.Run(test.path, func(t *testing.T) {
+			passed, ran, err := executeExactTest("unused", test.path, "passes")
+			if passed || ran || !errors.Is(err, errUnsupportedTestExtension) {
+				t.Fatalf("executeExactTest = %v, %v, %v", passed, ran, err)
+			}
+			if err.Error() != test.message {
+				t.Fatalf("error = %q, want %q", err, test.message)
+			}
+		})
+	}
+
+	selector := "passes"
+	execution := executeTestGroup("unused", testGroup{
+		Key:      testGroupKey{Path: "demo/demo_test.go", Selector: selector},
+		Selector: &selector,
+	})
+	if pointerValue(execution.Reason) != "unsupported-test-extension" {
+		t.Fatalf("unsupported execution = %#v", execution)
+	}
+}
+
 func TestExecuteNodeTestDetectsNoMatchingExecution(t *testing.T) {
 	root := fixtureRoot(t)
-	writeFixture(t, root, "tests/demo.test.mjs", "import test from 'node:test'; test('different', () => {});\n")
-	passed, ran, err := executeNodeTest(root, "tests/demo.test.mjs", "missing")
+	writeFixture(t, root, "tests/demo.test.ts", "import test from 'node:test'; test('different', () => {});\n")
+	passed, ran, err := executeNodeTest(root, "tests/demo.test.ts", "missing")
 	if err != nil || passed || ran {
 		t.Fatalf("executeNodeTest = %v, %v, %v", passed, ran, err)
 	}
@@ -148,7 +256,7 @@ func TestRunScenarioTestsReturnsInputAndWriteErrors(t *testing.T) {
 		if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink(filepath.Join(root, "missing.go"), filepath.Join(root, "src", "broken.go")); err != nil {
+		if err := os.Symlink(filepath.Join(root, "missing.ts"), filepath.Join(root, "src", "broken.ts")); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := RunScenarioTests(root, "example", ""); err == nil {
@@ -174,7 +282,7 @@ func TestRunScenarioTestsReturnsInputAndWriteErrors(t *testing.T) {
 		if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink(filepath.Join(root, "missing.js"), filepath.Join(root, "src", "broken.js")); err != nil {
+		if err := os.Symlink(filepath.Join(root, "missing.ts"), filepath.Join(root, "src", "broken.ts")); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := RunScenarioTests(root, "example", ""); err == nil {
@@ -192,9 +300,15 @@ func TestRunScenarioTestsReturnsInputAndWriteErrors(t *testing.T) {
 }
 
 func TestRunScenarioTestsDependencyErrorsAndOrdering(t *testing.T) {
-	originalDigest, originalParse, originalScan, originalRun := computeScenarioDigest, parseScenarioSpecs, scanScenarioAnchors, runExactTest
+	originalDigest := computeScenarioDigest
+	originalParse := parseScenarioSpecs
+	originalScan := scanScenarioAnchors
+	originalRun := runExactTest
 	t.Cleanup(func() {
-		computeScenarioDigest, parseScenarioSpecs, scanScenarioAnchors, runExactTest = originalDigest, originalParse, originalScan, originalRun
+		computeScenarioDigest = originalDigest
+		parseScenarioSpecs = originalParse
+		scanScenarioAnchors = originalScan
+		runExactTest = originalRun
 	})
 	root := fixtureRoot(t)
 	computeScenarioDigest = func(string) (string, error) { return "digest", nil }
@@ -210,12 +324,19 @@ func TestRunScenarioTestsDependencyErrorsAndOrdering(t *testing.T) {
 
 	firstSelector, secondSelector := "first", "second"
 	parseScenarioSpecs = func(string, string) (ParsedSpecs, error) {
-		return ParsedSpecs{Requirements: []Requirement{{Scenarios: []Scenario{{ID: "scn.demo.cccccccccccc"}, {ID: "scn.demo.bbbbbbbbbbbb"}}}}}, nil
+		return ParsedSpecs{
+			Requirements: []Requirement{{
+				Scenarios: []Scenario{
+					{ID: "scn.demo.cccccccccccc"},
+					{ID: "scn.demo.bbbbbbbbbbbb"},
+				},
+			}},
+		}, nil
 	}
 	scanScenarioAnchors = func(string) ([]Anchor, error) {
 		return []Anchor{
-			{ID: "scn.demo.cccccccccccc", Kind: "test", Path: "z.test.mjs", Selector: &secondSelector},
-			{ID: "scn.demo.bbbbbbbbbbbb", Kind: "test", Path: "a.test.mjs", Selector: &firstSelector},
+			{ID: "scn.demo.cccccccccccc", Kind: "test", Path: "z.test.ts", Selector: &secondSelector},
+			{ID: "scn.demo.bbbbbbbbbbbb", Kind: "test", Path: "a.test.ts", Selector: &firstSelector},
 		}, nil
 	}
 	runExactTest = func(string, string, string) (bool, bool, error) { return true, true, nil }
@@ -223,7 +344,7 @@ func TestRunScenarioTestsDependencyErrorsAndOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if evidence.Executions[0].Path != "a.test.mjs" || evidence.Scenarios[0].ID != "scn.demo.bbbbbbbbbbbb" {
+	if evidence.Executions[0].Path != "a.test.ts" || evidence.Scenarios[0].ID != "scn.demo.bbbbbbbbbbbb" {
 		t.Fatalf("results were not sorted: %#v", evidence)
 	}
 }

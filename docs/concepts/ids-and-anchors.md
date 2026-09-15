@@ -23,25 +23,31 @@ Verification-ID: scn.todo.591a3b429cf0
 
 Place the requirement anchor beside the declaration that enforces the behavior:
 
-```go
+```ts
 // @implements req.todo.ea4d4f29a1c7
-func (store *Store) Delete(id string) error {
-    // ...
+export function deleteTodo(id: string): void {
+  // ...
 }
 ```
+
+The code anchor is a deterministic navigation and ownership link, not proof that the behavior works. It lets a review UI place the plain-English requirement beside the relevant production declaration, open the exact source or pull-request diff, show every component that implements the same requirement, and identify code affected by a future spec change.
+
+This distinction matters when a passing user journey crosses several internal components: the test shows that the journey works, while the implementation anchors show reviewers where each part is owned. A project concerned only with executable acceptance tests may make code anchors optional; Stele requires them when bidirectional spec-to-code traceability is part of the project policy.
 
 ## Test anchors
 
 Place the scenario anchor beside an independently selectable named test:
 
-```go
+```ts
 // @verifies scn.todo.591a3b429cf0
-func TestDeleteExistingTask(t *testing.T) {
-    // ...
-}
+test("deletes an existing task", () => {
+  // ...
+});
 ```
 
-The current runner selects exact named Node and Go tests. Multiple scenario IDs may point to one test declaration when the test truly exercises each scenario, though smaller evidence units are easier to diagnose.
+The v0.1 runner selects exact named TypeScript tests through Node. Multiple scenario IDs may point to one test declaration when the test truly exercises each scenario, though smaller evidence units are easier to diagnose. Other consumer languages need dedicated declaration and test-runner adapters.
+
+The test anchor identifies the intended evidence unit. It becomes behavioral evidence only after Stele confirms that the exact test executed and passed for the current inputs.
 
 ## Why nearby declarations matter
 

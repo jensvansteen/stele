@@ -1,6 +1,6 @@
 # Package architecture
 
-Stele is one npm package with a compiled core and a narrow JavaScript installation boundary.
+Stele is one npm package with a compiled core and a narrow npm installation boundary.
 
 ```text
 stele-spec npm package
@@ -19,13 +19,29 @@ The Go implementation owns parsing, identity validation, anchor scanning, linkag
 
 ## npm distribution
 
-npm provides familiar installation and executable linking for Node-based projects. The package exposes the compiled binary directly, removing a JavaScript process from every command invocation. Node remains necessary for npm, the bundled OpenSpec tool, and JavaScript test execution.
+npm provides familiar installation and executable linking for TypeScript projects. The package exposes the compiled binary directly, removing a JavaScript process from every command invocation. Node remains necessary for npm, the bundled OpenSpec tool, and TypeScript test execution.
+
+Version 0.1 supports TypeScript consumers. The Go core is an implementation and distribution choice; it does not imply support for anchors or tests in Go consumer repositories. Each additional consumer language needs an explicit declaration scanner and exact test-runner adapter.
 
 The current `prepack` step builds for the machine creating the archive. A public cross-platform release should move each operating-system and architecture build into its own optional npm package or release artifact.
 
 ## OpenSpec adapter
 
 The first adapter reads the standard OpenSpec change layout and invokes the pinned OpenSpec strict validator. OpenSpec remains the authority for proposal, design, task, requirement, scenario, and archive semantics.
+
+This specification adapter is separate from language and test-runner adapters. It explains where behavior is declared; it does not inspect implementation code or execute tests. The planned boundaries for deeper inspection are documented in [Language adapters](/roadmap/language-adapters).
+
+## Current anchor scanner
+
+`internal/stele/anchors.go` implements the fast TypeScript linkage pass for v0.1. It:
+
+- walks configured source and test directories for supported TypeScript files;
+- finds `@implements` and `@verifies` annotations containing a stable requirement or scenario ID;
+- classifies each annotation as a code or test anchor from its file location;
+- recognizes a nearby TypeScript declaration to capture a code symbol or exact test selector;
+- normalizes paths and sorts the result before verification.
+
+The scanner proves that an explicit anchor resolves to a nearby TypeScript declaration. It does not parse a complete abstract syntax tree, discover every exported symbol or route, infer behavior from source code, or prove that an unanchored implementation has a specification. Those broader checks and support for other consumer languages belong to planned language adapters.
 
 ## Skills
 

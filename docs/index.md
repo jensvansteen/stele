@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: Stele
-  text: Evidence for the behavior you specified
-  tagline: Connect OpenSpec requirements to concrete implementation and independently executed tests through stable IDs and deterministic reports.
+  text: Maintain software in plain English
+  tagline: Describe how a codebase should behave, then deterministically verify that each behavior stays connected to implemented code and current evidence.
   actions:
     - theme: brand
       text: Install and verify
@@ -30,7 +30,7 @@ features:
 
 ## From prose to reviewable evidence
 
-Stele adds an evidence layer to OpenSpec without introducing a second specification format.
+Stele turns plain-English software behavior into a maintainable evidence graph. [OpenSpec](https://github.com/Fission-AI/OpenSpec) is the first specification foundation, so teams keep requirements and scenarios in its native workflow while Stele adds traceability and deterministic validation without introducing a second behavioral source of truth.
 
 <div class="evidence-flow">
   <div><strong>OpenSpec</strong><span>Requirements and concrete scenarios</span></div>
@@ -42,11 +42,13 @@ Stele adds an evidence layer to OpenSpec without introducing a second specificat
 
 ```bash
 npm install --save-dev stele-spec
-npx stele init --change account-recovery
+npx openspec init .
+npx openspec new change todo-basics
+npx stele init --change todo-basics
 npx stele verify --stage proposal
 npx stele validate --json
 ```
 
 ::: info Current scope
-The package ships a Go verification executable, an OpenSpec adapter, and repository-local planning and verification skills. The generated HTML report and interactive local dashboard are the next presentation layer described in the [dashboard roadmap](/roadmap/dashboard).
+The package ships a Go verification executable, TypeScript consumer support, an OpenSpec adapter, and repository-local planning and verification skills. Additional consumer languages require future adapters. The generated HTML report and interactive local dashboard are the next presentation layer described in the [dashboard roadmap](/roadmap/dashboard).
 :::

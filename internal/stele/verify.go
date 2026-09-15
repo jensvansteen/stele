@@ -46,6 +46,32 @@ func gitState(root string) (string, bool) {
 	return strings.TrimSpace(string(revisionBytes)), statusErr != nil || strings.TrimSpace(string(statusBytes)) != ""
 }
 
+type linkageValidationInput struct {
+	Mode    string
+	Parsed  ParsedSpecs
+	Anchors []Anchor
+	Plan    LinkagePlan
+}
+
+type reportBuildInput struct {
+	Root        string
+	ChangeID    string
+	Mode        string
+	InputDigest string
+	Parsed      ParsedSpecs
+	Anchors     []Anchor
+	Plan        LinkagePlan
+	Diagnostics []Diagnostic
+	Evidence    *Evidence
+}
+
+type reportContribution struct {
+	LinkedRequirement bool
+	LinkedScenarios   int
+	PassedScenarios   int
+	ExecutionOutcomes []string
+}
+
 func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
 	parsed, err := ParseSpecs(root, changeID)
 	if err != nil {
@@ -57,56 +83,12 @@ func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
 	}
 	plan := LinkagePlan{Requirements: map[string]string{}, Scenarios: map[string]string{}}
 	_ = readJSON(filepath.Join(root, "artifacts", "linkage-plan.json"), &plan)
-	diagnostics := append([]Diagnostic{}, parsed.Diagnostics...)
-	known := make(map[string]bool)
-	for _, requirement := range parsed.Requirements {
-		if requirement.ID != "" {
-			known[requirement.ID] = true
-		}
-		for _, scenario := range requirement.Scenarios {
-			if scenario.ID != "" {
-				known[scenario.ID] = true
-			}
-		}
-	}
-	for _, anchor := range anchors {
-		if !known[anchor.ID] {
-			diagnostics = append(diagnostics, diagnostic("ANCHOR_DANGLING", "error", fmt.Sprintf("%s names undeclared identity %s.", anchor.Annotation, anchor.ID), anchor.Path, anchor.Line, anchor.ID))
-		}
-		if (anchor.Annotation == "implements") != strings.HasPrefix(anchor.ID, "req.") {
-			diagnostics = append(diagnostics, diagnostic("ANCHOR_KIND", "error", fmt.Sprintf("%s cannot target %s.", anchor.Annotation, anchor.ID), anchor.Path, anchor.Line, anchor.ID))
-		}
-		if mode == "implementation" && known[anchor.ID] && anchor.Selector == nil {
-			diagnostics = append(diagnostics, diagnostic("ANCHOR_TARGET_MISSING", "error", fmt.Sprintf("%s %s is not attached to a nearby compatible declaration.", anchor.Annotation, anchor.ID), anchor.Path, anchor.Line, anchor.ID))
-		}
-	}
-	for _, requirement := range parsed.Requirements {
-		codeLinks := anchorsFor(anchors, requirement.ID, "code")
-		planned := plan.Requirements[requirement.ID]
-		if mode == "proposal" && planned == "" {
-			diagnostics = append(diagnostics, diagnostic("PLAN_CODE_MISSING", "error", fmt.Sprintf("No planned code target for %s.", requirement.ID), requirement.Source.Path, requirement.Source.Line, requirement.ID))
-		}
-		if mode == "implementation" && len(codeLinks) == 0 {
-			diagnostics = append(diagnostics, diagnostic("LINK_CODE_MISSING", "error", fmt.Sprintf("No code anchor resolves for %s.", requirement.ID), requirement.Source.Path, requirement.Source.Line, requirement.ID))
-		}
-		if mode == "implementation" && len(codeLinks) > 0 && planned != "" && !anyPlannedMatch(codeLinks, planned) {
-			diagnostics = append(diagnostics, diagnostic("LINK_TARGET_MISMATCH", "error", fmt.Sprintf("%s does not resolve to planned target %s.", requirement.ID, planned), requirement.Source.Path, requirement.Source.Line, requirement.ID))
-		}
-		for _, scenario := range requirement.Scenarios {
-			testLinks := anchorsFor(anchors, scenario.ID, "test")
-			plannedTest := plan.Scenarios[scenario.ID]
-			if mode == "proposal" && plannedTest == "" {
-				diagnostics = append(diagnostics, diagnostic("PLAN_TEST_MISSING", "error", fmt.Sprintf("No planned test target for %s.", scenario.ID), scenario.Source.Path, scenario.Source.Line, scenario.ID))
-			}
-			if mode == "implementation" && len(testLinks) == 0 {
-				diagnostics = append(diagnostics, diagnostic("LINK_TEST_MISSING", "error", fmt.Sprintf("No test anchor resolves for %s.", scenario.ID), scenario.Source.Path, scenario.Source.Line, scenario.ID))
-			}
-			if mode == "implementation" && len(testLinks) > 0 && plannedTest != "" && !anyPlannedMatch(testLinks, plannedTest) {
-				diagnostics = append(diagnostics, diagnostic("LINK_TARGET_MISMATCH", "error", fmt.Sprintf("%s does not resolve to planned target %s.", scenario.ID, plannedTest), scenario.Source.Path, scenario.Source.Line, scenario.ID))
-			}
-		}
-	}
-	sort.Slice(diagnostics, func(i, j int) bool { return diagnosticKey(diagnostics[i]) < diagnosticKey(diagnostics[j]) })
+	diagnostics := validateLinkage(linkageValidationInput{
+		Mode:    mode,
+		Parsed:  parsed,
+		Anchors: anchors,
+		Plan:    plan,
+	})
 	inputDigest, err := ComputeInputDigest(root)
 	if err != nil {
 		return Report{}, err
@@ -124,6 +106,152 @@ func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
 		}
 	}
 	return report, nil
+}
+
+func validateLinkage(input linkageValidationInput) []Diagnostic {
+	diagnostics := append([]Diagnostic{}, input.Parsed.Diagnostics...)
+	known := knownIdentities(input.Parsed)
+	diagnostics = append(diagnostics, anchorDiagnostics(input.Mode, input.Anchors, known)...)
+	for _, requirement := range input.Parsed.Requirements {
+		diagnostics = append(diagnostics, requirementLinkDiagnostics(input, requirement)...)
+		for _, scenario := range requirement.Scenarios {
+			diagnostics = append(diagnostics, scenarioLinkDiagnostics(input, scenario)...)
+		}
+	}
+	sort.Slice(diagnostics, func(i, j int) bool {
+		return diagnosticKey(diagnostics[i]) < diagnosticKey(diagnostics[j])
+	})
+	return diagnostics
+}
+
+func knownIdentities(parsed ParsedSpecs) map[string]bool {
+	known := make(map[string]bool)
+	for _, requirement := range parsed.Requirements {
+		if requirement.ID != "" {
+			known[requirement.ID] = true
+		}
+		for _, scenario := range requirement.Scenarios {
+			if scenario.ID != "" {
+				known[scenario.ID] = true
+			}
+		}
+	}
+	return known
+}
+
+func anchorDiagnostics(mode string, anchors []Anchor, known map[string]bool) []Diagnostic {
+	diagnostics := make([]Diagnostic, 0)
+	for _, anchor := range anchors {
+		if !known[anchor.ID] {
+			diagnostics = append(diagnostics, diagnostic(
+				"ANCHOR_DANGLING",
+				"error",
+				fmt.Sprintf("%s names undeclared identity %s.", anchor.Annotation, anchor.ID),
+				anchor.Path,
+				anchor.Line,
+				anchor.ID,
+			))
+		}
+		if (anchor.Annotation == "implements") != strings.HasPrefix(anchor.ID, "req.") {
+			diagnostics = append(diagnostics, diagnostic(
+				"ANCHOR_KIND",
+				"error",
+				fmt.Sprintf("%s cannot target %s.", anchor.Annotation, anchor.ID),
+				anchor.Path,
+				anchor.Line,
+				anchor.ID,
+			))
+		}
+		if mode == "implementation" && known[anchor.ID] && anchor.Selector == nil {
+			diagnostics = append(diagnostics, diagnostic(
+				"ANCHOR_TARGET_MISSING",
+				"error",
+				fmt.Sprintf("%s %s is not attached to a nearby compatible declaration.", anchor.Annotation, anchor.ID),
+				anchor.Path,
+				anchor.Line,
+				anchor.ID,
+			))
+		}
+	}
+	return diagnostics
+}
+
+func requirementLinkDiagnostics(input linkageValidationInput, requirement Requirement) []Diagnostic {
+	links := anchorsFor(input.Anchors, requirement.ID, "code")
+	planned := input.Plan.Requirements[requirement.ID]
+	if input.Mode == "proposal" {
+		if planned == "" {
+			return []Diagnostic{diagnostic(
+				"PLAN_CODE_MISSING",
+				"error",
+				fmt.Sprintf("No planned code target for %s.", requirement.ID),
+				requirement.Source.Path,
+				requirement.Source.Line,
+				requirement.ID,
+			)}
+		}
+		return nil
+	}
+	if len(links) == 0 {
+		return []Diagnostic{diagnostic(
+			"LINK_CODE_MISSING",
+			"error",
+			fmt.Sprintf("No code anchor resolves for %s.", requirement.ID),
+			requirement.Source.Path,
+			requirement.Source.Line,
+			requirement.ID,
+		)}
+	}
+	if planned != "" && !anyPlannedMatch(links, planned) {
+		return []Diagnostic{diagnostic(
+			"LINK_TARGET_MISMATCH",
+			"error",
+			fmt.Sprintf("%s does not resolve to planned target %s.", requirement.ID, planned),
+			requirement.Source.Path,
+			requirement.Source.Line,
+			requirement.ID,
+		)}
+	}
+	return nil
+}
+
+func scenarioLinkDiagnostics(input linkageValidationInput, scenario Scenario) []Diagnostic {
+	links := anchorsFor(input.Anchors, scenario.ID, "test")
+	planned := input.Plan.Scenarios[scenario.ID]
+	if input.Mode == "proposal" {
+		if planned == "" {
+			return []Diagnostic{diagnostic(
+				"PLAN_TEST_MISSING",
+				"error",
+				fmt.Sprintf("No planned test target for %s.", scenario.ID),
+				scenario.Source.Path,
+				scenario.Source.Line,
+				scenario.ID,
+			)}
+		}
+		return nil
+	}
+	if len(links) == 0 {
+		return []Diagnostic{diagnostic(
+			"LINK_TEST_MISSING",
+			"error",
+			fmt.Sprintf("No test anchor resolves for %s.", scenario.ID),
+			scenario.Source.Path,
+			scenario.Source.Line,
+			scenario.ID,
+		)}
+	}
+	if planned != "" && !anyPlannedMatch(links, planned) {
+		return []Diagnostic{diagnostic(
+			"LINK_TARGET_MISMATCH",
+			"error",
+			fmt.Sprintf("%s does not resolve to planned target %s.", scenario.ID, planned),
+			scenario.Source.Path,
+			scenario.Source.Line,
+			scenario.ID,
+		)}
+	}
+	return nil
 }
 
 func anchorsFor(anchors []Anchor, identity, kind string) []Anchor {
@@ -145,133 +273,51 @@ func anyPlannedMatch(anchors []Anchor, planned string) bool {
 	return false
 }
 
-func BuildReport(root, changeID, mode, inputDigest string, parsed ParsedSpecs, anchors []Anchor, plan LinkagePlan, diagnostics []Diagnostic, evidence *Evidence) Report {
-	revision, dirty := gitState(root)
-	executionCurrent := evidence != nil && evidence.InputDigest == inputDigest
-	outcomes := make(map[string]string)
-	if evidence != nil {
-		for _, scenario := range evidence.Scenarios {
-			if executionCurrent {
-				outcomes[scenario.ID] = scenario.Outcome
-			} else {
-				outcomes[scenario.ID] = "stale"
-			}
-		}
-	}
-	report := Report{SchemaVersion: "2.0", Complete: true, Requirements: []RequirementReport{}, Diagnostics: diagnostics}
-	report.Verifier.Name = "stele"
-	report.Verifier.Version = Version
-	report.OpenSpec.Version = OpenSpecVersion
-	report.OpenSpec.ChangeID = changeID
-	report.Mode = mode
-	report.Repository.Revision = revision
-	report.Repository.Dirty = dirty
-	report.Repository.InputDigest = inputDigest
-	report.Stages.Review.Status = "not-reviewed"
-	report.Stages.Review.ReviewedRevision = nil
-	if evidence != nil {
-		value := evidence.TestedRevision
-		report.Stages.Execution.TestedRevision = &value
-	}
-	for _, item := range diagnostics {
-		switch item.Severity {
-		case "error":
-			report.Summary.Errors++
-		case "warning":
-			report.Summary.Warnings++
-		}
-	}
-	if report.Summary.Errors == 0 {
-		report.Verdict = "pass"
-	} else {
-		report.Verdict = "fail"
-	}
-	if len(parsed.Diagnostics) == 0 {
-		report.Stages.Proposal.Status = "pass"
-	} else {
-		report.Stages.Proposal.Status = "fail"
-	}
-	switch {
-	case report.Summary.Errors != 0:
-		report.Stages.Linkage.Status = "fail"
-	case mode == "proposal":
-		report.Stages.Linkage.Status = "planned"
-	default:
-		report.Stages.Linkage.Status = "pass"
-	}
+func BuildReport(
+	root string,
+	changeID string,
+	mode string,
+	inputDigest string,
+	parsed ParsedSpecs,
+	anchors []Anchor,
+	plan LinkagePlan,
+	diagnostics []Diagnostic,
+	evidence *Evidence,
+) Report {
+	return buildReport(reportBuildInput{
+		Root:        root,
+		ChangeID:    changeID,
+		Mode:        mode,
+		InputDigest: inputDigest,
+		Parsed:      parsed,
+		Anchors:     anchors,
+		Plan:        plan,
+		Diagnostics: diagnostics,
+		Evidence:    evidence,
+	})
+}
+
+func buildReport(input reportBuildInput) Report {
+	revision, dirty := gitState(input.Root)
+	outcomes := evidenceOutcomes(input.Evidence, input.InputDigest)
+	report := initialReport(input, revision, dirty)
+	report.Summary.Errors, report.Summary.Warnings, report.Verdict = diagnosticSummary(input.Diagnostics)
+	report.Stages.Proposal.Status, report.Stages.Linkage.Status = stageSummary(
+		input.Parsed.Diagnostics,
+		input.Mode,
+		report.Summary.Errors,
+	)
+
 	executionOutcomes := make([]string, 0)
-	for _, requirement := range parsed.Requirements {
-		codeAnchors := anchorsFor(anchors, requirement.ID, "code")
-		requirementReport := RequirementReport{ID: requirement.ID, Title: requirement.Title, Status: "proposed", Source: requirement.Source, CodeLinks: []Link{}, Scenarios: []ScenarioReport{}}
-		if mode == "proposal" {
-			target := plan.Requirements[requirement.ID]
-			var targetPointer *string
-			if target != "" {
-				value := target
-				targetPointer = &value
-				requirementReport.Linkage = "planned"
-			} else {
-				requirementReport.Linkage = "missing"
-			}
-			requirementReport.CodeLinks = append(requirementReport.CodeLinks, Link{Kind: "code", State: "planned", Target: targetPointer})
-		} else {
-			for _, anchor := range codeAnchors {
-				requirementReport.CodeLinks = append(requirementReport.CodeLinks, resolvedLink(anchor))
-			}
-			if len(codeAnchors) > 0 {
-				requirementReport.Linkage = "linked"
-			} else {
-				requirementReport.Linkage = "missing"
-			}
-		}
-		if requirementReport.Linkage == "linked" || requirementReport.Linkage == "planned" {
+	for _, requirement := range input.Parsed.Requirements {
+		requirementReport, contribution := buildRequirementReport(input, requirement, outcomes)
+		report.Requirements = append(report.Requirements, requirementReport)
+		if contribution.LinkedRequirement {
 			report.Summary.LinkedRequirements++
 		}
-		for _, scenario := range requirement.Scenarios {
-			testAnchors := anchorsFor(anchors, scenario.ID, "test")
-			scenarioReport := ScenarioReport{ID: scenario.ID, Title: scenario.Title, Source: scenario.Source, TestLinks: []Link{}}
-			if mode == "proposal" {
-				target := plan.Scenarios[scenario.ID]
-				var targetPointer *string
-				if target != "" {
-					value := target
-					targetPointer = &value
-					scenarioReport.Linkage = "planned"
-				} else {
-					scenarioReport.Linkage = "missing"
-				}
-				scenarioReport.TestLinks = append(scenarioReport.TestLinks, Link{Kind: "test", State: "planned", Target: targetPointer})
-			} else {
-				for _, anchor := range testAnchors {
-					scenarioReport.TestLinks = append(scenarioReport.TestLinks, resolvedLink(anchor))
-				}
-				if len(testAnchors) > 0 {
-					scenarioReport.Linkage = "linked"
-				} else {
-					scenarioReport.Linkage = "missing"
-				}
-			}
-			outcome := outcomes[scenario.ID]
-			if outcome == "" {
-				outcome = "not-run"
-			}
-			scenarioReport.Execution = ExecutionState{State: "executed", Outcome: outcome}
-			switch outcome {
-			case "not-run":
-				scenarioReport.Execution.State = "not-run"
-			case "stale":
-				scenarioReport.Execution.State = "stale"
-			}
-			if scenarioReport.Linkage == "linked" || scenarioReport.Linkage == "planned" {
-				report.Summary.LinkedScenarios++
-			}
-			if outcome == "passed" {
-				report.Summary.PassedScenarios++
-			}
-			executionOutcomes = append(executionOutcomes, outcome)
-			requirementReport.Scenarios = append(requirementReport.Scenarios, scenarioReport)
-		}
-		report.Requirements = append(report.Requirements, requirementReport)
+		report.Summary.LinkedScenarios += contribution.LinkedScenarios
+		report.Summary.PassedScenarios += contribution.PassedScenarios
+		executionOutcomes = append(executionOutcomes, contribution.ExecutionOutcomes...)
 	}
 	report.Summary.Requirements = len(report.Requirements)
 	report.Summary.Scenarios = len(executionOutcomes)
@@ -279,8 +325,178 @@ func BuildReport(root, changeID, mode, inputDigest string, parsed ParsedSpecs, a
 	return report
 }
 
+func evidenceOutcomes(evidence *Evidence, inputDigest string) map[string]string {
+	outcomes := make(map[string]string)
+	if evidence == nil {
+		return outcomes
+	}
+	executionCurrent := evidence.InputDigest == inputDigest
+	for _, scenario := range evidence.Scenarios {
+		if executionCurrent {
+			outcomes[scenario.ID] = scenario.Outcome
+		} else {
+			outcomes[scenario.ID] = "stale"
+		}
+	}
+	return outcomes
+}
+
+func initialReport(input reportBuildInput, revision string, dirty bool) Report {
+	report := Report{
+		SchemaVersion: "2.0",
+		Complete:      true,
+		Requirements:  []RequirementReport{},
+		Diagnostics:   input.Diagnostics,
+	}
+	report.Verifier.Name = "stele"
+	report.Verifier.Version = Version
+	report.OpenSpec.Version = OpenSpecVersion
+	report.OpenSpec.ChangeID = input.ChangeID
+	report.Mode = input.Mode
+	report.Repository.Revision = revision
+	report.Repository.Dirty = dirty
+	report.Repository.InputDigest = input.InputDigest
+	report.Stages.Review.Status = "not-reviewed"
+	report.Stages.Review.ReviewedRevision = nil
+	if input.Evidence != nil {
+		value := input.Evidence.TestedRevision
+		report.Stages.Execution.TestedRevision = &value
+	}
+	return report
+}
+
+func diagnosticSummary(diagnostics []Diagnostic) (int, int, string) {
+	errors := 0
+	warnings := 0
+	for _, item := range diagnostics {
+		switch item.Severity {
+		case "error":
+			errors++
+		case "warning":
+			warnings++
+		}
+	}
+	if errors > 0 {
+		return errors, warnings, "fail"
+	}
+	return errors, warnings, "pass"
+}
+
+func buildRequirementReport(
+	input reportBuildInput,
+	requirement Requirement,
+	outcomes map[string]string,
+) (RequirementReport, reportContribution) {
+	codeAnchors := anchorsFor(input.Anchors, requirement.ID, "code")
+	codeLinks, linkage := linksForMode(input.Mode, "code", codeAnchors, input.Plan.Requirements[requirement.ID])
+	report := RequirementReport{
+		ID:        requirement.ID,
+		Title:     requirement.Title,
+		Status:    "proposed",
+		Source:    requirement.Source,
+		CodeLinks: codeLinks,
+		Linkage:   linkage,
+		Scenarios: []ScenarioReport{},
+	}
+	contribution := reportContribution{LinkedRequirement: linkageComplete(linkage), ExecutionOutcomes: []string{}}
+	for _, scenario := range requirement.Scenarios {
+		scenarioReport, outcome := buildScenarioReport(input, scenario, outcomes)
+		report.Scenarios = append(report.Scenarios, scenarioReport)
+		if linkageComplete(scenarioReport.Linkage) {
+			contribution.LinkedScenarios++
+		}
+		if outcome == "passed" {
+			contribution.PassedScenarios++
+		}
+		contribution.ExecutionOutcomes = append(contribution.ExecutionOutcomes, outcome)
+	}
+	return report, contribution
+}
+
+func buildScenarioReport(
+	input reportBuildInput,
+	scenario Scenario,
+	outcomes map[string]string,
+) (ScenarioReport, string) {
+	testAnchors := anchorsFor(input.Anchors, scenario.ID, "test")
+	testLinks, linkage := linksForMode(input.Mode, "test", testAnchors, input.Plan.Scenarios[scenario.ID])
+	outcome := outcomes[scenario.ID]
+	if outcome == "" {
+		outcome = "not-run"
+	}
+	return ScenarioReport{
+		ID:        scenario.ID,
+		Title:     scenario.Title,
+		Source:    scenario.Source,
+		TestLinks: testLinks,
+		Linkage:   linkage,
+		Execution: executionState(outcome),
+	}, outcome
+}
+
+func linksForMode(mode, kind string, anchors []Anchor, planned string) ([]Link, string) {
+	if mode == "proposal" {
+		var target *string
+		linkage := "missing"
+		if planned != "" {
+			value := planned
+			target = &value
+			linkage = "planned"
+		}
+		return []Link{{Kind: kind, State: "planned", Target: target}}, linkage
+	}
+
+	links := make([]Link, 0, len(anchors))
+	for _, anchor := range anchors {
+		links = append(links, resolvedLink(anchor))
+	}
+	if len(links) == 0 {
+		return links, "missing"
+	}
+	return links, "linked"
+}
+
+func linkageComplete(linkage string) bool {
+	return linkage == "linked" || linkage == "planned"
+}
+
+func executionState(outcome string) ExecutionState {
+	state := "executed"
+	switch outcome {
+	case "not-run":
+		state = "not-run"
+	case "stale":
+		state = "stale"
+	}
+	return ExecutionState{State: state, Outcome: outcome}
+}
+
+func stageSummary(proposalDiagnostics []Diagnostic, mode string, errors int) (string, string) {
+	proposalStatus := "pass"
+	if len(proposalDiagnostics) > 0 {
+		proposalStatus = "fail"
+	}
+	switch {
+	case errors > 0:
+		return proposalStatus, "fail"
+	case mode == "proposal":
+		return proposalStatus, "planned"
+	default:
+		return proposalStatus, "pass"
+	}
+}
+
 func resolvedLink(anchor Anchor) Link {
-	return Link{ID: anchor.ID, Annotation: anchor.Annotation, Kind: anchor.Kind, Path: anchor.Path, Line: anchor.Line, Selector: anchor.Selector, DeclarationLine: anchor.DeclarationLine, State: "resolved"}
+	return Link{
+		ID:              anchor.ID,
+		Annotation:      anchor.Annotation,
+		Kind:            anchor.Kind,
+		Path:            anchor.Path,
+		Line:            anchor.Line,
+		Selector:        anchor.Selector,
+		DeclarationLine: anchor.DeclarationLine,
+		State:           "resolved",
+	}
 }
 
 func aggregateExecution(outcomes []string) string {

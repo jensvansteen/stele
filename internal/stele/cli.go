@@ -7,17 +7,16 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
 
 const (
-	Version         = "0.3.0"
+	Version         = "0.1.0"
 	OpenSpecVersion = "1.13.0"
 )
 
-const help = `stele 0.3.0 — deterministic OpenSpec implementation verification
+const helpBody = ` — deterministic OpenSpec implementation verification
 
 Usage:
   stele init [--change ID] [--root PATH]
@@ -40,63 +39,94 @@ type options struct {
 	json         bool
 }
 
+type validationResult struct {
+	SchemaVersion int    `json:"schemaVersion"`
+	Verdict       string `json:"verdict"`
+	OpenSpec      string `json:"openspec"`
+	Execution     string `json:"execution"`
+	Verification  string `json:"verification"`
+}
+
 var (
 	currentWorkingDirectory = os.Getwd
 	absolutePath            = filepath.Abs
-	executablePath          = os.Executable
 	verifyProject           = RunVerification
 	runProjectScenarios     = RunScenarioTests
 	validateProjectOpenSpec = runOpenSpec
 )
 
 func Run(arguments []string, stdout, stderr io.Writer) int {
-	if len(arguments) == 0 || arguments[0] == "help" || arguments[0] == "--help" || arguments[0] == "-h" {
-		_, _ = io.WriteString(stdout, help)
+	if len(arguments) == 0 {
+		writeHelp(stdout)
 		return 0
 	}
-	if arguments[0] == "version" || arguments[0] == "--version" || arguments[0] == "-v" {
+
+	command := arguments[0]
+	switch command {
+	case "help", "--help", "-h":
+		writeHelp(stdout)
+		return 0
+	case "version", "--version", "-v":
 		_, _ = fmt.Fprintln(stdout, Version)
 		return 0
-	}
-	command := arguments[0]
-	if !contains([]string{"init", "verify", "test", "validate"}, command) {
+	case "init", "verify", "test", "validate":
+		break
+	default:
 		_, _ = fmt.Fprintf(stderr, "stele: unknown command: %s\n", command)
 		return 2
 	}
+
 	parsed, err := parseOptions(command, arguments[1:])
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "stele: %s\n", err)
-		return 2
+		return writeCommandError(stderr, err)
 	}
 	if command == "init" {
-		if parsed.changeID == "" {
-			_, _ = fmt.Fprintln(stderr, "stele: --change is required for init")
-			return 2
-		}
-		created, initErr := Initialize(parsed.root, parsed.changeID)
-		if initErr != nil {
-			_, _ = fmt.Fprintf(stderr, "stele: %s\n", initErr)
-			return 2
-		}
-		if len(created) == 0 {
-			_, _ = fmt.Fprintln(stdout, "Stele is already initialized.")
-		} else {
-			_, _ = fmt.Fprintf(stdout, "Initialized Stele: %s\n", strings.Join(created, ", "))
-		}
-		return 0
+		return initCommand(parsed, stdout, stderr)
 	}
+
 	parsed, err = withConfig(parsed)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "stele: %s\n", err)
-		return 2
+		return writeCommandError(stderr, err)
 	}
+	return routeCommand(command, parsed, stdout, stderr)
+}
+
+func writeHelp(stdout io.Writer) {
+	_, _ = fmt.Fprintf(stdout, "stele %s%s", Version, helpBody)
+}
+
+func writeCommandError(stderr io.Writer, err error) int {
+	_, _ = fmt.Fprintf(stderr, "stele: %s\n", err)
+	return 2
+}
+
+func routeCommand(command string, parsed options, stdout, stderr io.Writer) int {
 	switch command {
 	case "verify":
 		return verifyCommand(parsed, stdout, stderr)
 	case "test":
 		return testCommand(parsed, stdout, stderr)
+	default:
+		return validateCommand(parsed, stdout, stderr)
 	}
-	return validateCommand(parsed, stdout, stderr)
+}
+
+func initCommand(parsed options, stdout, stderr io.Writer) int {
+	if parsed.changeID == "" {
+		return writeCommandError(stderr, errors.New("--change is required for init"))
+	}
+
+	created, err := Initialize(parsed.root, parsed.changeID)
+	if err != nil {
+		return writeCommandError(stderr, err)
+	}
+	if len(created) == 0 {
+		_, _ = fmt.Fprintln(stdout, "Stele is already initialized.")
+		return 0
+	}
+
+	_, _ = fmt.Fprintf(stdout, "Initialized Stele: %s\n", strings.Join(created, ", "))
+	return 0
 }
 
 func parseOptions(command string, arguments []string) (options, error) {
@@ -104,6 +134,7 @@ func parseOptions(command string, arguments []string) (options, error) {
 	if err != nil {
 		return options{}, err
 	}
+
 	parsed := options{root: root, stage: "implementation"}
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -119,6 +150,7 @@ func parseOptions(command string, arguments []string) (options, error) {
 	if flags.NArg() > 0 {
 		return options{}, fmt.Errorf("unknown option: %s", flags.Arg(0))
 	}
+
 	absolute, err := absolutePath(parsed.root)
 	if err != nil {
 		return options{}, err
@@ -153,130 +185,157 @@ func withConfig(parsed options) (options, error) {
 func verifyCommand(parsed options, stdout, stderr io.Writer) int {
 	report, err := verifyProject(parsed.root, parsed.changeID, parsed.stage, parsed.reportPath)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "stele: %s\n", err)
-		return 2
+		return writeCommandError(stderr, err)
 	}
 	if parsed.json {
 		writeMachineJSON(stdout, report)
 	} else {
-		mark := "✓"
-		if report.Verdict != "pass" {
-			mark = "✗"
-		}
-		_, _ = fmt.Fprintf(stdout, "%s %s verification %s: %d requirements, %d scenarios, %d errors\n", mark, report.Mode, report.Verdict, report.Summary.Requirements, report.Summary.Scenarios, report.Summary.Errors)
-		for _, diagnostic := range report.Diagnostics {
-			_, _ = fmt.Fprintf(stdout, "  %s %s: %s\n", strings.ToUpper(diagnostic.Severity), diagnostic.Code, diagnostic.Message)
-		}
+		renderVerification(stdout, report)
 	}
-	if report.Verdict == "pass" {
-		return 0
+	return resultExitCode(report.Verdict == "pass")
+}
+
+func renderVerification(stdout io.Writer, report Report) {
+	mark := choose(report.Verdict == "pass", "✓", "✗")
+	_, _ = fmt.Fprintf(
+		stdout,
+		"%s %s verification %s: %d requirements, %d scenarios, %d errors\n",
+		mark,
+		report.Mode,
+		report.Verdict,
+		report.Summary.Requirements,
+		report.Summary.Scenarios,
+		report.Summary.Errors,
+	)
+	for _, diagnostic := range report.Diagnostics {
+		_, _ = fmt.Fprintf(
+			stdout,
+			"  %s %s: %s\n",
+			strings.ToUpper(diagnostic.Severity),
+			diagnostic.Code,
+			diagnostic.Message,
+		)
 	}
-	return 1
 }
 
 func testCommand(parsed options, stdout, stderr io.Writer) int {
 	evidence, err := runProjectScenarios(parsed.root, parsed.changeID, parsed.evidencePath)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "stele: %s\n", err)
-		return 2
+		return writeCommandError(stderr, err)
 	}
 	if parsed.json {
 		writeMachineJSON(stdout, evidence)
 	} else {
-		passed := 0
-		for _, scenario := range evidence.Scenarios {
-			if scenario.Outcome == "passed" {
-				passed++
-			}
-		}
-		mark := "✓"
-		if evidence.Outcome != "passed" {
-			mark = "✗"
-		}
-		_, _ = fmt.Fprintf(stdout, "%s scenario execution %s: %d/%d passed\n", mark, evidence.Outcome, passed, len(evidence.Scenarios))
+		renderScenarioExecution(stdout, evidence)
 	}
-	if evidence.Outcome == "passed" {
-		return 0
-	}
-	return 1
+	return resultExitCode(evidence.Outcome == "passed")
+}
+
+func renderScenarioExecution(stdout io.Writer, evidence Evidence) {
+	passed := countPassed(evidence)
+	mark := choose(evidence.Outcome == "passed", "✓", "✗")
+	_, _ = fmt.Fprintf(
+		stdout,
+		"%s scenario execution %s: %d/%d passed\n",
+		mark,
+		evidence.Outcome,
+		passed,
+		len(evidence.Scenarios),
+	)
 }
 
 func validateCommand(parsed options, stdout, stderr io.Writer) int {
-	evidencePath := parsed.evidencePath
-	if evidencePath == "" {
-		evidencePath = "artifacts/test-results.json"
-	}
-	reportPath := parsed.reportPath
-	if reportPath == "" {
-		reportPath = "artifacts/verification-report.json"
-	}
-	evidence, err := runProjectScenarios(parsed.root, parsed.changeID, evidencePath)
+	setDefaultOutputPaths(&parsed)
+	evidence, err := runProjectScenarios(parsed.root, parsed.changeID, parsed.evidencePath)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "stele: %s\n", err)
-		return 2
+		return writeCommandError(stderr, err)
 	}
+
 	openSpecPassed, openSpecErr := validateProjectOpenSpec(parsed.root, parsed.changeID)
 	if openSpecErr != nil {
 		_, _ = fmt.Fprintf(stderr, "stele: %s\n", openSpecErr)
 	}
-	report, err := verifyProject(parsed.root, parsed.changeID, "implementation", reportPath)
+
+	report, err := verifyProject(parsed.root, parsed.changeID, "implementation", parsed.reportPath)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "stele: %s\n", err)
-		return 2
+		return writeCommandError(stderr, err)
 	}
 	passed := evidence.Outcome == "passed" && openSpecPassed && report.Verdict == "pass"
 	if parsed.json {
-		payload := struct {
-			SchemaVersion int    `json:"schemaVersion"`
-			Verdict       string `json:"verdict"`
-			OpenSpec      string `json:"openspec"`
-			Execution     string `json:"execution"`
-			Verification  string `json:"verification"`
-		}{1, choose(passed, "pass", "fail"), choose(openSpecPassed, "pass", "fail"), evidence.Outcome, report.Verdict}
-		writeMachineJSON(stdout, payload)
+		writeMachineJSON(stdout, newValidationResult(evidence, report, openSpecPassed, passed))
 	} else {
-		_, _ = fmt.Fprintf(stdout, "%s OpenSpec strict validation %s\n", choose(openSpecPassed, "✓", "✗"), choose(openSpecPassed, "passed", "failed"))
-		_, _ = fmt.Fprintf(stdout, "%s scenario execution %s: %d/%d passed\n", choose(evidence.Outcome == "passed", "✓", "✗"), evidence.Outcome, countPassed(evidence), len(evidence.Scenarios))
-		_, _ = fmt.Fprintf(stdout, "%s implementation verification %s: %d requirements, %d scenarios, %d errors\n", choose(report.Verdict == "pass", "✓", "✗"), report.Verdict, report.Summary.Requirements, report.Summary.Scenarios, report.Summary.Errors)
-		_, _ = fmt.Fprintf(stdout, "%s deterministic validation %s\n", choose(passed, "✓", "✗"), choose(passed, "passed", "failed"))
+		renderValidation(stdout, evidence, report, openSpecPassed, passed)
 	}
+	return resultExitCode(passed)
+}
+
+func setDefaultOutputPaths(parsed *options) {
+	if parsed.evidencePath == "" {
+		parsed.evidencePath = "artifacts/test-results.json"
+	}
+	if parsed.reportPath == "" {
+		parsed.reportPath = "artifacts/verification-report.json"
+	}
+}
+
+func newValidationResult(
+	evidence Evidence,
+	report Report,
+	openSpecPassed bool,
+	passed bool,
+) validationResult {
+	return validationResult{
+		SchemaVersion: 1,
+		Verdict:       choose(passed, "pass", "fail"),
+		OpenSpec:      choose(openSpecPassed, "pass", "fail"),
+		Execution:     evidence.Outcome,
+		Verification:  report.Verdict,
+	}
+}
+
+func renderValidation(
+	stdout io.Writer,
+	evidence Evidence,
+	report Report,
+	openSpecPassed bool,
+	passed bool,
+) {
+	_, _ = fmt.Fprintf(
+		stdout,
+		"%s OpenSpec strict validation %s\n",
+		choose(openSpecPassed, "✓", "✗"),
+		choose(openSpecPassed, "passed", "failed"),
+	)
+	_, _ = fmt.Fprintf(
+		stdout,
+		"%s scenario execution %s: %d/%d passed\n",
+		choose(evidence.Outcome == "passed", "✓", "✗"),
+		evidence.Outcome,
+		countPassed(evidence),
+		len(evidence.Scenarios),
+	)
+	_, _ = fmt.Fprintf(
+		stdout,
+		"%s implementation verification %s: %d requirements, %d scenarios, %d errors\n",
+		choose(report.Verdict == "pass", "✓", "✗"),
+		report.Verdict,
+		report.Summary.Requirements,
+		report.Summary.Scenarios,
+		report.Summary.Errors,
+	)
+	_, _ = fmt.Fprintf(
+		stdout,
+		"%s deterministic validation %s\n",
+		choose(passed, "✓", "✗"),
+		choose(passed, "passed", "failed"),
+	)
+}
+
+func resultExitCode(passed bool) int {
 	if passed {
 		return 0
 	}
 	return 1
-}
-
-func runOpenSpec(root, changeID string) (bool, error) {
-	executable, err := executablePath()
-	if err != nil {
-		return false, err
-	}
-	if resolved, resolveErr := filepath.EvalSymlinks(executable); resolveErr == nil {
-		executable = resolved
-	}
-	packageRoot := filepath.Dir(filepath.Dir(executable))
-	candidates := []string{
-		filepath.Join(packageRoot, "node_modules", "@fission-ai", "openspec", "bin", "openspec.js"),
-		filepath.Join(root, "node_modules", "@fission-ai", "openspec", "bin", "openspec.js"),
-	}
-	var cli string
-	for _, candidate := range candidates {
-		if fileExists(candidate) {
-			cli = candidate
-			break
-		}
-	}
-	if cli == "" {
-		return false, errors.New("OpenSpec CLI was not found in the Stele package or consumer project")
-	}
-	command := exec.Command("node", cli, "validate", changeID, "--strict", "--no-interactive")
-	command.Dir = root
-	command.Env = append(os.Environ(), "OPENSPEC_TELEMETRY=0")
-	output, runErr := command.CombinedOutput()
-	if runErr != nil {
-		return false, fmt.Errorf("OpenSpec validation failed: %s", strings.TrimSpace(string(output)))
-	}
-	return true, nil
 }
 
 func writeMachineJSON(writer io.Writer, value any) {

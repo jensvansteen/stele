@@ -3,7 +3,8 @@ package stele
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,12 +14,19 @@ import (
 )
 
 type testGroup struct {
-	Path     string
+	Key      testGroupKey
 	Selector *string
 	IDs      []string
 }
 
+type testGroupKey struct {
+	Path     string
+	Selector string
+}
+
 var runExactTest = executeExactTest
+
+var errUnsupportedTestExtension = errors.New("unsupported test file extension")
 
 var (
 	computeScenarioDigest = ComputeInputDigest
@@ -52,10 +60,13 @@ func selectScenarioTests(parsed ParsedSpecs, anchors []Anchor) []Anchor {
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {
-		left, right := result[i].Path+":"+pointerValue(result[i].Selector)+":"+result[i].ID, result[j].Path+":"+pointerValue(result[j].Selector)+":"+result[j].ID
-		return left < right
+		return scenarioAnchorSortKey(result[i]) < scenarioAnchorSortKey(result[j])
 	})
 	return result
+}
+
+func scenarioAnchorSortKey(anchor Anchor) string {
+	return anchor.Path + ":" + pointerValue(anchor.Selector) + ":" + anchor.ID
 }
 
 func RunScenarioTests(root, changeID, evidencePath string) (Evidence, error) {
@@ -71,46 +82,104 @@ func RunScenarioTests(root, changeID, evidencePath string) (Evidence, error) {
 	if err != nil {
 		return Evidence{}, err
 	}
-	anchors = selectScenarioTests(parsed, anchors)
-	groupsByKey := make(map[string]*testGroup)
-	for _, anchor := range anchors {
-		key := anchor.Path + "\x00" + pointerValue(anchor.Selector)
-		if groupsByKey[key] == nil {
-			groupsByKey[key] = &testGroup{Path: anchor.Path, Selector: anchor.Selector, IDs: []string{}}
+	groups := groupScenarioTests(selectScenarioTests(parsed, anchors))
+	executions := executeTestGroups(root, groups)
+	evidence := assembleEvidence(root, inputDigest, parsed, executions)
+	if evidencePath != "" {
+		if err := writeJSON(resolveWithin(root, evidencePath), evidence); err != nil {
+			return Evidence{}, err
 		}
-		groupsByKey[key].IDs = append(groupsByKey[key].IDs, anchor.ID)
 	}
-	groups := make([]*testGroup, 0, len(groupsByKey))
-	for _, group := range groupsByKey {
-		sort.Strings(group.IDs)
-		groups = append(groups, group)
+	return evidence, nil
+}
+
+// groupScenarioTests ensures scenarios sharing one exact test target execute once.
+func groupScenarioTests(anchors []Anchor) []testGroup {
+	groupIndexes := make(map[testGroupKey]int)
+	groups := make([]testGroup, 0)
+	for _, anchor := range anchors {
+		key := testGroupKey{
+			Path:     anchor.Path,
+			Selector: pointerValue(anchor.Selector),
+		}
+		index, exists := groupIndexes[key]
+		if !exists {
+			index = len(groups)
+			groupIndexes[key] = index
+			groups = append(groups, testGroup{Key: key, Selector: anchor.Selector, IDs: []string{}})
+		}
+		groups[index].IDs = append(groups[index].IDs, anchor.ID)
+	}
+	for index := range groups {
+		sort.Strings(groups[index].IDs)
 	}
 	sort.Slice(groups, func(i, j int) bool {
-		return groups[i].Path+":"+pointerValue(groups[i].Selector) < groups[j].Path+":"+pointerValue(groups[j].Selector)
+		if groups[i].Key.Path != groups[j].Key.Path {
+			return groups[i].Key.Path < groups[j].Key.Path
+		}
+		return groups[i].Key.Selector < groups[j].Key.Selector
 	})
-	outcomes := make(map[string]string)
+	return groups
+}
+
+func executeTestGroups(root string, groups []testGroup) []TestExecution {
 	executions := make([]TestExecution, 0, len(groups))
 	for _, group := range groups {
-		outcome := "failed"
-		reasonValue := "target-not-resolved"
-		reason := &reasonValue
-		if group.Selector != nil {
-			passed, executed, runErr := runExactTest(root, group.Path, *group.Selector)
-			switch {
-			case runErr == nil && passed && executed:
-				outcome = "passed"
-				reason = nil
-			case runErr == nil && !executed:
-				reasonValue = "test-not-executed"
-			default:
-				reasonValue = "test-process-failed"
-			}
-		}
-		for _, id := range group.IDs {
-			outcomes[id] = outcome
-		}
-		executions = append(executions, TestExecution{Path: group.Path, Selector: group.Selector, ScenarioIDs: append([]string{}, group.IDs...), Outcome: outcome, Reason: reason})
+		executions = append(executions, executeTestGroup(root, group))
 	}
+	return executions
+}
+
+func executeTestGroup(root string, group testGroup) TestExecution {
+	execution := TestExecution{
+		Path:        group.Key.Path,
+		Selector:    group.Selector,
+		ScenarioIDs: append([]string{}, group.IDs...),
+		Outcome:     "failed",
+	}
+	if group.Selector == nil {
+		execution.Reason = stringPointer("target-not-resolved")
+		return execution
+	}
+
+	passed, executed, err := runExactTest(root, group.Key.Path, group.Key.Selector)
+	switch {
+	case errors.Is(err, errUnsupportedTestExtension):
+		execution.Reason = stringPointer("unsupported-test-extension")
+	case err != nil:
+		execution.Reason = stringPointer("test-process-failed")
+	case !executed:
+		execution.Reason = stringPointer("test-not-executed")
+	case passed:
+		execution.Outcome = "passed"
+	default:
+		execution.Reason = stringPointer("test-process-failed")
+	}
+	return execution
+}
+
+func assembleEvidence(root, inputDigest string, parsed ParsedSpecs, executions []TestExecution) Evidence {
+	scenarios := scenarioOutcomes(parsed, executions)
+	revision, _ := gitState(root)
+	return Evidence{
+		SchemaVersion:  2,
+		Runner:         "stele-go/exact-scenario",
+		TestedRevision: revision,
+		InputDigest:    inputDigest,
+		Outcome:        aggregateScenarioOutcome(scenarios),
+		Scenarios:      scenarios,
+		Executions:     executions,
+	}
+}
+
+func scenarioOutcomes(parsed ParsedSpecs, executions []TestExecution) []ScenarioOutcome {
+	outcomes := make(map[string]string)
+	for _, execution := range executions {
+		for _, id := range execution.ScenarioIDs {
+			outcomes[id] = execution.Outcome
+		}
+	}
+
 	scenarios := make([]ScenarioOutcome, 0)
 	for _, requirement := range parsed.Requirements {
 		for _, scenario := range requirement.Scenarios {
@@ -122,44 +191,52 @@ func RunScenarioTests(root, changeID, evidencePath string) (Evidence, error) {
 		}
 	}
 	sort.Slice(scenarios, func(i, j int) bool { return scenarios[i].ID < scenarios[j].ID })
-	outcome := "failed"
-	if len(scenarios) > 0 {
-		allPassed := true
-		for _, scenario := range scenarios {
-			allPassed = allPassed && scenario.Outcome == "passed"
-		}
-		if allPassed {
-			outcome = "passed"
+	return scenarios
+}
+
+func aggregateScenarioOutcome(scenarios []ScenarioOutcome) string {
+	if len(scenarios) == 0 {
+		return "failed"
+	}
+	for _, scenario := range scenarios {
+		if scenario.Outcome != "passed" {
+			return "failed"
 		}
 	}
-	revision, _ := gitState(root)
-	evidence := Evidence{SchemaVersion: 2, Runner: "stele-go/exact-scenario", TestedRevision: revision, InputDigest: inputDigest, Outcome: outcome, Scenarios: scenarios, Executions: executions}
-	if evidencePath != "" {
-		if err := writeJSON(resolveWithin(root, evidencePath), evidence); err != nil {
-			return Evidence{}, err
-		}
-	}
-	return evidence, nil
+	return "passed"
 }
 
 func executeExactTest(root, path, selector string) (bool, bool, error) {
-	if strings.HasSuffix(path, "_test.go") {
-		return executeGoTest(root, path, selector)
+	switch filepath.Ext(path) {
+	case ".mts", ".ts":
+		return executeNodeTest(root, path, selector)
+	default:
+		return false, false, fmt.Errorf(
+			"%w %q; supported extensions: .mts, .ts",
+			errUnsupportedTestExtension,
+			filepath.Ext(path),
+		)
 	}
-	return executeNodeTest(root, path, selector)
 }
 
 func executeNodeTest(root, path, selector string) (bool, bool, error) {
 	pattern := "^" + regexp.QuoteMeta(selector) + "$"
-	command := exec.Command("node", "--test", "--test-reporter=tap", "--test-name-pattern="+pattern, filepath.ToSlash(path))
+	command := exec.Command(
+		"node",
+		"--test",
+		"--test-reporter=tap",
+		"--test-name-pattern="+pattern,
+		filepath.ToSlash(path),
+	)
 	command.Dir = root
 	command.Env = append(os.Environ(), "STELE_CHILD_TEST=1")
 	output, err := command.CombinedOutput()
 	executed := false
+	passPattern := regexp.MustCompile(`^ok \d+ - ` + regexp.QuoteMeta(selector) + `$`)
 	scanner := bufio.NewScanner(bytes.NewReader(output))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if regexp.MustCompile(`^ok \d+ - ` + regexp.QuoteMeta(selector) + `$`).MatchString(line) {
+		if passPattern.MatchString(line) {
 			executed = true
 			break
 		}
@@ -167,33 +244,13 @@ func executeNodeTest(root, path, selector string) (bool, bool, error) {
 	return err == nil && executed, executed, err
 }
 
-func executeGoTest(root, path, selector string) (bool, bool, error) {
-	directory := filepath.Dir(path)
-	command := exec.Command("go", "test", "-json", "./"+filepath.ToSlash(directory), "-run", "^"+regexp.QuoteMeta(selector)+"$")
-	command.Dir = root
-	output, err := command.CombinedOutput()
-	executed, passed := false, false
-	for line := range bytes.SplitSeq(output, []byte{'\n'}) {
-		var event struct {
-			Action string `json:"Action"`
-			Test   string `json:"Test"`
-		}
-		if json.Unmarshal(line, &event) == nil && event.Test == selector {
-			executed = true
-			if event.Action == "pass" {
-				passed = true
-			}
-			if event.Action == "fail" {
-				passed = false
-			}
-		}
-	}
-	return err == nil && executed && passed, executed, err
-}
-
 func pointerValue(value *string) string {
 	if value == nil {
 		return ""
 	}
 	return *value
+}
+
+func stringPointer(value string) *string {
+	return &value
 }

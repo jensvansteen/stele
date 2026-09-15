@@ -1,13 +1,16 @@
 {
   "name": "stele-spec",
-  "version": "0.3.0",
+  "version": "0.1.0",
+  "packageManager": "npm@11.13.0",
   "type": "module",
   "bin": {
+    "openspec": "./node_modules/@fission-ai/openspec/bin/openspec.js",
     "stele": "./dist/stele"
   },
-  "description": "Deterministic verification for plain-English OpenSpec requirements, implementations, and tests",
+  "description": "Maintain software from plain-English specifications with deterministic implementation evidence",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
   },
   "files": [
     "dist/",
@@ -26,14 +29,22 @@
     "docs:build": "vitepress build docs",
     "docs:dev": "vitepress dev docs",
     "docs:preview": "vitepress preview docs",
-    "format:check": "node scripts/check-go-format.mts",
-    "lint": "golangci-lint run ./...",
-    "lint:fix": "golangci-lint run --fix ./...",
-    "typecheck": "go vet ./...",
-    "test:go": "go test -race ./...",
-    "test:coverage": "node scripts/check-go-coverage.mts",
-    "test:node": "node --test --test-concurrency=1 --test-reporter=spec tests/cli.test.mts tests/package-install.test.mts",
-    "test": "npm run format:check && npm run typecheck && npm run test:go && npm run test:coverage && npm run build && npm run test:node",
+    "format:check": "go run ./tools/goquality format",
+    "lint": "npm run lint:go && npm run lint:ts",
+    "lint:fix": "npm run lint:go:fix && npm run lint:ts:fix",
+    "lint:go": "golangci-lint run ./cmd/... ./internal/... ./tests/... ./tools/...",
+    "lint:go:fix": "golangci-lint run --fix ./cmd/... ./internal/... ./tests/... ./tools/...",
+    "lint:ts": "eslint --flag unstable_native_nodejs_ts_config \"**/*.{ts,mts}\"",
+    "lint:ts:fix": "npm run lint:ts -- --fix",
+    "typecheck": "npm run typecheck:go && npm run typecheck:ts",
+    "typecheck:go": "go vet ./cmd/... ./internal/... ./tools/... && go vet -tags=integration ./tests",
+    "typecheck:ts": "tsc --noEmit",
+    "type-coverage": "type-coverage --at-least 100 --strict --detail --project tsconfig.json",
+    "test:go": "go test -race ./cmd/... ./internal/... ./tools/...",
+    "test:coverage": "go run ./tools/goquality coverage",
+    "test:node": "node --test --test-concurrency=1 --test-reporter=spec tests/cli.test.mts",
+    "test:package": "go test -race -tags=integration ./tests",
+    "test": "npm run format:check && npm run typecheck && npm run type-coverage && npm run test:go && npm run test:coverage && npm run build && npm run test:node && npm run test:package",
     "prepack": "npm run build",
     "stele": "npm run build --silent && ./dist/stele",
     "verify": "npm run lint && npm test"
@@ -42,6 +53,11 @@
     "@fission-ai/openspec": "1.13.0"
   },
   "devDependencies": {
+    "@types/node": "26.5.1",
+    "eslint": "10.10.0",
+    "type-coverage": "2.30.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0",
     "vitepress": "^1.6.4"
   },
   "bundleDependencies": [

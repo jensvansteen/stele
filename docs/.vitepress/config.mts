@@ -26,6 +26,8 @@ export default defineConfig({
         text: "Guide",
         items: [
           { text: "Getting started", link: "/guide/getting-started" },
+          { text: "Build the Todo feature", link: "/guide/build-todo" },
+          { text: "Inspect the Todo example", link: "/guide/inspect-example" },
           { text: "Build a verified change", link: "/guide/verified-change" },
           { text: "Use a local package", link: "/guide/local-package" },
         ],
@@ -35,7 +37,7 @@ export default defineConfig({
         items: [
           { text: "OpenSpec and Stele", link: "/concepts/openspec-and-stele" },
           { text: "IDs and anchors", link: "/concepts/ids-and-anchors" },
-          { text: "Plan test levels", link: "/concepts/test-levels" },
+          { text: "Verification evidence", link: "/concepts/verification-evidence" },
           { text: "Deterministic evidence", link: "/concepts/deterministic-evidence" },
         ],
       },
@@ -50,7 +52,10 @@ export default defineConfig({
       },
       {
         text: "Direction",
-        items: [{ text: "Dashboard roadmap", link: "/roadmap/dashboard" }],
+        items: [
+          { text: "Dashboard roadmap", link: "/roadmap/dashboard" },
+          { text: "Language adapters", link: "/roadmap/language-adapters" },
+        ],
       },
     ],
     socialLinks: [{ icon: "github", link: "https://github.com/jensvansteen/stele" }],

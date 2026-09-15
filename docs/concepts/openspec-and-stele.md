@@ -1,6 +1,6 @@
 # OpenSpec and Stele
 
-OpenSpec and Stele solve different parts of spec-driven development.
+Stele's broader goal is to let teams describe and maintain a codebase in plain English while deterministic evidence keeps that description connected to working software. [OpenSpec](https://github.com/Fission-AI/OpenSpec) is the first foundation for that goal, and the two tools solve different parts of the workflow.
 
 | Component | Owns |
 |---|---|
@@ -10,6 +10,12 @@ OpenSpec and Stele solve different parts of spec-driven development.
 | Human reviewer | Semantic adequacy of the implementation and its evidence |
 
 OpenSpec remains the only behavioral canon. Stele reads it through an adapter and builds an evidence graph around it.
+
+## Programming-language boundary
+
+OpenSpec's specification artifacts are plain Markdown and can describe a project implemented in any programming language. Node is the runtime for the OpenSpec CLI, not a restriction on the codebase being specified.
+
+Stele's first release has a narrower execution boundary: it resolves TypeScript anchors and runs exact TypeScript tests. Go was chosen to implement the Stele verifier itself. That implementation choice does not limit OpenSpec and does not imply that Stele currently verifies Go projects. Future adapters extend Stele's deterministic code and test integration without changing the OpenSpec workflow.
 
 ## The dependency direction
 

@@ -30,7 +30,8 @@ func TestInitializeWritesConfigAndSkills(t *testing.T) {
 	if len(created) != 3 {
 		t.Fatalf("expected config plus two skills, got %#v", created)
 	}
-	if !fileExists(root+"/.agents/skills/stele-plan/SKILL.md") || !fileExists(root+"/.agents/skills/stele-verify/SKILL.md") {
+	if !fileExists(root+"/.agents/skills/stele-plan/SKILL.md") ||
+		!fileExists(root+"/.agents/skills/stele-verify/SKILL.md") {
 		t.Fatalf("skills were not installed")
 	}
 }
@@ -42,41 +43,63 @@ func TestRunHandlesHelpVersionAndInitialization(t *testing.T) {
 		if argument != "" {
 			args = []string{argument}
 		}
-		if code := Run(args, &stdout, &stderr); code != 0 || !strings.Contains(stdout.String(), "Usage:") {
+		code := Run(args, &stdout, &stderr)
+		if code != 0 || !strings.Contains(stdout.String(), "Usage:") {
 			t.Fatalf("Run(%q) = %d, %q, %q", argument, code, stdout.String(), stderr.String())
+		}
+		if !strings.HasPrefix(stdout.String(), "stele "+Version+" —") {
+			t.Fatalf("help does not use Version: %q", stdout.String())
 		}
 	}
 	for _, argument := range []string{"version", "--version", "-v"} {
 		var stdout bytes.Buffer
-		if code := Run([]string{argument}, &stdout, io.Discard); code != 0 || strings.TrimSpace(stdout.String()) != Version {
+		code := Run([]string{argument}, &stdout, io.Discard)
+		if code != 0 || strings.TrimSpace(stdout.String()) != Version {
 			t.Fatalf("Run(%q) = %d, %q", argument, code, stdout.String())
 		}
 	}
 
 	root := fixtureRoot(t)
 	var stdout, stderr bytes.Buffer
-	if code := Run([]string{"init", "--root", root}, &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), "--change is required") {
+	code := Run([]string{"init", "--root", root}, &stdout, &stderr)
+	if code != 2 || !strings.Contains(stderr.String(), "--change is required") {
 		t.Fatalf("missing-change init = %d, %q, %q", code, stdout.String(), stderr.String())
 	}
 	stderr.Reset()
-	if code := Run([]string{"init", "--root", root, "--change", "example"}, &stdout, &stderr); code != 0 || !strings.Contains(stdout.String(), "Initialized Stele") {
+	code = Run([]string{"init", "--root", root, "--change", "example"}, &stdout, &stderr)
+	if code != 0 || !strings.Contains(stdout.String(), "Initialized Stele") {
 		t.Fatalf("first init = %d, %q, %q", code, stdout.String(), stderr.String())
 	}
 	stdout.Reset()
-	if code := Run([]string{"init", "--root", root, "--change", "example"}, &stdout, &stderr); code != 0 || !strings.Contains(stdout.String(), "already initialized") {
+	code = Run([]string{"init", "--root", root, "--change", "example"}, &stdout, &stderr)
+	if code != 0 || !strings.Contains(stdout.String(), "already initialized") {
 		t.Fatalf("second init = %d, %q, %q", code, stdout.String(), stderr.String())
 	}
-	if code := Run([]string{"init", "--root", filepath.Join(root, "missing"), "--change", "example"}, io.Discard, &stderr); code != 2 {
+	code = Run(
+		[]string{"init", "--root", filepath.Join(root, "missing"), "--change", "example"},
+		io.Discard,
+		&stderr,
+	)
+	if code != 2 {
 		t.Fatalf("failing init exit = %d", code)
 	}
 }
 
 func TestParseOptions(t *testing.T) {
-	parsed, err := parseOptions("verify", []string{"--root", ".", "--change", "demo", "--stage", "proposal", "--report", "report.json", "--evidence", "evidence.json", "--json"})
+	parsed, err := parseOptions("verify", []string{
+		"--root", ".",
+		"--change", "demo",
+		"--stage", "proposal",
+		"--report", "report.json",
+		"--evidence", "evidence.json",
+		"--json",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.changeID != "demo" || parsed.stage != "proposal" || parsed.reportPath != "report.json" || parsed.evidencePath != "evidence.json" || !parsed.json || !filepath.IsAbs(parsed.root) {
+	if parsed.changeID != "demo" || parsed.stage != "proposal" ||
+		parsed.reportPath != "report.json" || parsed.evidencePath != "evidence.json" ||
+		!parsed.json || !filepath.IsAbs(parsed.root) {
 		t.Fatalf("unexpected options: %#v", parsed)
 	}
 	for _, test := range []struct {
@@ -160,18 +183,27 @@ func TestVerificationAndTestCommands(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			verifyProject = func(string, string, string, string) (Report, error) { return test.report, nil }
 			var stdout bytes.Buffer
-			if code := verifyCommand(options{json: test.json}, &stdout, io.Discard); code != test.code || stdout.Len() == 0 {
+			code := verifyCommand(options{json: test.json}, &stdout, io.Discard)
+			if code != test.code || stdout.Len() == 0 {
 				t.Fatalf("verifyCommand = %d, %q", code, stdout.String())
 			}
 		})
 	}
-	verifyProject = func(string, string, string, string) (Report, error) { return Report{}, errors.New("verify failed") }
+	verifyProject = func(string, string, string, string) (Report, error) {
+		return Report{}, errors.New("verify failed")
+	}
 	if code := verifyCommand(options{}, io.Discard, io.Discard); code != 2 {
 		t.Fatalf("verify error exit = %d", code)
 	}
 
 	passEvidence := Evidence{Outcome: "passed", Scenarios: []ScenarioOutcome{{ID: "a", Outcome: "passed"}}}
-	failEvidence := Evidence{Outcome: "failed", Scenarios: []ScenarioOutcome{{ID: "a", Outcome: "failed"}, {ID: "b", Outcome: "passed"}}}
+	failEvidence := Evidence{
+		Outcome: "failed",
+		Scenarios: []ScenarioOutcome{
+			{ID: "a", Outcome: "failed"},
+			{ID: "b", Outcome: "passed"},
+		},
+	}
 	for _, test := range []struct {
 		name     string
 		evidence Evidence
@@ -185,12 +217,15 @@ func TestVerificationAndTestCommands(t *testing.T) {
 		t.Run("test "+test.name, func(t *testing.T) {
 			runProjectScenarios = func(string, string, string) (Evidence, error) { return test.evidence, nil }
 			var stdout bytes.Buffer
-			if code := testCommand(options{json: test.json}, &stdout, io.Discard); code != test.code || stdout.Len() == 0 {
+			code := testCommand(options{json: test.json}, &stdout, io.Discard)
+			if code != test.code || stdout.Len() == 0 {
 				t.Fatalf("testCommand = %d, %q", code, stdout.String())
 			}
 		})
 	}
-	runProjectScenarios = func(string, string, string) (Evidence, error) { return Evidence{}, errors.New("test failed") }
+	runProjectScenarios = func(string, string, string) (Evidence, error) {
+		return Evidence{}, errors.New("test failed")
+	}
 	if code := testCommand(options{}, io.Discard, io.Discard); code != 2 {
 		t.Fatalf("test error exit = %d", code)
 	}
@@ -199,7 +234,9 @@ func TestVerificationAndTestCommands(t *testing.T) {
 func TestValidateCommand(t *testing.T) {
 	originalVerify, originalScenarios, originalOpenSpec := verifyProject, runProjectScenarios, validateProjectOpenSpec
 	t.Cleanup(func() {
-		verifyProject, runProjectScenarios, validateProjectOpenSpec = originalVerify, originalScenarios, originalOpenSpec
+		verifyProject = originalVerify
+		runProjectScenarios = originalScenarios
+		validateProjectOpenSpec = originalOpenSpec
 	})
 	passReport := Report{Verdict: "pass"}
 	passReport.Summary.Requirements, passReport.Summary.Scenarios = 1, 1
@@ -214,15 +251,24 @@ func TestValidateCommand(t *testing.T) {
 		}
 	}
 	validateProjectOpenSpec = func(string, string) (bool, error) { return false, errors.New("openspec failed") }
-	if code := validateCommand(options{evidencePath: "e.json", reportPath: "r.json"}, io.Discard, io.Discard); code != 1 {
+	code := validateCommand(
+		options{evidencePath: "e.json", reportPath: "r.json"},
+		io.Discard,
+		io.Discard,
+	)
+	if code != 1 {
 		t.Fatalf("validate OpenSpec failure = %d", code)
 	}
-	runProjectScenarios = func(string, string, string) (Evidence, error) { return Evidence{}, errors.New("scenario failed") }
+	runProjectScenarios = func(string, string, string) (Evidence, error) {
+		return Evidence{}, errors.New("scenario failed")
+	}
 	if code := validateCommand(options{}, io.Discard, io.Discard); code != 2 {
 		t.Fatalf("validate scenario error = %d", code)
 	}
 	runProjectScenarios = func(string, string, string) (Evidence, error) { return passEvidence, nil }
-	verifyProject = func(string, string, string, string) (Report, error) { return Report{}, errors.New("verify failed") }
+	verifyProject = func(string, string, string, string) (Report, error) {
+		return Report{}, errors.New("verify failed")
+	}
 	if code := validateCommand(options{}, io.Discard, io.Discard); code != 2 {
 		t.Fatalf("validate verify error = %d", code)
 	}
@@ -264,14 +310,21 @@ func TestRunOpenSpec(t *testing.T) {
 func TestRunRoutesCommandsAndConfigurationErrors(t *testing.T) {
 	originalVerify, originalScenarios, originalOpenSpec := verifyProject, runProjectScenarios, validateProjectOpenSpec
 	t.Cleanup(func() {
-		verifyProject, runProjectScenarios, validateProjectOpenSpec = originalVerify, originalScenarios, originalOpenSpec
+		verifyProject = originalVerify
+		runProjectScenarios = originalScenarios
+		validateProjectOpenSpec = originalOpenSpec
 	})
 	root := completeFixture(t, false)
 	verifyProject = func(string, string, string, string) (Report, error) { return Report{Verdict: "pass"}, nil }
 	runProjectScenarios = func(string, string, string) (Evidence, error) { return Evidence{Outcome: "passed"}, nil }
 	validateProjectOpenSpec = func(string, string) (bool, error) { return true, nil }
 	for _, command := range []string{"verify", "test", "validate"} {
-		if code := Run([]string{command, "--root", root, "--change", "example", "--json"}, io.Discard, io.Discard); code != 0 {
+		code := Run(
+			[]string{command, "--root", root, "--change", "example", "--json"},
+			io.Discard,
+			io.Discard,
+		)
+		if code != 0 {
 			t.Fatalf("Run(%s) = %d", command, code)
 		}
 	}

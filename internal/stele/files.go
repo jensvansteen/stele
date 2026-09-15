@@ -12,20 +12,43 @@ import (
 
 var relativePath = filepath.Rel
 
+var digestScanRoots = []string{
+	"openspec",
+	"bin",
+	"cmd",
+	"internal",
+	"src",
+	"public",
+	"tools",
+	"tests",
+	"scripts",
+}
+
+var digestRootFiles = []string{
+	"server.mjs",
+	"package.json",
+	"package-lock.json",
+	"go.mod",
+	"go.sum",
+	"docs/.stele/config.toml",
+	"stele.config.json",
+	"artifacts/linkage-plan.json",
+}
+
 func walkFiles(root string, accept func(string) bool) []string {
 	files := make([]string, 0)
 	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return nil //nolint:nilerr // Optional scan roots may not exist in every consumer project.
 		}
-		if entry.IsDir() {
-			if entry.Name() == "node_modules" || entry.Name() == ".git" || entry.Name() == "dist" {
-				return filepath.SkipDir
+		if !entry.IsDir() {
+			if accept(path) {
+				files = append(files, path)
 			}
 			return nil
 		}
-		if accept(path) {
-			files = append(files, path)
+		if ignoredScanDirectory(entry.Name()) {
+			return filepath.SkipDir
 		}
 		return nil
 	})
@@ -38,23 +61,42 @@ func fileExists(path string) bool {
 	return err == nil && info.Mode().IsRegular()
 }
 
-func ComputeInputDigest(root string) (string, error) {
-	files := make([]string, 0)
-	for _, item := range []string{"openspec", "bin", "cmd", "internal", "src", "public", "tools", "tests", "scripts"} {
-		files = append(files, walkFiles(filepath.Join(root, item), func(path string) bool {
-			ext := strings.ToLower(filepath.Ext(path))
-			return ext == ".md" || ext == ".yaml" || ext == ".yml" || ext == ".json" || ext == ".mjs" || ext == ".js" || ext == ".go" || ext == ".ts" || ext == ".tsx" || ext == ".jsx"
-		})...)
+func ignoredScanDirectory(name string) bool {
+	switch name {
+	case ".git", "dist", "node_modules":
+		return true
+	default:
+		return false
 	}
-	for _, item := range []string{"server.mjs", "package.json", "package-lock.json", "go.mod", "go.sum", "docs/.stele/config.toml", "stele.config.json", "artifacts/linkage-plan.json"} {
-		path := filepath.Join(root, item)
+}
+
+func digestSource(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".go", ".js", ".jsx", ".json", ".md", ".mjs", ".ts", ".tsx", ".yaml", ".yml":
+		return true
+	default:
+		return false
+	}
+}
+
+func inputFiles(root string) []string {
+	files := make([]string, 0)
+	for _, directory := range digestScanRoots {
+		files = append(files, walkFiles(filepath.Join(root, directory), digestSource)...)
+	}
+	for _, name := range digestRootFiles {
+		path := filepath.Join(root, name)
 		if fileExists(path) {
 			files = append(files, path)
 		}
 	}
 	sort.Strings(files)
+	return files
+}
+
+func ComputeInputDigest(root string) (string, error) {
 	hash := sha256.New()
-	for _, file := range files {
+	for _, file := range inputFiles(root) {
 		relative, err := relativePath(root, file)
 		if err != nil {
 			return "", err
