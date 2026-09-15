@@ -1,4 +1,5 @@
 node_modules/
+dist/
+artifacts/
 .DS_Store
-output/playwright/*
-!output/playwright/.gitkeep
+output/

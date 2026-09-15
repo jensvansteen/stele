@@ -1,84 +1,61 @@
 # Stele
 
-Stele connects plain-English OpenSpec behavior to implementation and test evidence through a deterministic `stele` CLI. OpenSpec owns the requirements and change artifacts; Stele adds stable requirement/scenario IDs, resolvable code and test anchors, scenario-specific execution evidence, deterministic JSON, and stable exit codes.
+Stele is a deterministic verification layer for OpenSpec. OpenSpec owns plain-English requirements and scenarios. Stele gives that behavior stable IDs, connects it to planned code and named tests, executes each scenario test independently, and writes reproducible JSON evidence for CI and review.
 
-The purpose is to describe a codebase and proposed behavior in plain English, plan where each feature will be implemented and tested, and then run deterministic checks that connect those statements to real code declarations and exact test executions. The resulting evidence makes omissions and broken links visible while keeping human semantic review as a separate decision.
+The verifier is written in Go and distributed through an npm package. npm handles installation and pins the bundled OpenSpec CLI; the installed `stele` command invokes the native binary directly.
 
-“ID” means behavioral requirement identity, not verification of a person.
+## Install locally
 
-## Install it in another local repository
-
-Stele does not need to be published to npm during development. Build the same tarball npm would publish, copy it into the consumer repository, and install it as a development dependency:
+The package is not published to npm yet. Build and install the same tarball npm will eventually publish:
 
 ```bash
 # In this repository
+npm install
 npm pack --pack-destination /path/to/consumer/vendor
 
 # In the consumer repository
-npm install --save-dev ./vendor/stele-spec-0.2.0.tgz
-npx stele init --change my-open-spec-change
+npm install --save-dev ./vendor/stele-spec-0.3.0.tgz
+npx stele init --change my-change
 npx stele verify --stage proposal --json
 ```
 
-`stele init` writes `stele.config.json` and installs the `stele-plan` and `stele-verify` skills under `.agents/skills/`. The package bundles its pinned OpenSpec runtime, so this flow works from the tarball without a registry install.
+The independent [`stele-examples`](https://github.com/jensvansteen/stele-examples) repository proves this package boundary with a Todo application. It imports no source files from this checkout.
 
-The separate `stele-examples` repository proves this package boundary with a newly implemented Todo app. It imports no files from this checkout.
+## Verification loop
 
-## Try the original prototype
+1. Write the feature as OpenSpec requirements and concrete scenarios.
+2. Add one immutable `req.<namespace>.<token>` ID to each requirement and one `scn.<namespace>.<token>` ID to each scenario.
+3. Plan the source declaration and test selector for every ID.
+4. Put `@implements <requirement-id>` beside the code declaration and `@verifies <scenario-id>` beside the named test.
+5. Run `stele validate`. Stele checks OpenSpec, resolves the anchors, runs every scenario test by its exact selector, and binds the result to the relevant input digest.
+
+A resolved anchor proves traceability. A passing execution proves the selected test ran. Human review still decides whether the code and test adequately satisfy the prose.
+
+## Develop Stele
+
+Requirements: Node.js 20.19 or newer and Go 1.24 or newer.
 
 ```bash
 npm install
-npm run validate
-npm run dev
+npm run verify
+npm run docs:dev
 ```
 
-Open <http://localhost:4173>. Use the Todo workspace, then open **Verification** and click **Run validation**. The dashboard reads the same JSON report that the CLI produces for CI or another consumer. Expand a covered requirement to play its allowlisted end-to-end recording alongside the scenario and test evidence.
-
-## Useful commands
+Useful commands:
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Start the Todo app and dashboard |
-| `npm test` | Run unit and integration tests |
-| `npm run verify:proposal` | Validate IDs and planned links before implementation |
-| `npm run verify` | Validate IDs and real code/test anchors |
-| `npm run validate` | Execute every anchored scenario, run OpenSpec strict validation, and verify implementation links |
-| `npm run openspec:validate` | Run OpenSpec's own strict validation |
+| `npm run build` | Compile the native `dist/stele` executable |
+| `npm run lint` | Run the pinned Go lint policy |
+| `npm run test:go` | Run Go tests with the race detector |
+| `npm run test:node` | Test the CLI and packed-package boundary |
+| `npm run verify` | Run the complete local CI gate |
+| `npm run docs:build` | Build the documentation site |
 
-## Use the CLI directly
+The Go entry point is [`cmd/stele/main.go`](cmd/stele/main.go). The private verifier package is under [`internal/stele`](internal/stele). Go convention keeps each `*_test.go` file beside the implementation it tests; test files are excluded from normal builds.
 
-The package exposes `bin/stele.mjs` as the `stele` executable. Inside this repository, invoke it without a global install:
+Read the [documentation site source](docs/index.md) or start with [Getting started](docs/guide/getting-started.md). [OpenSpec and Stele](docs/concepts/openspec-and-stele.md) explains the ownership boundary, and [Performance](docs/reference/performance.md) contains the benchmark method and results.
 
-```bash
-npm run stele -- verify --stage proposal --json
-npm run stele -- verify --stage implementation --json
-npm run stele -- test --json
-npm run stele -- validate --json
-```
+## Current scope
 
-Exit code `0` means the selected checks passed, `1` means a deterministic policy or selected test failed, and `2` means the invocation or tool failed.
-
-Implementation verification checks more than whether an ID string appears somewhere. Each `@implements` or `@verifies` anchor must:
-
-- name a declared OpenSpec identity of the correct kind;
-- sit next to a compatible function, class, method, or named test declaration;
-- resolve to the repository-relative path and selector declared in `artifacts/linkage-plan.json`;
-- remain unique and complete for the selected requirement/scenario set.
-
-`stele test` runs each anchored named test independently with an exact name selector. A zero process exit is accepted only when TAP output confirms that exact test ran and passed, preventing unmatched or skipped tests from being reported as passing evidence.
-
-The JSON report is byte-for-byte stable for identical relevant inputs. It contains revision or dirty-tree identity and a SHA-256 input digest, but excludes timestamps and run IDs. You can reproduce the check with:
-
-```bash
-npm run stele -- verify --json > /tmp/stele-first.json
-npm run stele -- verify --json > /tmp/stele-second.json
-cmp /tmp/stele-first.json /tmp/stele-second.json
-```
-
-Start with [the product journeys](docs/intent/journeys.md), inspect the active change under [`openspec/changes/todo-showcase`](openspec/changes/todo-showcase), and read [the framework plan](PLAN.md) for the longer-term direction. Generated evidence is in [`artifacts/test-results.json`](artifacts/test-results.json) and [`artifacts/verification-report.json`](artifacts/verification-report.json). Recording metadata and covered scenario IDs live in [`artifacts/e2e-recordings.json`](artifacts/e2e-recordings.json); the MP4 files remain outside Git under `~/recordings`.
-
-For the shortest contributor workflow, read [Developer onboarding](DEVELOPER_ONBOARDING.md).
-
-For the architecture and Devin adoption model, read [How OpenSpec and Stele work together](docs/OPENSPEC_AND_STELE.md).
-
-The previous methodology repository is now `stele-legacy`. This repository is the installable Stele product; `stele-examples` contains independent consuming applications.
+Version 0.3 provides the Go verifier, OpenSpec adapter, native CLI, project initializer, repository-local skills, deterministic reports, exact Node and Go test selection, linting, CI, and documentation site. Cross-platform npm release packaging and the generated artifact dashboard are the next product milestones.

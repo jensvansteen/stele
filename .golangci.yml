@@ -1,0 +1,49 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: none
+  enable:
+    # Compile-time correctness and common bugs.
+    - errcheck
+    - errorlint
+    - govet
+    - ineffassign
+    - nilerr
+    - staticcheck
+    - unused
+
+    # Clear, idiomatic code without enforcing subjective complexity quotas.
+    - asciicheck
+    - bidichk
+    - durationcheck
+    - forcetypeassert
+    - gocritic
+    - misspell
+    - modernize
+    - nolintlint
+    - predeclared
+    - reassign
+    - revive
+    - unconvert
+    - usestdlibvars
+    - whitespace
+
+  settings:
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      confidence: 0.8
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports

@@ -1,34 +1,50 @@
 {
   "name": "stele-spec",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "bin": {
-    "stele": "./bin/stele.mjs"
+    "stele": "./dist/stele"
   },
   "description": "Deterministic verification for plain-English OpenSpec requirements, implementations, and tests",
   "engines": {
     "node": ">=20.19.0"
   },
   "files": [
-    "bin/",
-    "tools/",
-    "templates/",
+    "dist/",
+    "docs/.vitepress/",
+    "docs/concepts/",
+    "docs/guide/",
+    "docs/public/",
+    "docs/reference/",
+    "docs/roadmap/",
+    "docs/index.md",
+    "docs/OPENSPEC_AND_STELE.md",
     "README.md"
   ],
   "scripts": {
-    "dev": "node server.mjs",
-    "test": "node --test --test-reporter=spec tests/*.test.mjs",
-    "stele": "node bin/stele.mjs",
-    "verify": "node bin/stele.mjs verify --stage implementation --report artifacts/verification-report.json",
-    "verify:proposal": "node bin/stele.mjs verify --stage proposal --report artifacts/proposal-report.json",
-    "test:scenarios": "node bin/stele.mjs test --evidence artifacts/test-results.json",
-    "validate": "node bin/stele.mjs validate --report artifacts/verification-report.json --evidence artifacts/test-results.json",
-    "openspec:validate": "openspec validate todo-showcase --strict --no-interactive"
+    "build": "node scripts/build-go.mjs",
+    "docs:build": "vitepress build docs",
+    "docs:dev": "vitepress dev docs",
+    "docs:preview": "vitepress preview docs",
+    "format:check": "node scripts/check-go-format.mjs",
+    "lint": "golangci-lint run ./...",
+    "lint:fix": "golangci-lint run --fix ./...",
+    "typecheck": "go vet ./...",
+    "test:go": "go test -race ./...",
+    "test:coverage": "node scripts/check-go-coverage.mjs",
+    "test:node": "node --test --test-concurrency=1 --test-reporter=spec tests/cli.test.mjs tests/package-install.test.mjs",
+    "test": "npm run format:check && npm run typecheck && npm run test:go && npm run test:coverage && npm run build && npm run test:node",
+    "prepack": "npm run build",
+    "stele": "npm run build --silent && ./dist/stele",
+    "verify": "npm run lint && npm test"
   },
   "dependencies": {
     "@fission-ai/openspec": "1.13.0"
   },
-  "bundledDependencies": [
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  },
+  "bundleDependencies": [
     "@fission-ai/openspec"
   ]
 }
