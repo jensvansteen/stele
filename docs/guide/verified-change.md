@@ -14,7 +14,7 @@ For each scenario, decide the lowest test layer that proves the behavior:
 - use an integration test when the behavior crosses an API, database, filesystem, process, or component boundary;
 - use an end-to-end test for a critical user journey whose assembled behavior is the risk.
 
-Record the chosen test target in the linkage plan. The richer test-level policy is [planned but not yet enforced](/concepts/test-levels).
+Record the chosen test target in the linkage plan. The richer [verification evidence policy](/concepts/verification-evidence) is planned but not yet enforced.
 
 ## 3. Validate the proposal
 

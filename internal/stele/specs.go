@@ -17,6 +17,24 @@ var (
 	verificationIDPattern = regexp.MustCompile(`^Verification-ID:\s*(\S+)\s*$`)
 )
 
+type identityTarget uint8
+
+const (
+	noIdentityTarget identityTarget = iota
+	requirementIdentityTarget
+	scenarioIdentityTarget
+)
+
+type specFileParser struct {
+	path               string
+	line               int
+	target             identityTarget
+	requirements       []Requirement
+	diagnostics        []Diagnostic
+	currentRequirement *Requirement
+	currentScenario    *Scenario
+}
+
 func diagnostic(code, severity, message, path string, line int, identity string) Diagnostic {
 	var source *Source
 	if path != "" {
@@ -42,103 +60,187 @@ func ParseSpecs(root, changeID string) (ParsedSpecs, error) {
 		}
 		relative = filepath.ToSlash(relative)
 		parsed.Files = append(parsed.Files, relative)
-		handle, err := os.Open(file)
+
+		requirements, diagnostics, err := parseSpecFile(file, relative)
+		parsed.Requirements = append(parsed.Requirements, requirements...)
+		parsed.Diagnostics = append(parsed.Diagnostics, diagnostics...)
 		if err != nil {
 			return parsed, err
 		}
-		scanner := bufio.NewScanner(handle)
-		lineNumber := 0
-		requirementIndex := -1
-		scenarioIndex := -1
-		target := ""
-		for scanner.Scan() {
-			lineNumber++
-			line := scanner.Text()
-			if match := requirementPattern.FindStringSubmatch(line); match != nil {
-				parsed.Requirements = append(parsed.Requirements, Requirement{Title: strings.TrimSpace(match[1]), Source: Source{Path: relative, Line: lineNumber}, Scenarios: []Scenario{}})
-				requirementIndex = len(parsed.Requirements) - 1
-				scenarioIndex = -1
-				target = "requirement"
-				continue
-			}
-			if match := scenarioPattern.FindStringSubmatch(line); match != nil && requirementIndex >= 0 {
-				requirement := &parsed.Requirements[requirementIndex]
-				requirement.Scenarios = append(requirement.Scenarios, Scenario{Title: strings.TrimSpace(match[1]), Source: Source{Path: relative, Line: lineNumber}})
-				scenarioIndex = len(requirement.Scenarios) - 1
-				target = "scenario"
-				continue
-			}
-			match := verificationIDPattern.FindStringSubmatch(line)
-			if match == nil || target == "" {
-				continue
-			}
-			identity := match[1]
-			var existing string
-			if target == "scenario" {
-				existing = parsed.Requirements[requirementIndex].Scenarios[scenarioIndex].ID
-			} else {
-				existing = parsed.Requirements[requirementIndex].ID
-			}
-			if existing != "" {
-				title := parsed.Requirements[requirementIndex].Title
-				if target == "scenario" {
-					title = parsed.Requirements[requirementIndex].Scenarios[scenarioIndex].Title
-				}
-				parsed.Diagnostics = append(parsed.Diagnostics, diagnostic("ID_MULTIPLE", "error", fmt.Sprintf("Multiple IDs declared for %s.", title), relative, lineNumber, ""))
-				continue
-			}
-			validKind := (target == "scenario") == strings.HasPrefix(identity, "scn.")
-			if !identityPattern.MatchString(identity) || !validKind {
-				parsed.Diagnostics = append(parsed.Diagnostics, diagnostic("ID_FORMAT", "error", fmt.Sprintf("Invalid %s ID: %s.", target, identity), relative, lineNumber, ""))
-			}
-			if target == "scenario" {
-				parsed.Requirements[requirementIndex].Scenarios[scenarioIndex].ID = identity
-			} else {
-				parsed.Requirements[requirementIndex].ID = identity
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			_ = handle.Close()
-			return parsed, err
-		}
-		_ = handle.Close()
 	}
 
-	identities := make(map[string]Source)
+	validateSpecSet(&parsed)
+	sort.Slice(parsed.Diagnostics, func(i, j int) bool {
+		return diagnosticKey(parsed.Diagnostics[i]) < diagnosticKey(parsed.Diagnostics[j])
+	})
+	return parsed, nil
+}
+
+func parseSpecFile(path, relativePath string) ([]Requirement, []Diagnostic, error) {
+	handle, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = handle.Close() }()
+
+	parser := specFileParser{path: relativePath, target: noIdentityTarget}
+	scanner := bufio.NewScanner(handle)
+	for scanner.Scan() {
+		parser.line++
+		parser.parseLine(scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return parser.requirements, parser.diagnostics, err
+	}
+	return parser.requirements, parser.diagnostics, nil
+}
+
+func (parser *specFileParser) parseLine(line string) {
+	if match := requirementPattern.FindStringSubmatch(line); match != nil {
+		parser.beginRequirement(match[1])
+		return
+	}
+	if match := scenarioPattern.FindStringSubmatch(line); match != nil {
+		parser.beginScenario(match[1])
+		return
+	}
+	if match := verificationIDPattern.FindStringSubmatch(line); match != nil {
+		parser.assignIdentity(match[1])
+	}
+}
+
+func (parser *specFileParser) beginRequirement(title string) {
+	parser.requirements = append(parser.requirements, Requirement{
+		Title:     strings.TrimSpace(title),
+		Source:    Source{Path: parser.path, Line: parser.line},
+		Scenarios: []Scenario{},
+	})
+	parser.currentRequirement = &parser.requirements[len(parser.requirements)-1]
+	parser.currentScenario = nil
+	parser.target = requirementIdentityTarget
+}
+
+func (parser *specFileParser) beginScenario(title string) {
+	if parser.currentRequirement == nil {
+		return
+	}
+
+	requirement := parser.currentRequirement
+	requirement.Scenarios = append(requirement.Scenarios, Scenario{
+		Title:  strings.TrimSpace(title),
+		Source: Source{Path: parser.path, Line: parser.line},
+	})
+	parser.currentScenario = &requirement.Scenarios[len(requirement.Scenarios)-1]
+	parser.target = scenarioIdentityTarget
+}
+
+func (parser *specFileParser) assignIdentity(identity string) {
+	var targetName string
+	var title string
+	var targetID *string
+
+	switch parser.target {
+	case requirementIdentityTarget:
+		targetName = "requirement"
+		title = parser.currentRequirement.Title
+		targetID = &parser.currentRequirement.ID
+	case scenarioIdentityTarget:
+		targetName = "scenario"
+		title = parser.currentScenario.Title
+		targetID = &parser.currentScenario.ID
+	default:
+		return
+	}
+
+	if *targetID != "" {
+		parser.addDiagnostic(
+			"ID_MULTIPLE",
+			fmt.Sprintf("Multiple IDs declared for %s.", title),
+			"",
+		)
+		return
+	}
+
+	isScenario := parser.target == scenarioIdentityTarget
+	validKind := isScenario == strings.HasPrefix(identity, "scn.")
+	if !identityPattern.MatchString(identity) || !validKind {
+		parser.addDiagnostic(
+			"ID_FORMAT",
+			fmt.Sprintf("Invalid %s ID: %s.", targetName, identity),
+			"",
+		)
+	}
+	*targetID = identity
+}
+
+func (parser *specFileParser) addDiagnostic(code, message, identity string) {
+	parser.diagnostics = append(
+		parser.diagnostics,
+		diagnostic(code, "error", message, parser.path, parser.line, identity),
+	)
+}
+
+func validateSpecSet(parsed *ParsedSpecs) {
+	identities := make(map[string]struct{})
 	for requirementIndex := range parsed.Requirements {
 		requirement := &parsed.Requirements[requirementIndex]
 		if requirement.ID == "" {
-			parsed.Diagnostics = append(parsed.Diagnostics, diagnostic("ID_REQUIREMENT_MISSING", "error", fmt.Sprintf("Requirement %q has no Verification-ID.", requirement.Title), requirement.Source.Path, requirement.Source.Line, ""))
+			parsed.Diagnostics = append(parsed.Diagnostics, diagnostic(
+				"ID_REQUIREMENT_MISSING",
+				"error",
+				fmt.Sprintf("Requirement %q has no Verification-ID.", requirement.Title),
+				requirement.Source.Path,
+				requirement.Source.Line,
+				"",
+			))
 		}
 		if len(requirement.Scenarios) == 0 {
 			name := requirement.ID
 			if name == "" {
 				name = requirement.Title
 			}
-			parsed.Diagnostics = append(parsed.Diagnostics, diagnostic("SCENARIO_MISSING", "error", fmt.Sprintf("Requirement %s has no scenarios.", name), requirement.Source.Path, requirement.Source.Line, ""))
+			parsed.Diagnostics = append(parsed.Diagnostics, diagnostic(
+				"SCENARIO_MISSING",
+				"error",
+				fmt.Sprintf("Requirement %s has no scenarios.", name),
+				requirement.Source.Path,
+				requirement.Source.Line,
+				"",
+			))
 		}
 		if requirement.ID != "" {
-			if _, exists := identities[requirement.ID]; exists {
-				parsed.Diagnostics = append(parsed.Diagnostics, diagnostic("ID_DUPLICATE", "error", fmt.Sprintf("Identity %s is declared more than once.", requirement.ID), requirement.Source.Path, requirement.Source.Line, requirement.ID))
-			}
-			identities[requirement.ID] = requirement.Source
+			recordIdentity(parsed, identities, requirement.ID, requirement.Source)
 		}
 		for scenarioIndex := range requirement.Scenarios {
 			scenario := &requirement.Scenarios[scenarioIndex]
 			if scenario.ID == "" {
-				parsed.Diagnostics = append(parsed.Diagnostics, diagnostic("ID_SCENARIO_MISSING", "error", fmt.Sprintf("Scenario %q has no Verification-ID.", scenario.Title), scenario.Source.Path, scenario.Source.Line, ""))
+				parsed.Diagnostics = append(parsed.Diagnostics, diagnostic(
+					"ID_SCENARIO_MISSING",
+					"error",
+					fmt.Sprintf("Scenario %q has no Verification-ID.", scenario.Title),
+					scenario.Source.Path,
+					scenario.Source.Line,
+					"",
+				))
 				continue
 			}
-			if _, exists := identities[scenario.ID]; exists {
-				parsed.Diagnostics = append(parsed.Diagnostics, diagnostic("ID_DUPLICATE", "error", fmt.Sprintf("Identity %s is declared more than once.", scenario.ID), scenario.Source.Path, scenario.Source.Line, scenario.ID))
-			}
-			identities[scenario.ID] = scenario.Source
+			recordIdentity(parsed, identities, scenario.ID, scenario.Source)
 		}
 	}
-	sort.Slice(parsed.Diagnostics, func(i, j int) bool {
-		return diagnosticKey(parsed.Diagnostics[i]) < diagnosticKey(parsed.Diagnostics[j])
-	})
-	return parsed, nil
+}
+
+func recordIdentity(parsed *ParsedSpecs, identities map[string]struct{}, identity string, source Source) {
+	if _, exists := identities[identity]; exists {
+		parsed.Diagnostics = append(parsed.Diagnostics, diagnostic(
+			"ID_DUPLICATE",
+			"error",
+			fmt.Sprintf("Identity %s is declared more than once.", identity),
+			source.Path,
+			source.Line,
+			identity,
+		))
+	}
+	identities[identity] = struct{}{}
 }
 
 func diagnosticKey(value Diagnostic) string {

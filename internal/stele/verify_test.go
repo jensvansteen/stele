@@ -21,7 +21,9 @@ func TestRunVerificationResolvesPlannedAnchors(t *testing.T) {
 
 func TestRunVerificationRejectsMismatchedTarget(t *testing.T) {
 	root := completeFixture(t, false)
-	writeFixture(t, root, "artifacts/linkage-plan.json", `{"requirements":{"req.demo.aaaaaaaaaaaa":"src/demo.mjs#wrong"},"scenarios":{"scn.demo.bbbbbbbbbbbb":"tests/demo.test.mjs#wrong"}}`)
+	plan := `{"requirements":{"req.demo.aaaaaaaaaaaa":"src/demo.mts#wrong"},` +
+		`"scenarios":{"scn.demo.bbbbbbbbbbbb":"tests/demo.test.mts#wrong"}}`
+	writeFixture(t, root, "artifacts/linkage-plan.json", plan)
 	report, err := RunVerification(root, "example", "implementation", "")
 	if err != nil {
 		t.Fatal(err)
@@ -37,7 +39,13 @@ func TestRunVerificationLoadsExistingEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	evidence := Evidence{InputDigest: digest, TestedRevision: "tested", Scenarios: []ScenarioOutcome{{ID: "scn.demo.bbbbbbbbbbbb", Outcome: "passed"}}}
+	evidence := Evidence{
+		InputDigest:    digest,
+		TestedRevision: "tested",
+		Scenarios: []ScenarioOutcome{
+			{ID: "scn.demo.bbbbbbbbbbbb", Outcome: "passed"},
+		},
+	}
 	if err := writeJSON(filepath.Join(root, "artifacts", "test-results.json"), evidence); err != nil {
 		t.Fatal(err)
 	}
@@ -57,14 +65,14 @@ Verification-ID: req.demo.aaaaaaaaaaaa
 #### Scenario: Works
 Verification-ID: scn.demo.bbbbbbbbbbbb
 `)
-	writeFixture(t, root, "src/demo.mjs", `// @implements req.demo.aaaaaaaaaaaa
+	writeFixture(t, root, "src/demo.mts", `// @implements req.demo.aaaaaaaaaaaa
 const unresolved = true;
 // @implements scn.demo.bbbbbbbbbbbb
 function wrongKind() {}
 // @implements req.demo.cccccccccccc
 function dangling() {}
 `)
-	writeFixture(t, root, "tests/demo.test.mjs", `// @verifies req.demo.aaaaaaaaaaaa
+	writeFixture(t, root, "tests/demo.test.mts", `// @verifies req.demo.aaaaaaaaaaaa
 test("wrong kind", () => {});
 `)
 	report, err := RunVerification(root, "example", "implementation", "")
@@ -88,19 +96,25 @@ func TestRunVerificationProposalPlans(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hasDiagnostic(report.Diagnostics, "PLAN_CODE_MISSING") || !hasDiagnostic(report.Diagnostics, "PLAN_TEST_MISSING") {
+	if !hasDiagnostic(report.Diagnostics, "PLAN_CODE_MISSING") ||
+		!hasDiagnostic(report.Diagnostics, "PLAN_TEST_MISSING") {
 		t.Fatalf("expected missing plan diagnostics: %#v", report.Diagnostics)
 	}
 	if report.Requirements[0].Linkage != "missing" || report.Requirements[0].Scenarios[0].Linkage != "missing" {
 		t.Fatalf("expected missing proposal linkage: %#v", report.Requirements)
 	}
 
-	writeFixture(t, root, "artifacts/linkage-plan.json", `{"requirements":{"req.demo.aaaaaaaaaaaa":"future.go#Value"},"scenarios":{"scn.demo.bbbbbbbbbbbb":"future_test.go#TestValue"}}`)
+	plan := `{"requirements":{"req.demo.aaaaaaaaaaaa":"future.ts#value"},` +
+		`"scenarios":{"scn.demo.bbbbbbbbbbbb":"future.test.ts#returns value"}}`
+	writeFixture(t, root, "artifacts/linkage-plan.json", plan)
 	report, err = RunVerification(root, "example", "proposal", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "pass" || report.Stages.Linkage.Status != "planned" || report.Requirements[0].Linkage != "planned" || report.Requirements[0].Scenarios[0].Linkage != "planned" {
+	if report.Verdict != "pass" ||
+		report.Stages.Linkage.Status != "planned" ||
+		report.Requirements[0].Linkage != "planned" ||
+		report.Requirements[0].Scenarios[0].Linkage != "planned" {
 		t.Fatalf("unexpected planned report: %#v", report)
 	}
 }
@@ -119,7 +133,7 @@ func TestRunVerificationReturnsDependencyAndOutputErrors(t *testing.T) {
 		if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink(filepath.Join(root, "missing.js"), filepath.Join(root, "src", "broken.js")); err != nil {
+		if err := os.Symlink(filepath.Join(root, "missing.ts"), filepath.Join(root, "src", "broken.ts")); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := RunVerification(root, "example", "implementation", ""); err == nil {
@@ -129,7 +143,10 @@ func TestRunVerificationReturnsDependencyAndOutputErrors(t *testing.T) {
 	t.Run("digest", func(t *testing.T) {
 		root := fixtureRoot(t)
 		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", "### Requirement: Demo\n")
-		if err := os.Symlink(filepath.Join(root, "missing.yaml"), filepath.Join(root, "openspec", "broken.yaml")); err != nil {
+		if err := os.Symlink(
+			filepath.Join(root, "missing.yaml"),
+			filepath.Join(root, "openspec", "broken.yaml"),
+		); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := RunVerification(root, "example", "implementation", ""); err == nil {
@@ -156,23 +173,80 @@ func TestRunVerificationReturnsDependencyAndOutputErrors(t *testing.T) {
 }
 
 func TestBuildReportTracksEvidenceAndDiagnostics(t *testing.T) {
-	req := Requirement{ID: "req.demo.aaaaaaaaaaaa", Title: "Demo", Source: Source{Path: "spec.md", Line: 1}, Scenarios: []Scenario{{ID: "scn.demo.bbbbbbbbbbbb", Title: "Works", Source: Source{Path: "spec.md", Line: 2}}}}
-	parsed := ParsedSpecs{Requirements: []Requirement{req}, Diagnostics: []Diagnostic{{Code: "SHAPE", Severity: "error"}}}
+	req := Requirement{
+		ID:     "req.demo.aaaaaaaaaaaa",
+		Title:  "Demo",
+		Source: Source{Path: "spec.md", Line: 1},
+		Scenarios: []Scenario{
+			{ID: "scn.demo.bbbbbbbbbbbb", Title: "Works", Source: Source{Path: "spec.md", Line: 2}},
+		},
+	}
+	parsed := ParsedSpecs{
+		Requirements: []Requirement{req},
+		Diagnostics:  []Diagnostic{{Code: "SHAPE", Severity: "error"}},
+	}
 	selector, line := "demo", 2
 	anchors := []Anchor{{ID: req.ID, Kind: "code", Path: "src/demo.go", Selector: &selector, DeclarationLine: &line}}
 	diagnostics := []Diagnostic{{Code: "WARN", Severity: "warning"}}
 
-	current := &Evidence{InputDigest: "digest", TestedRevision: "abc", Scenarios: []ScenarioOutcome{{ID: req.Scenarios[0].ID, Outcome: "passed"}}}
-	report := BuildReport(t.TempDir(), "example", "implementation", "digest", parsed, anchors, LinkagePlan{}, diagnostics, current)
-	if report.Stages.Proposal.Status != "fail" || report.Summary.Warnings != 1 || report.Summary.PassedScenarios != 1 || report.Stages.Execution.Status != "passed" || report.Requirements[0].Scenarios[0].Linkage != "missing" {
+	current := &Evidence{
+		InputDigest:    "digest",
+		TestedRevision: "abc",
+		Scenarios: []ScenarioOutcome{
+			{ID: req.Scenarios[0].ID, Outcome: "passed"},
+		},
+	}
+	report := BuildReport(
+		t.TempDir(),
+		"example",
+		"implementation",
+		"digest",
+		parsed,
+		anchors,
+		LinkagePlan{},
+		diagnostics,
+		current,
+	)
+	if report.Stages.Proposal.Status != "fail" ||
+		report.Summary.Warnings != 1 ||
+		report.Summary.PassedScenarios != 1 ||
+		report.Stages.Execution.Status != "passed" ||
+		report.Requirements[0].Scenarios[0].Linkage != "missing" {
 		t.Fatalf("unexpected current report: %#v", report)
 	}
 
-	stale := BuildReport(t.TempDir(), "example", "implementation", "new", ParsedSpecs{Requirements: []Requirement{req}}, nil, LinkagePlan{}, []Diagnostic{{Severity: "error"}}, current)
-	if stale.Verdict != "fail" || stale.Stages.Execution.Status != "stale" || stale.Requirements[0].Linkage != "missing" {
+	stale := BuildReport(
+		t.TempDir(),
+		"example",
+		"implementation",
+		"new",
+		ParsedSpecs{Requirements: []Requirement{req}},
+		nil,
+		LinkagePlan{},
+		[]Diagnostic{{Severity: "error"}},
+		current,
+	)
+	if stale.Verdict != "fail" ||
+		stale.Stages.Execution.Status != "stale" ||
+		stale.Requirements[0].Linkage != "missing" {
 		t.Fatalf("unexpected stale report: %#v", stale)
 	}
-	failed := BuildReport(t.TempDir(), "example", "implementation", "digest", ParsedSpecs{Requirements: []Requirement{req}}, nil, LinkagePlan{}, nil, &Evidence{InputDigest: "digest", Scenarios: []ScenarioOutcome{{ID: req.Scenarios[0].ID, Outcome: "failed"}}})
+	failed := BuildReport(
+		t.TempDir(),
+		"example",
+		"implementation",
+		"digest",
+		ParsedSpecs{Requirements: []Requirement{req}},
+		nil,
+		LinkagePlan{},
+		nil,
+		&Evidence{
+			InputDigest: "digest",
+			Scenarios: []ScenarioOutcome{
+				{ID: req.Scenarios[0].ID, Outcome: "failed"},
+			},
+		},
+	)
 	if failed.Stages.Execution.Status != "failed" {
 		t.Fatalf("unexpected failed report: %#v", failed)
 	}
@@ -293,13 +367,24 @@ Verification-ID: req.demo.aaaaaaaaaaaa
 #### Scenario: Value is returned
 Verification-ID: scn.demo.bbbbbbbbbbbb
 `)
-	writeFixture(t, root, "src/demo.mjs", "// @implements "+"req.demo.aaaaaaaaaaaa\nexport function value() { return 1; }\n")
+	writeFixture(
+		t,
+		root,
+		"src/demo.mts",
+		"// @implements "+"req.demo.aaaaaaaaaaaa\nexport function value() { return 1; }\n",
+	)
 	want := "1"
 	if failing {
 		want = "2"
 	}
-	writeFixture(t, root, "tests/demo.test.mjs", "import assert from \"node:assert/strict\";\nimport test from \"node:test\";\n// @verifies "+"scn.demo.bbbbbbbbbbbb\ntest(\"returns value\", () => assert.equal(1, "+want+"));\n")
-	writeFixture(t, root, "artifacts/linkage-plan.json", `{"requirements":{"req.demo.aaaaaaaaaaaa":"src/demo.mjs#value"},"scenarios":{"scn.demo.bbbbbbbbbbbb":"tests/demo.test.mjs#returns value"}}`)
+	testSource := "import assert from \"node:assert/strict\";\n" +
+		"import test from \"node:test\";\n" +
+		"// @verifies " + "scn.demo.bbbbbbbbbbbb\n" +
+		"test(\"returns value\", () => assert.equal(1, " + want + "));\n"
+	writeFixture(t, root, "tests/demo.test.mts", testSource)
+	plan := `{"requirements":{"req.demo.aaaaaaaaaaaa":"src/demo.mts#value"},` +
+		`"scenarios":{"scn.demo.bbbbbbbbbbbb":"tests/demo.test.mts#returns value"}}`
+	writeFixture(t, root, "artifacts/linkage-plan.json", plan)
 	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte("{\"type\":\"module\"}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -18,10 +18,14 @@ The `prepack` script compiles the Go binaries before npm creates the archive.
 From the consuming repository:
 
 ```bash
-npm install --save-dev ./vendor/stele-spec-0.3.0.tgz
+npm install --save-dev ./vendor/stele-spec-0.1.0.tgz
+npx openspec init .
+npx openspec new change todo-basics
 npx stele init --change todo-basics
 npx stele verify --stage proposal --json
 ```
+
+The native OpenSpec steps create the specification workspace and feature change. `stele init` then configures Stele for that existing change. Continue with the [complete project setup](/guide/getting-started#build-it-yourself-complete-project-setup).
 
 This is preferable to a filesystem link for the package-boundary test. It reveals missing packaged files, incorrect relative paths, and executable assumptions that a symlink can hide.
 
@@ -36,6 +40,6 @@ Create a new archive and reinstall that file in the consumer. The archive filena
 - the repository-local skill templates embedded in the Go binary;
 - the documentation source.
 
-The consumer owns its OpenSpec Markdown, configuration, linkage plan, anchors, tests, and evidence outputs.
+The consumer owns its OpenSpec Markdown, configuration, linkage plan, anchors, tests, and evidence outputs. Version 0.1 consumer source and test anchors are TypeScript; other languages require future adapters.
 
 The current local archive contains a binary for the machine that creates it. Cross-platform registry distribution will require platform-specific npm artifacts or release downloads.

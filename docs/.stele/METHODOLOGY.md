@@ -4,6 +4,8 @@ Spec-driven development where the spec is the source of truth, code fulfills it,
 
 Name from *stele* — an ancient inscribed stone tablet that recorded laws, decrees, and contracts. The spec is the stele; code is the work that lives under its authority.
 
+> **Product scope:** This document preserves the broader Stele methodology and includes future designs. The v0.1 product supports TypeScript consumer source and tests only. Stele itself is implemented in Go; other consumer languages and polyglot projects require adapters that have not shipped yet.
+
 ## TL;DR
 
 - **Specs live in the repo** under `docs/intent/`, `docs/spec/`, `docs/adr/`
@@ -508,6 +510,8 @@ Type-specific rules (api-contract, library-interface) load when a spec's frontma
 
 ## The audit loop (`stele audit`)
 
+> **Roadmap:** Language-specific audit adapters are a future capability. The v0.1 consumer path performs TypeScript anchor and exact-test verification.
+
 Verify catches scaffolding drift; audit catches code-first drift (new functionality without specs).
 
 |  | `stele verify` | `stele audit` |
@@ -517,7 +521,7 @@ Verify catches scaffolding drift; audit catches code-first drift (new functional
 | Catches | Scaffolding drift | Code-first drift |
 | Implementation | Regex + grep | Language-specific parsers |
 
-Audit walks the project's public surface via per-language adapters, finds anchors, and reports:
+A future audit command would walk the project's public surface through per-language adapters, find anchors, and report:
 - New public items added since `--since` without anchors
 - Files with low anchor density
 - Endpoints without `api-contract` specs
@@ -525,7 +529,7 @@ Audit walks the project's public surface via per-language adapters, finds anchor
 
 Run periodically in CI. In `--strict`, fails the build on drift. Default is warn-only.
 
-Adapters are configured per package in `docs/.stele/config.toml` (`[audit] adapters = [...]`). Polyglot packages list multiple adapters; their results merge into one report. See "Polyglot packages" under Monorepos for the pattern.
+The planned configuration is per package in `docs/.stele/config.toml` (`[audit] adapters = [...]`). Polyglot packages would list multiple adapters and merge their results into one report. See "Polyglot packages" under Monorepos for the proposed pattern.
 
 ## Adoption modes: greenfield vs brownfield
 
@@ -592,13 +596,13 @@ my-product/
 
 Cross-surface journeys reference claims across packages. Anchors flow naturally — a shared rule like `shared-cart-1.2` is anchored from backend, web, and mobile code.
 
-### Polyglot packages
+### Polyglot packages (future)
 
-A single package may contain multiple languages — an Electron app with TS renderer + Rust/C++ native modules; a Tauri app with TS frontend + Rust core; a Python data package with a TS dashboard; a Django/Rails app with a heavy JS frontend.
+A future adapter model can support packages that contain multiple languages — an Electron app with a TypeScript renderer and Rust or C++ native modules, a Tauri app with a TypeScript frontend and Rust core, or a Python data package with a TypeScript dashboard.
 
-This is distinct from a multi-language SDK repo (e.g. Sentry's JS + Python + Go SDKs), where each language lives in its own package and is handled by standard monorepo mode. The polyglot case is when **one logical package** (one deployable, one CI pipeline, one team) mixes languages internally.
+This is distinct from a multi-language SDK repository, where each language lives in its own package. The polyglot case is when **one logical package** (one deployable, one CI pipeline, one team) mixes languages internally.
 
-When a package mixes languages, configure multiple audit adapters in its `docs/.stele/config.toml`:
+After those adapters ship, a package could configure multiple audit adapters in its `docs/.stele/config.toml`:
 
 ```toml
 # packages/electron-app/docs/.stele/config.toml
@@ -611,7 +615,7 @@ typescript = "src/renderer/**"
 rust = "src-native/**"
 ```
 
-Each adapter parses its own file types and emits its own drift signals; the package's audit report aggregates them. Anchors work the same way regardless of language — a TS file uses `// claim-X.Y`, a Rust file uses `// claim-X.Y`, a Python file uses `# claim-X.Y` — and verify's regex is language-agnostic at the anchor level.
+Each future adapter would parse its own file types and emit normalized drift signals for one aggregate report. The stable claim identity would remain shared across languages, while each adapter would define how declarations and exact tests are resolved.
 
 The claim itself is single-source: one `claim-X.Y` in one spec, anchored from any language in any file of the package.
 
@@ -751,7 +755,7 @@ export async function handleLogin(req: LoginRequest) {
 "src/generated/**" = "off"
 "src/proto/**" = "off"
 "**/*.gen.ts" = "off"
-"**/*.pb.go" = "off"
+"**/*.generated.tsx" = "off"
 ```
 
 `off` means the engine skips these files for anchor scanning AND for audit's public-surface analysis. Generated code is not part of the spec story.

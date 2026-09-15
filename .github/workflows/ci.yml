@@ -17,9 +17,21 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.13.2
+          args: ./cmd/... ./internal/... ./tests/... ./tools/...
+      - name: Check Go types and static analysis
+        run: npm run typecheck:go
+      - name: Lint and type-check TypeScript
+        run: npm run lint:ts && npm run typecheck:ts
+      - name: Enforce 100% TypeScript type coverage
+        run: npm run type-coverage
 
   verify:
     strategy:

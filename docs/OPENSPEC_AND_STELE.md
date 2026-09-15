@@ -34,5 +34,5 @@ Read the maintained guide for the complete model:
 
 - [OpenSpec and Stele](./concepts/openspec-and-stele.md)
 - [Build a verified change](./guide/verified-change.md)
-- [Plan test levels](./concepts/test-levels.md)
+- [Plan verification evidence](./concepts/verification-evidence.md)
 - [Deterministic evidence](./concepts/deterministic-evidence.md)
