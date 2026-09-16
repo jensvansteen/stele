@@ -17,6 +17,7 @@ var digestScanRoots = []string{
 	"bin",
 	"cmd",
 	"internal",
+	"pkg",
 	"src",
 	"public",
 	"tools",
@@ -84,6 +85,7 @@ func inputFiles(root string) []string {
 	for _, directory := range digestScanRoots {
 		files = append(files, walkFiles(filepath.Join(root, directory), digestSource)...)
 	}
+	files = append(files, rootGoFiles(root)...)
 	for _, name := range digestRootFiles {
 		path := filepath.Join(root, name)
 		if fileExists(path) {
@@ -94,6 +96,7 @@ func inputFiles(root string) []string {
 	return files
 }
 
+// @implements req.execution.7e4755bd8f60
 func ComputeInputDigest(root string) (string, error) {
 	hash := sha256.New()
 	for _, file := range inputFiles(root) {

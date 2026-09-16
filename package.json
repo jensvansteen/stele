@@ -70,7 +70,8 @@
     "test": "npm run format:check && npm run typecheck && npm run type-coverage && npm run test:go && npm run test:coverage && npm run build && npm run test:node && npm run test:package",
     "prepack": "npm run build",
     "stele": "npm run build --silent && ./dist/stele",
-    "verify": "npm run lint && npm test"
+    "verify": "npm run lint && npm test",
+    "stele:published": "stele"
   },
   "dependencies": {
     "@fission-ai/openspec": "1.13.0"
@@ -78,6 +79,7 @@
   "devDependencies": {
     "@types/node": "26.5.1",
     "eslint": "10.10.0",
+    "stele-published": "npm:stele-spec@0.1.0-rc.1",
     "type-coverage": "2.30.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.0",

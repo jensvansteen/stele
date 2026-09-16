@@ -9,7 +9,7 @@ Stele lets teams describe and maintain a codebase in plain English, then determi
 The verifier is written in Go and distributed through an npm package. npm handles installation and pins the bundled OpenSpec CLI; the installed `stele` command invokes the native binary directly.
 The package includes binaries for macOS and Linux on ARM64 and x64; installation selects the matching binary.
 
-[OpenSpec](https://github.com/Fission-AI/OpenSpec) can describe a codebase in any programming language. Stele v0.1 narrows its deterministic integration to TypeScript: it resolves anchors in `.ts`, `.tsx`, and `.mts` source and executes exact named `.ts` and `.mts` tests through Node. Additional execution environments will arrive through later adapters.
+[OpenSpec](https://github.com/Fission-AI/OpenSpec) can describe a codebase in any programming language. Stele integrates deterministically with TypeScript and Go: it resolves anchors in `.ts`, `.tsx`, `.mts`, and `.go` source, executes exact named `.ts` and `.mts` tests through Node, and runs exact Go tests through `go test`. Additional execution environments will arrive through later adapters.
 
 ```text
 OpenSpec requirement and scenarios
@@ -58,4 +58,4 @@ Development setup and repository architecture live in [Contributing](CONTRIBUTIN
 
 ## Current scope
 
-Version 0.1 provides the Go verifier, OpenSpec adapter, native CLI, project initializer, repository-local skills, deterministic reports, and exact TypeScript test selection for TypeScript consumers.
+Version 0.1 provides the Go verifier, OpenSpec adapter, native CLI, project initializer, repository-local skills, deterministic reports, and exact test selection for TypeScript and Go consumers.

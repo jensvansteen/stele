@@ -8,6 +8,7 @@ import (
 	"testing"
 )
 
+// @verifies scn.verify.6c22483ab3c3.unit
 func TestParseSpecsPreservesRelationships(t *testing.T) {
 	root := fixtureRoot(t)
 	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `## ADDED Requirements
@@ -36,6 +37,7 @@ Verification-ID: scn.demo.bbbbbbbbbbbb
 	}
 }
 
+// @verifies scn.verify.c5fd3656da59.unit
 func TestParseSpecsReportsAllShapeDiagnostics(t *testing.T) {
 	root := fixtureRoot(t)
 	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `#### Scenario: Ignored before requirement

@@ -12,13 +12,13 @@ Stele verifies that plain-English [OpenSpec](https://github.com/Fission-AI/OpenS
 
 - Node.js 24 or newer, with native `.mts` execution
 - npm 11 or newer
-- A TypeScript project
+- A TypeScript or Go project; Go projects also need the Go toolchain
 
-The npm package carries Stele's compiled verifier and the compatible OpenSpec CLI. Node runs the package tooling, OpenSpec, and exact TypeScript tests.
+The npm package carries Stele's compiled verifier and the compatible OpenSpec CLI. Node runs the package tooling, OpenSpec, and exact TypeScript tests. Exact Go tests run through `go test`.
 
-Version 0.1 scans declarations in `.ts`, `.tsx`, and `.mts` files and executes exact named `.ts` and `.mts` tests through Node. TSX test execution needs a later configurable runner adapter.
+Stele scans declarations in `.ts`, `.tsx`, `.mts`, and `.go` files, executes exact named `.ts` and `.mts` tests through Node, and executes exact `Test` functions in `_test.go` files. TSX test execution needs a later configurable runner adapter.
 
-OpenSpec itself is not limited to TypeScript. Its Markdown workflow can describe projects in any programming language. TypeScript is the first code and test environment supported by Stele's deterministic integration.
+OpenSpec itself is not limited to TypeScript. Its Markdown workflow can describe projects in any programming language. TypeScript and Go are the code and test environments supported by Stele's deterministic integration.
 
 ## Build it yourself: complete project setup
 
@@ -117,7 +117,7 @@ Map each requirement to the declaration expected to enforce it and each scenario
 }
 ```
 
-Save this as `artifacts/linkage-plan.json`, then check the plan:
+Save this as `openspec/changes/todo-basics/linkage-plan.json`, next to the change it plans, then check the plan:
 
 ```bash
 npx stele verify --stage proposal

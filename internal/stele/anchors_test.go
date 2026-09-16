@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+// @verifies scn.verify.36f0ef1f337f.unit
 func TestScanAnchorsResolvesTypeScriptDeclarations(t *testing.T) {
 	root := fixtureRoot(t)
 	writeFixture(t, root, "src/store.ts", `// @implements req.demo.aaaaaaaaaaaa
@@ -107,14 +108,13 @@ describe("not an exact test", () => {})
 	}
 }
 
-func TestSupportedSourceUsesTypeScriptConsumerScope(t *testing.T) {
-	for _, path := range []string{"source.ts", "component.tsx", "module.mts", "UPPER.TS"} {
+func TestSupportedSourceUsesConsumerScope(t *testing.T) {
+	for _, path := range []string{"source.ts", "component.tsx", "module.mts", "UPPER.TS", "source.go"} {
 		if !supportedSource(path) {
 			t.Errorf("expected %s to be supported", path)
 		}
 	}
 	for _, path := range []string{
-		"source.go",
 		"source.js",
 		"source.jsx",
 		"source.mjs",
@@ -127,10 +127,10 @@ func TestSupportedSourceUsesTypeScriptConsumerScope(t *testing.T) {
 	}
 }
 
+// @verifies scn.verify.0d43596abe4a.unit
 func TestScanAnchorsIgnoresUnsupportedConsumerLanguages(t *testing.T) {
 	root := fixtureRoot(t)
 	for _, path := range []string{
-		"src/source.go",
 		"src/source.js",
 		"src/source.jsx",
 		"src/source.mjs",
@@ -212,4 +212,99 @@ func assertAnchorHasNoSelector(t *testing.T, anchors []Anchor, identity string) 
 		}
 	}
 	t.Fatalf("anchor %s not found in %#v", identity, anchors)
+}
+
+// @verifies scn.tsanchors.f4c1eb23c2ab.unit
+func TestScanAnchorsResolvesExpressionTestCalls(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "tests/forms.test.mts", `import test, { it } from "node:test";
+// @verifies scn.demo.aaaaaaaaaaaa
+void test("adds a todo", (): void => {});
+// @verifies scn.demo.bbbbbbbbbbbb
+await it("removes a todo", (): void => {});
+// @verifies scn.demo.cccccccccccc
+test("lists todos", (): void => {});
+// @verifies scn.demo.dddddddddddd.e2e
+void   test('keeps evidence ids', (): void => {});
+`)
+	anchors, err := ScanAnchors(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for identity, selector := range map[string]string{
+		"scn.demo.aaaaaaaaaaaa": "adds a todo",
+		"scn.demo.bbbbbbbbbbbb": "removes a todo",
+		"scn.demo.cccccccccccc": "lists todos",
+		"scn.demo.dddddddddddd": "keeps evidence ids",
+	} {
+		assertAnchor(t, anchors, identity, "tests/forms.test.mts", selector)
+	}
+}
+
+// @verifies scn.tsanchors.f5c807c92cad.unit
+func TestScanAnchorsIgnoresOtherExpressionCalls(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "tests/other.test.mts", `// @verifies scn.demo.aaaaaaaaaaaa
+void run("adds a todo");
+// @verifies scn.demo.bbbbbbbbbbbb
+voidtest("joined", () => {});
+`)
+	anchors, err := ScanAnchors(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertAnchorHasNoSelector(t, anchors, "scn.demo.aaaaaaaaaaaa")
+	assertAnchorHasNoSelector(t, anchors, "scn.demo.bbbbbbbbbbbb")
+}
+
+// @verifies scn.tsanchors.e3be49f14532.unit
+func TestScanAnchorsIgnoresTypeScriptStringLiterals(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "src/strings.mts", "const single = '// @implements req.demo.111111111111';\n"+
+		"const double = \"// @implements req.demo.222222222222 \\\" still text\";\n"+
+		"const escaped = '\\' // @implements req.demo.333333333333';\n"+
+		"const template = `first line\n"+
+		"// @implements req.demo.444444444444\n"+
+		"${ { nested: \"} // @implements req.demo.555555555555\" }.nested } after\n"+
+		"${`inner ${1} // @implements req.demo.666666666666`} \\` // @implements req.demo.999999999999`;\n"+
+		"const unterminated = \"// @implements req.demo.777777777777\n"+
+		"// @implements req.demo.888888888888\n"+
+		"export function after(): void {}\n")
+	anchors, err := ScanAnchors(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(anchors) != 1 || anchors[0].ID != "req.demo.888888888888" {
+		t.Fatalf("expected only the real comment anchor, got %#v", anchors)
+	}
+	assertAnchor(t, anchors, "req.demo.888888888888", "src/strings.mts", "after")
+}
+
+// @verifies scn.tsanchors.e6114f49ffdc.unit
+func TestScanAnchorsReadsEveryCommentForm(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "src/comments.ts", `const value = 1; // @implements req.demo.111111111111
+/* @implements req.demo.222222222222 */ const other = 2;
+/**
+ * Stores a value.
+ * @implements req.demo.333333333333
+ */
+export function store(): void {}
+/* first */ /* @implements req.demo.444444444444 */
+export class Box {}
+`)
+	anchors, err := ScanAnchors(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(anchors) != 4 {
+		t.Fatalf("expected four anchors, got %#v", anchors)
+	}
+	assertAnchor(t, anchors, "req.demo.333333333333", "src/comments.ts", "store")
+	assertAnchor(t, anchors, "req.demo.444444444444", "src/comments.ts", "Box")
+	for _, anchor := range anchors {
+		if anchor.ID == "req.demo.111111111111" && anchor.Line != 1 {
+			t.Fatalf("line comment anchor reported at line %d", anchor.Line)
+		}
+	}
 }

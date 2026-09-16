@@ -173,6 +173,7 @@ test("selected", () => {});
 	})
 }
 
+// @verifies scn.execution.bce9246e1444.integration
 func TestExecuteExactTypeScriptTest(t *testing.T) {
 	root := fixtureRoot(t)
 	testSource := `import test from "node:test";
@@ -195,26 +196,27 @@ test("passes", () => { if (value !== 1) throw new Error("failed"); });
 	}
 }
 
+// @verifies scn.execution.a9dde959cf57.unit
 func TestExecuteExactTestRejectsUnsupportedExtensions(t *testing.T) {
 	for _, test := range []struct {
 		path    string
 		message string
 	}{
 		{
-			"demo/demo_test.go",
-			`unsupported test file extension ".go"; supported extensions: .mts, .ts`,
+			"demo/demo.go",
+			`unsupported test file extension ".go"; supported extensions: .mts, .ts, _test.go`,
 		},
 		{
 			"tests/demo.test.mjs",
-			`unsupported test file extension ".mjs"; supported extensions: .mts, .ts`,
+			`unsupported test file extension ".mjs"; supported extensions: .mts, .ts, _test.go`,
 		},
 		{
 			"tests/demo.test.tsx",
-			`unsupported test file extension ".tsx"; supported extensions: .mts, .ts`,
+			`unsupported test file extension ".tsx"; supported extensions: .mts, .ts, _test.go`,
 		},
 		{
 			"tests/demo",
-			`unsupported test file extension ""; supported extensions: .mts, .ts`,
+			`unsupported test file extension ""; supported extensions: .mts, .ts, _test.go`,
 		},
 	} {
 		t.Run(test.path, func(t *testing.T) {
@@ -230,7 +232,7 @@ func TestExecuteExactTestRejectsUnsupportedExtensions(t *testing.T) {
 
 	selector := "passes"
 	execution := executeTestGroup("unused", testGroup{
-		Key:      testGroupKey{Path: "demo/demo_test.go", Selector: selector},
+		Key:      testGroupKey{Path: "demo/demo.go", Selector: selector},
 		Selector: &selector,
 	})
 	if pointerValue(execution.Reason) != "unsupported-test-extension" {
@@ -238,6 +240,7 @@ func TestExecuteExactTestRejectsUnsupportedExtensions(t *testing.T) {
 	}
 }
 
+// @verifies scn.execution.8371d74b5134.integration
 func TestExecuteNodeTestDetectsNoMatchingExecution(t *testing.T) {
 	root := fixtureRoot(t)
 	writeFixture(t, root, "tests/demo.test.ts", "import test from 'node:test'; test('different', () => {});\n")
@@ -312,18 +315,20 @@ func TestRunScenarioTestsDependencyErrorsAndOrdering(t *testing.T) {
 	})
 	root := fixtureRoot(t)
 	computeScenarioDigest = func(string) (string, error) { return "digest", nil }
-	parseScenarioSpecs = func(string, string) (ParsedSpecs, error) { return ParsedSpecs{}, errors.New("parse failed") }
+	parseScenarioSpecs = func(string, verificationScope) (ParsedSpecs, error) {
+		return ParsedSpecs{}, errors.New("parse failed")
+	}
 	if _, err := RunScenarioTests(root, "example", ""); err == nil {
 		t.Fatal("expected injected parse error")
 	}
-	parseScenarioSpecs = func(string, string) (ParsedSpecs, error) { return ParsedSpecs{}, nil }
+	parseScenarioSpecs = func(string, verificationScope) (ParsedSpecs, error) { return ParsedSpecs{}, nil }
 	scanScenarioAnchors = func(string) ([]Anchor, error) { return nil, errors.New("scan failed") }
 	if _, err := RunScenarioTests(root, "example", ""); err == nil {
 		t.Fatal("expected injected scan error")
 	}
 
 	firstSelector, secondSelector := "first", "second"
-	parseScenarioSpecs = func(string, string) (ParsedSpecs, error) {
+	parseScenarioSpecs = func(string, verificationScope) (ParsedSpecs, error) {
 		return ParsedSpecs{
 			Requirements: []Requirement{{
 				Scenarios: []Scenario{

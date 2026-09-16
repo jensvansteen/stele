@@ -45,9 +45,35 @@ test("deletes an existing task", () => {
 });
 ```
 
-The v0.1 runner selects exact named TypeScript tests through Node. Multiple scenario IDs may point to one test declaration when the test truly exercises each scenario, though smaller evidence units are easier to diagnose. Other consumer languages need dedicated declaration and test-runner adapters.
+The runner selects exact named TypeScript tests through Node and exact Go test functions through `go test`. Multiple scenario IDs may point to one test declaration when the test truly exercises each scenario, though smaller evidence units are easier to diagnose. Other consumer languages need dedicated declaration and test-runner adapters.
 
 The test anchor identifies the intended evidence unit. It becomes behavioral evidence only after Stele confirms that the exact test executed and passed for the current inputs.
+
+A test anchor resolves to the next `test(...)` or `it(...)` call, including calls written as `void test(...)` or `await test(...)`, which typed lint rules require for floating promises. `describe` blocks, `test.each`, and `test.only` are not selectable.
+
+## Go anchors
+
+In Go, put the anchor in the comment directly above the declaration:
+
+```go
+// DeleteTodo removes a task.
+//
+// @implements req.todo.ea4d4f29a1c7
+func DeleteTodo(id string) error {
+	// ...
+}
+
+// @verifies scn.todo.591a3b429cf0
+func TestDeleteExistingTask(t *testing.T) {
+	// ...
+}
+```
+
+A code anchor resolves to a function (`DeleteTodo`), a method (`Store.Delete`, without pointer or type parameters), or a single type declaration. A test anchor in a `_test.go` file resolves only to a top-level `TestXxx(t *testing.T)` function. Subtests, examples, benchmarks, and fuzz targets are not selectable. Stele runs each linked test with `go test -json -count=1 -run '^Name$'` in its package, from the nearest `go.mod`, and passes the custom tags named by the file's `//go:build` line. A skipped test is not a pass. A Go file that does not parse stops verification with exit code `2`.
+
+## Anchors live in comments
+
+Stele reads annotations only from `//` comments, `/* */` comments, and JSDoc lines. Text inside string and template literals is ignored, so test fixtures can contain anchor text without creating anchors. The scanner does not recognize regular-expression literals; a quote or `//` inside one can hide a comment that follows it on the same line.
 
 ## Why nearby declarations matter
 

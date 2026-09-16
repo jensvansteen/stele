@@ -50,5 +50,5 @@ npx stele validate --json
 ```
 
 ::: info Current scope
-The package ships a Go verification executable, TypeScript consumer support, an OpenSpec adapter, and repository-local planning and verification skills.
+The package ships a Go verification executable, TypeScript and Go consumer support, an OpenSpec adapter, and repository-local planning and verification skills.
 :::

@@ -19,6 +19,7 @@ func TestRunVerificationResolvesPlannedAnchors(t *testing.T) {
 	}
 }
 
+// @verifies scn.verify.c4db6a432869.unit
 func TestRunVerificationRejectsMismatchedTarget(t *testing.T) {
 	root := completeFixture(t, false)
 	plan := `{"requirements":{"req.demo.aaaaaaaaaaaa":"src/demo.mts#wrong"},` +
@@ -89,6 +90,7 @@ test("wrong kind", () => {});
 	}
 }
 
+// @verifies scn.verify.14c6b4fe39bc.unit
 func TestRunVerificationProposalPlans(t *testing.T) {
 	root := completeFixture(t, false)
 	writeFixture(t, root, "artifacts/linkage-plan.json", `{"requirements":{},"scenarios":{}}`)
@@ -172,6 +174,7 @@ func TestRunVerificationReturnsDependencyAndOutputErrors(t *testing.T) {
 	})
 }
 
+// @verifies scn.execution.a70f24b45cfe.unit
 func TestBuildReportTracksEvidenceAndDiagnostics(t *testing.T) {
 	req := Requirement{
 		ID:     "req.demo.aaaaaaaaaaaa",

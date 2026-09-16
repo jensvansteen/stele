@@ -19,9 +19,9 @@ The Go implementation owns parsing, identity validation, anchor scanning, linkag
 
 ## npm distribution
 
-npm provides familiar installation and executable linking for TypeScript projects. The package exposes the compiled binary directly, removing a JavaScript process from every command invocation. Node remains necessary for npm, the bundled OpenSpec tool, and TypeScript test execution.
+npm provides familiar installation and executable linking for TypeScript and Go projects. The package exposes the compiled binary directly, removing a JavaScript process from every command invocation. Node remains necessary for npm, the bundled OpenSpec tool, and TypeScript test execution. Go test execution needs the Go toolchain.
 
-Version 0.1 supports TypeScript consumers. The Go core is an implementation and distribution choice; it does not imply support for anchors or tests in Go consumer repositories. Each additional consumer language needs an explicit declaration scanner and exact test-runner adapter.
+Stele supports TypeScript and Go consumers, which lets it verify its own Go implementation. Each additional consumer language needs an explicit declaration scanner and exact test-runner adapter.
 
 The current `prepack` step builds for the machine creating the archive. A public cross-platform release should move each operating-system and architecture build into its own optional npm package or release artifact.
 
@@ -31,17 +31,19 @@ The first adapter reads the standard OpenSpec change layout and invokes the pinn
 
 This specification adapter is separate from language and test-runner adapters. It explains where behavior is declared; it does not inspect implementation code or execute tests.
 
-## Current anchor scanner
+## Current anchor scanners
 
-`internal/stele/anchors.go` implements the fast TypeScript linkage pass for v0.1. It:
+`internal/stele/anchors.go` implements the linkage pass. It:
 
-- walks configured source and test directories for supported TypeScript files;
-- finds `@implements` and `@verifies` annotations containing a stable requirement or scenario ID;
+- walks configured source and test directories, and Go files in the repository root, for supported TypeScript and Go files;
+- finds `@implements` and `@verifies` annotations containing a stable requirement or scenario ID, only inside comments;
 - classifies each annotation as a code or test anchor from its file location;
-- recognizes a nearby TypeScript declaration to capture a code symbol or exact test selector;
+- recognizes a nearby declaration to capture a code symbol or exact test selector;
 - normalizes paths and sorts the result before verification.
 
-The scanner proves that an explicit anchor resolves to a nearby TypeScript declaration. It does not parse a complete abstract syntax tree, discover every exported symbol or route, infer behavior from source code, or prove that an unanchored implementation has a specification. Those broader checks and support for other consumer languages belong to planned language adapters.
+TypeScript files go through a small comment-aware lexer and line-based declaration patterns. Go files are parsed with the standard library `go/parser` (`internal/stele/goanchors.go`), and `internal/stele/gorunner.go` runs each linked Go test with `go test -json -count=1`, deriving build tags from the file's `//go:build` line.
+
+The scanners prove that an explicit anchor resolves to a nearby declaration. It does not parse a complete abstract syntax tree, discover every exported symbol or route, infer behavior from source code, or prove that an unanchored implementation has a specification. Those broader checks and support for other consumer languages belong to planned language adapters.
 
 ## Skills
 

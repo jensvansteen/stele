@@ -48,8 +48,13 @@ func diagnostic(code, severity, message, path string, line int, identity string)
 	return Diagnostic{Code: code, Severity: severity, Message: message, IdentityID: identityID, Source: source}
 }
 
+// @implements req.verify.9dbf2146c01f
 func ParseSpecs(root, changeID string) (ParsedSpecs, error) {
-	specsRoot := filepath.Join(root, "openspec", "changes", changeID, "specs")
+	return parseScopeSpecs(root, changeScope(changeID))
+}
+
+func parseScopeSpecs(root string, scope verificationScope) (ParsedSpecs, error) {
+	specsRoot := scope.specsRoot(root)
 	files := walkFiles(specsRoot, func(path string) bool { return strings.EqualFold(filepath.Ext(path), ".md") })
 	parsed := ParsedSpecs{Requirements: []Requirement{}, Diagnostics: []Diagnostic{}, Files: []string{}}
 

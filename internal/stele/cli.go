@@ -20,9 +20,9 @@ const helpBody = ` — deterministic OpenSpec implementation verification
 
 Usage:
   stele init [--change ID] [--root PATH]
-  stele verify [--stage proposal|implementation] [--change ID] [--root PATH] [--report PATH] [--json]
-  stele test [--change ID] [--root PATH] [--evidence PATH] [--json]
-  stele validate [--change ID] [--root PATH] [--report PATH] [--evidence PATH] [--json]
+  stele verify [--stage proposal|implementation] [--change ID | --specs] [--root PATH] [--report PATH] [--json]
+  stele test [--change ID | --specs] [--root PATH] [--evidence PATH] [--json]
+  stele validate [--change ID | --specs] [--root PATH] [--report PATH] [--evidence PATH] [--json]
 
 Exit codes:
   0  selected checks passed
@@ -37,6 +37,7 @@ type options struct {
 	reportPath   string
 	evidencePath string
 	json         bool
+	specs        bool
 }
 
 type validationResult struct {
@@ -50,11 +51,12 @@ type validationResult struct {
 var (
 	currentWorkingDirectory = os.Getwd
 	absolutePath            = filepath.Abs
-	verifyProject           = RunVerification
-	runProjectScenarios     = RunScenarioTests
+	verifyProject           = verifyScope
+	runProjectScenarios     = runScopeTests
 	validateProjectOpenSpec = runOpenSpec
 )
 
+// @implements req.verify.999a5d082295
 func Run(arguments []string, stdout, stderr io.Writer) int {
 	if len(arguments) == 0 {
 		writeHelp(stdout)
@@ -144,6 +146,9 @@ func parseOptions(command string, arguments []string) (options, error) {
 	flags.StringVar(&parsed.reportPath, "report", "", "report path")
 	flags.StringVar(&parsed.evidencePath, "evidence", "", "evidence path")
 	flags.BoolVar(&parsed.json, "json", false, "JSON output")
+	if command != "init" {
+		flags.BoolVar(&parsed.specs, "specs", false, "verify the current specifications")
+	}
 	if err := flags.Parse(arguments); err != nil {
 		return options{}, err
 	}
@@ -156,6 +161,9 @@ func parseOptions(command string, arguments []string) (options, error) {
 		return options{}, err
 	}
 	parsed.root = absolute
+	if parsed.specs && parsed.changeID != "" {
+		return options{}, errConflictingScope
+	}
 	if parsed.stage != "proposal" && parsed.stage != "implementation" {
 		return options{}, fmt.Errorf("unknown stage: %s", parsed.stage)
 	}
@@ -176,6 +184,9 @@ func withConfig(parsed options) (options, error) {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return options{}, err
 	}
+	if parsed.specs {
+		return parsed, nil
+	}
 	if parsed.changeID == "" {
 		return options{}, errors.New("no OpenSpec change selected; pass --change or run stele init")
 	}
@@ -183,7 +194,7 @@ func withConfig(parsed options) (options, error) {
 }
 
 func verifyCommand(parsed options, stdout, stderr io.Writer) int {
-	report, err := verifyProject(parsed.root, parsed.changeID, parsed.stage, parsed.reportPath)
+	report, err := verifyProject(parsed.root, resolveScope(parsed), parsed.stage, parsed.reportPath)
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
@@ -219,7 +230,7 @@ func renderVerification(stdout io.Writer, report Report) {
 }
 
 func testCommand(parsed options, stdout, stderr io.Writer) int {
-	evidence, err := runProjectScenarios(parsed.root, parsed.changeID, parsed.evidencePath)
+	evidence, err := runProjectScenarios(parsed.root, resolveScope(parsed), parsed.evidencePath)
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
@@ -244,19 +255,20 @@ func renderScenarioExecution(stdout io.Writer, evidence Evidence) {
 	)
 }
 
+// @implements req.validate.56cc774dc871
 func validateCommand(parsed options, stdout, stderr io.Writer) int {
 	setDefaultOutputPaths(&parsed)
-	evidence, err := runProjectScenarios(parsed.root, parsed.changeID, parsed.evidencePath)
+	evidence, err := runProjectScenarios(parsed.root, resolveScope(parsed), parsed.evidencePath)
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
 
-	openSpecPassed, openSpecErr := validateProjectOpenSpec(parsed.root, parsed.changeID)
+	openSpecPassed, openSpecErr := validateProjectOpenSpec(parsed.root, resolveScope(parsed))
 	if openSpecErr != nil {
 		_, _ = fmt.Fprintf(stderr, "stele: %s\n", openSpecErr)
 	}
 
-	report, err := verifyProject(parsed.root, parsed.changeID, "implementation", parsed.reportPath)
+	report, err := verifyProject(parsed.root, resolveScope(parsed), "implementation", parsed.reportPath)
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
