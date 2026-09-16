@@ -49,6 +49,12 @@ The v0.1 runner selects exact named TypeScript tests through Node. Multiple scen
 
 The test anchor identifies the intended evidence unit. It becomes behavioral evidence only after Stele confirms that the exact test executed and passed for the current inputs.
 
+A test anchor resolves to the next `test(...)` or `it(...)` call, including calls written as `void test(...)` or `await test(...)`, which typed lint rules require for floating promises. `describe` blocks, `test.each`, and `test.only` are not selectable.
+
+## Anchors live in comments
+
+Stele reads annotations only from `//` comments, `/* */` comments, and JSDoc lines. Text inside string and template literals is ignored, so test fixtures can contain anchor text without creating anchors. The scanner does not recognize regular-expression literals; a quote or `//` inside one can hide a comment that follows it on the same line.
+
 ## Why nearby declarations matter
 
 A matching string in a comment is not enough. Stele checks that the anchor is attached to a compatible declaration and that its path and selector match the linkage plan. This rejects stale copy-pasted comments and anchors placed in unrelated files.

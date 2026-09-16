@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Fixed test anchors on `void test(...)` and `await test(...)` calls, the form used in the Build a Todo guide, which previously reported `ANCHOR_TARGET_MISSING`.
+- TypeScript annotations are now read only from comments. Anchor text inside string and template literals no longer creates anchors.
+
 ## 0.1.0-rc.1 — Release candidate
 
 - Reimplemented deterministic verification, anchor scanning, report generation, scenario execution, OpenSpec orchestration, initialization, and the CLI in Go.

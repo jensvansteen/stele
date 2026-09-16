@@ -188,7 +188,7 @@ void test("rejects blank todo text", (): void => {
 });
 ```
 
-Each title exactly matches the selector in the linkage plan. Stele runs each linked scenario independently, so a broad test-file pass cannot hide a missing scenario.
+Each title exactly matches the selector in the linkage plan. The `void` prefix satisfies typed lint rules for floating promises, and Stele still selects the test. Stele runs each linked scenario independently, so a broad test-file pass cannot hide a missing scenario.
 
 ## 8. Run the complete deterministic gate
 

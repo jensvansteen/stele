@@ -15,7 +15,7 @@ var (
 		`@(implements|verifies)\s+((?:req|scn)\.[a-z0-9]+\.[a-f0-9]{12})`,
 	)
 	typeScriptTestPattern = regexp.MustCompile(
-		`^(?:test|it)\(\s*["'\x60]([^"'\x60]+)["'\x60]`,
+		`^(?:(?:void|await)\s+)?(?:test|it)\(\s*["'\x60]([^"'\x60]+)["'\x60]`,
 	)
 	typeScriptFunctionPattern = regexp.MustCompile(
 		`^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)`,
@@ -120,8 +120,8 @@ func scanAnchorFile(root string, file anchorFile) ([]Anchor, error) {
 
 	lines := strings.Split(strings.ReplaceAll(string(content), "\r\n", "\n"), "\n")
 	anchors := make([]Anchor, 0)
-	for lineIndex, line := range lines {
-		for _, match := range anchorPattern.FindAllStringSubmatch(line, -1) {
+	for lineIndex, comment := range typeScriptCommentText(lines) {
+		for _, match := range anchorPattern.FindAllStringSubmatch(comment, -1) {
 			selector, declarationLine := adjacentDeclaration(lines, lineIndex, file.kind)
 			anchors = append(anchors, Anchor{
 				ID:              match[2],
@@ -135,6 +135,133 @@ func scanAnchorFile(root string, file anchorFile) ([]Anchor, error) {
 		}
 	}
 	return anchors, nil
+}
+
+type typeScriptLexState uint8
+
+const (
+	lexCode typeScriptLexState = iota
+	lexLineComment
+	lexBlockComment
+	lexSingleQuote
+	lexDoubleQuote
+	lexTemplate
+)
+
+// typeScriptLexer separates comment text from code, strings, and template
+// literals. It deliberately does not recognize regular-expression literals.
+type typeScriptLexer struct {
+	state     typeScriptLexState
+	templates []int
+	comment   strings.Builder
+}
+
+// typeScriptCommentText returns, for every line, only the text inside comments,
+// so annotations spelled in string or template literals are never matched.
+func typeScriptCommentText(lines []string) []string {
+	lexer := typeScriptLexer{state: lexCode}
+	comments := make([]string, len(lines))
+	for index, line := range lines {
+		lexer.beginLine()
+		for position := 0; position < len(line); {
+			position += lexer.step(line, position)
+		}
+		comments[index] = lexer.comment.String()
+	}
+	return comments
+}
+
+func (lexer *typeScriptLexer) beginLine() {
+	lexer.comment.Reset()
+	switch lexer.state {
+	case lexLineComment, lexSingleQuote, lexDoubleQuote:
+		lexer.state = lexCode
+	}
+}
+
+// step consumes the character at position and returns how many bytes it used.
+func (lexer *typeScriptLexer) step(line string, position int) int {
+	character := line[position]
+	pair := line[position:min(position+2, len(line))]
+	switch lexer.state {
+	case lexLineComment:
+		lexer.comment.WriteByte(character)
+	case lexBlockComment:
+		if pair == "*/" {
+			lexer.state = lexCode
+			lexer.comment.WriteByte(' ')
+			return 2
+		}
+		lexer.comment.WriteByte(character)
+	case lexSingleQuote, lexDoubleQuote:
+		return lexer.stepString(character)
+	case lexTemplate:
+		return lexer.stepTemplate(character, pair)
+	default:
+		return lexer.stepCode(character, pair)
+	}
+	return 1
+}
+
+func (lexer *typeScriptLexer) stepString(character byte) int {
+	if character == '\\' {
+		return 2
+	}
+	closing := byte('"')
+	if lexer.state == lexSingleQuote {
+		closing = '\''
+	}
+	if character == closing {
+		lexer.state = lexCode
+	}
+	return 1
+}
+
+func (lexer *typeScriptLexer) stepTemplate(character byte, pair string) int {
+	switch {
+	case character == '\\':
+		return 2
+	case character == '`':
+		lexer.state = lexCode
+	case pair == "${":
+		lexer.templates = append(lexer.templates, 1)
+		lexer.state = lexCode
+		return 2
+	}
+	return 1
+}
+
+func (lexer *typeScriptLexer) stepCode(character byte, pair string) int {
+	switch {
+	case pair == "//":
+		lexer.state = lexLineComment
+		lexer.comment.WriteByte(' ')
+		return 2
+	case pair == "/*":
+		lexer.state = lexBlockComment
+		lexer.comment.WriteByte(' ')
+		return 2
+	case character == '\'':
+		lexer.state = lexSingleQuote
+	case character == '"':
+		lexer.state = lexDoubleQuote
+	case character == '`':
+		lexer.state = lexTemplate
+	case character == '{' && len(lexer.templates) > 0:
+		lexer.templates[len(lexer.templates)-1]++
+	case character == '}' && len(lexer.templates) > 0:
+		lexer.closeTemplateBrace()
+	}
+	return 1
+}
+
+func (lexer *typeScriptLexer) closeTemplateBrace() {
+	last := len(lexer.templates) - 1
+	lexer.templates[last]--
+	if lexer.templates[last] == 0 {
+		lexer.templates = lexer.templates[:last]
+		lexer.state = lexTemplate
+	}
 }
 
 func anchorSortKey(anchor Anchor) string {
