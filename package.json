@@ -4,23 +4,35 @@
   "packageManager": "npm@11.13.0",
   "type": "module",
   "bin": {
-    "openspec": "./node_modules/@fission-ai/openspec/bin/openspec.js",
-    "stele": "./dist/stele"
+    "openspec": "node_modules/@fission-ai/openspec/bin/openspec.js",
+    "stele": "dist/stele"
   },
   "description": "Maintain software from plain-English specifications with deterministic implementation evidence",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jensvansteen/stele"
+    "url": "git+https://github.com/jensvansteen/stele.git"
   },
   "homepage": "https://jensvansteen.github.io/stele/",
   "bugs": "https://github.com/jensvansteen/stele/issues",
-  "keywords": ["openspec", "specification", "verification", "traceability", "typescript"],
+  "keywords": [
+    "openspec",
+    "specification",
+    "verification",
+    "traceability",
+    "typescript"
+  ],
   "engines": {
     "node": ">=24.0.0",
     "npm": ">=11.0.0"
   },
-  "os": ["darwin", "linux"],
-  "cpu": ["arm64", "x64"],
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "cpu": [
+    "arm64",
+    "x64"
+  ],
   "files": [
     "dist/",
     "scripts/select-binary.mjs",

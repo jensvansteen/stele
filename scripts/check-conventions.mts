@@ -22,7 +22,7 @@ try {
     check(process.env.PR_TITLE ?? "", commitPattern, "Pull request title");
     const base: string = process.env.BASE_SHA ?? "";
     const head: string = process.env.HEAD_SHA ?? "";
-    const subjects: string = execFileSync("git", ["log", "--format=%s", `${base}..${head}`], {
+    const subjects: string = execFileSync("git", ["log", "--no-merges", "--format=%s", `${base}..${head}`], {
       encoding: "utf8",
     });
     for (const subject of subjects.trim().split("\n")) {
