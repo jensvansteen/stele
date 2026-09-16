@@ -32,6 +32,12 @@ jobs:
           cache: npm
       - run: npm install --global npm@11.13.0
       - run: npm ci
+      # npm run verify expects golangci-lint on PATH; install the same pinned
+      # version CI uses before running the complete gate.
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.2
+          install-only: true
       - run: npm run verify
       - run: npm run docs:build
       - name: Choose npm distribution tag
