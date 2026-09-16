@@ -18,7 +18,7 @@ The `prepack` script compiles the Go binaries before npm creates the archive.
 From the consuming repository:
 
 ```bash
-npm install --save-dev ./vendor/stele-spec-0.1.0-rc.1.tgz
+npm install --save-dev ./vendor/stele-spec-0.1.0-rc.2.tgz
 npx openspec init .
 npx openspec new change todo-basics
 npx stele init --change todo-basics
