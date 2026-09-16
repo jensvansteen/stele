@@ -4,6 +4,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 )
 
@@ -253,9 +255,29 @@ func TestExecuteNodeTestDetectsNoMatchingExecution(t *testing.T) {
 	}
 }
 
+// @verifies scn.execution.9cbf5cc6d03d.integration
+func TestExecuteNodeTestIgnoresEnclosingTestRunner(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "tests/demo.test.mts", "import test from 'node:test';\nvoid test('passes', () => {});\n")
+	t.Setenv("NODE_TEST_CONTEXT", "child-v8")
+	passed, ran, err := executeNodeTest(root, "tests/demo.test.mts", "passes")
+	if err != nil || !passed || !ran {
+		t.Fatalf("executeNodeTest inside a node test context = %v, %v, %v", passed, ran, err)
+	}
+	for _, entry := range nodeTestEnvironment() {
+		if strings.HasPrefix(entry, "NODE_TEST_CONTEXT=") {
+			t.Fatalf("child environment still contains %s", entry)
+		}
+	}
+	if !slices.Contains(nodeTestEnvironment(), "STELE_CHILD_TEST=1") {
+		t.Fatal("child environment does not mark Stele child tests")
+	}
+}
+
 func TestRunScenarioTestsReturnsInputAndWriteErrors(t *testing.T) {
 	t.Run("input", func(t *testing.T) {
 		root := fixtureRoot(t)
+		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", "### Requirement: Demo\n")
 		if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -295,9 +317,22 @@ func TestRunScenarioTestsReturnsInputAndWriteErrors(t *testing.T) {
 
 	t.Run("evidence", func(t *testing.T) {
 		root := fixtureRoot(t)
+		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", "### Requirement: Demo\n")
 		writeFixture(t, root, "artifacts", "blocking file")
 		if _, err := RunScenarioTests(root, "example", "artifacts/evidence.json"); err == nil {
 			t.Fatal("expected evidence write error")
+		}
+	})
+
+	t.Run("no scenarios", func(t *testing.T) {
+		root := fixtureRoot(t)
+		writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", "### Requirement: Demo\n")
+		evidence, err := RunScenarioTests(root, "example", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if evidence.Outcome != "failed" || len(evidence.Scenarios) != 0 {
+			t.Fatalf("a scope without scenarios must not pass: %#v", evidence)
 		}
 	})
 }
@@ -314,6 +349,7 @@ func TestRunScenarioTestsDependencyErrorsAndOrdering(t *testing.T) {
 		runExactTest = originalRun
 	})
 	root := fixtureRoot(t)
+	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", "### Requirement: Demo\n")
 	computeScenarioDigest = func(string) (string, error) { return "digest", nil }
 	parseScenarioSpecs = func(string, verificationScope) (ParsedSpecs, error) {
 		return ParsedSpecs{}, errors.New("parse failed")

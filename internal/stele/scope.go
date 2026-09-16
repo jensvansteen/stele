@@ -42,6 +42,23 @@ func resolveScope(parsed options) verificationScope {
 	return changeScope(parsed.changeID)
 }
 
+// requireScopeSpecs rejects a scope without specification files, so a gate
+// never passes after checking zero requirements.
+//
+// @implements req.verificationscope.270b822fff6b
+func requireScopeSpecs(root string, scope verificationScope) error {
+	files := walkFiles(scope.specsRoot(root), func(path string) bool {
+		return strings.EqualFold(filepath.Ext(path), ".md")
+	})
+	if len(files) > 0 {
+		return nil
+	}
+	if scope.currentSpecs {
+		return errors.New("no current specifications in openspec/specs")
+	}
+	return fmt.Errorf("change %s has no delta specs", scope.changeID)
+}
+
 func emptyLinkagePlan() LinkagePlan {
 	return LinkagePlan{Requirements: map[string]string{}, Scenarios: map[string]string{}}
 }

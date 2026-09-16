@@ -30,7 +30,7 @@ A `nodeTestEnvironment()` helper copies `os.Environ()` without `NODE_TEST_CONTEX
 
 ### Verification strategy
 
-**Status: proposed, awaiting approval.**
+**Status: approved** by jensvansteen on 2026-09-16, before implementation started (plan commit ebdac6e).
 
 Levels, defined by what the test reaches: **unit** calls code directly, in process, possibly with temporary files or stubbed dependencies. **integration** exercises our code together with one real outside tool, such as Node, OpenSpec, or the Go toolchain. **e2e** uses the real product through its user-facing entry point: the installed executable or packed package.
 

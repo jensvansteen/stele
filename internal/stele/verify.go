@@ -79,6 +79,9 @@ func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
 }
 
 func verifyScope(root string, scope verificationScope, mode, reportPath string) (Report, error) {
+	if err := requireScopeSpecs(root, scope); err != nil {
+		return Report{}, err
+	}
 	parsed, err := parseScopeSpecs(root, scope)
 	if err != nil {
 		return Report{}, err

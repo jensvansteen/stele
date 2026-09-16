@@ -262,3 +262,58 @@ func TestRunRejectsSpecsWithChange(t *testing.T) {
 		t.Fatal("a change option did not select the change scope")
 	}
 }
+
+// @verifies scn.verificationscope.0246717fcb77.unit
+func TestRunRejectsMissingChange(t *testing.T) {
+	root := fixtureRoot(t)
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"verify", "--root", root, "--change", "missing"}, &stdout, &stderr)
+	if code != 2 || !strings.Contains(stderr.String(), "change missing has no delta specs") || stdout.Len() != 0 {
+		t.Fatalf("verify missing change = %d, %q, %q", code, stdout.String(), stderr.String())
+	}
+	if _, err := RunVerification(root, "missing", "proposal", ""); err == nil {
+		t.Fatal("RunVerification accepted a missing change")
+	}
+}
+
+// @verifies scn.verificationscope.2af83d65e804.unit
+func TestRunRejectsChangeWithoutSpecs(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "openspec/changes/empty/proposal.md", "## Why\n")
+	writeFixture(t, root, "openspec/changes/empty/specs/notes.txt", "not a spec\n")
+	originalOpenSpec := validateProjectOpenSpec
+	t.Cleanup(func() { validateProjectOpenSpec = originalOpenSpec })
+	openSpecRan := false
+	validateProjectOpenSpec = func(string, verificationScope) (bool, error) {
+		openSpecRan = true
+		return true, nil
+	}
+	for _, command := range []string{"verify", "test", "validate"} {
+		var stderr bytes.Buffer
+		code := Run([]string{command, "--root", root, "--change", "empty"}, &bytes.Buffer{}, &stderr)
+		if code != 2 || !strings.Contains(stderr.String(), "change empty has no delta specs") {
+			t.Fatalf("%s empty change = %d, %q", command, code, stderr.String())
+		}
+	}
+	if openSpecRan {
+		t.Fatal("OpenSpec validation ran for an empty change")
+	}
+	if fileExists(filepath.Join(root, "artifacts", "test-results.json")) {
+		t.Fatal("evidence was written for an empty change")
+	}
+}
+
+// @verifies scn.verificationscope.6f3a1ce24f05.unit
+func TestRunRejectsEmptyCurrentSpecs(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "openspec/specs/.gitkeep", "")
+	var stderr bytes.Buffer
+	code := Run([]string{"verify", "--root", root, "--specs"}, &bytes.Buffer{}, &stderr)
+	if code != 2 || !strings.Contains(stderr.String(), "no current specifications in openspec/specs") {
+		t.Fatalf("verify --specs without specs = %d, %q", code, stderr.String())
+	}
+	writeFixture(t, root, "openspec/specs/demo/spec.md", "### Requirement: Demo\n")
+	if code := Run([]string{"verify", "--root", root, "--specs"}, &bytes.Buffer{}, &stderr); code == 2 {
+		t.Fatalf("verify --specs with a specification was still rejected: %q", stderr.String())
+	}
+}
