@@ -44,7 +44,7 @@ Consumer fixtures use TypeScript or Go. Preserve their existing behavioral IDs. 
 1. Plan a change under `openspec/changes/<change>/`: proposal, delta specs with Verification-IDs, a design with an approved verification table, tasks, and the change's own `linkage-plan.json`. Check it with `npm run stele:published -- verify --stage proposal --change <change>`.
 2. Implement it across one or more pull requests. Until a release contains the behavior the change relies on, check it with the local build: `npm run stele -- validate --change <change>`.
 3. Archive the change with `npx openspec archive <change>` once all its tasks are complete, usually in the pull request that finishes it. OpenSpec merges its specs into `openspec/specs/` and moves the change, including its linkage plan, to `openspec/changes/archive/`.
-4. `npm run verify:self` builds the CLI under test and runs `stele validate --specs` with the published package, verifying all archived behavior.
+4. `npm run verify:self` builds the CLI under test and runs `stele validate --specs` with the published package, verifying all archived behavior. CI runs it on Linux for pull requests and pushes to `main`.
 
 `stele.config.json` has no default change, so plain `stele verify` requires `--change` or `--specs`.
 
