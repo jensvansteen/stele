@@ -7,6 +7,7 @@ Stele lets teams describe and maintain a codebase in plain English, then determi
 [OpenSpec](https://github.com/Fission-AI/OpenSpec) is Stele's first specification foundation. Stele extends its requirements and scenarios with stable identities, planned code and test targets, exact execution, and reproducible evidence for CI and review. OpenSpec owns the behavioral source of truth; Stele verifies the evidence graph around it.
 
 The verifier is written in Go and distributed through an npm package. npm handles installation and pins the bundled OpenSpec CLI; the installed `stele` command invokes the native binary directly.
+The package includes binaries for macOS and Linux on ARM64 and x64; installation selects the matching binary.
 
 [OpenSpec](https://github.com/Fission-AI/OpenSpec) can describe a codebase in any programming language. Stele v0.1 narrows its deterministic integration to TypeScript: it resolves anchors in `.ts`, `.tsx`, and `.mts` source and executes exact named `.ts` and `.mts` tests through Node. Additional execution environments will arrive through later adapters.
 
@@ -23,10 +24,10 @@ OpenSpec remains the behavioral source of truth. Stele reports planning, linkage
 
 ## Get started
 
-Install Stele in the project that owns the OpenSpec change:
+Install the release candidate in the project that owns the OpenSpec change:
 
 ```bash
-npm install --save-dev stele-spec
+npm install --save-dev stele-spec@next
 npx openspec init .
 npx openspec new change my-change
 npx stele init --change my-change
@@ -37,7 +38,7 @@ npx stele validate
 
 OpenSpec initialization and change creation are required native OpenSpec steps. `stele init` then adds Stele configuration and repository-local skills and selects the existing change; it does not replace OpenSpec's authoring workflow. `stele verify --stage proposal` checks that the proposed verification plan is complete before implementation starts. After the anchors and tests exist, `stele validate` runs the complete deterministic check.
 
-The installed dependency pins Stele and its compatible OpenSpec CLI for both local use and CI. To test an unreleased checkout without publishing it, create and install a tarball as described in [Use a local package](docs/guide/local-package.md).
+The installed dependency pins Stele and its compatible OpenSpec CLI for both local use and CI. For reproducible CI builds, pin the exact release candidate version. To test an unreleased checkout without publishing it, create and install a tarball as described in [Use a local package](docs/guide/local-package.md).
 
 The independent [`stele-examples`](https://github.com/jensvansteen/stele-examples) repository proves this package boundary with a Todo application. It imports no source files from this checkout.
 
@@ -51,7 +52,7 @@ The independent [`stele-examples`](https://github.com/jensvansteen/stele-example
 
 A resolved anchor proves traceability. A passing execution proves the selected test ran. Human review still decides whether the code and test adequately satisfy the prose.
 
-Continue with [Getting started](docs/guide/getting-started.md), or follow [Build a Todo feature](docs/guide/build-todo.md) from an OpenSpec prompt through implementation and evidence. [OpenSpec and Stele](docs/concepts/openspec-and-stele.md), [Plan verification evidence](docs/concepts/verification-evidence.md), and the [CLI reference](docs/reference/cli.md) explain the model in depth. The independent [Todo example](docs/guide/inspect-example.md) shows the completed application and dashboard without requiring you to build it first.
+Continue with [Getting started](docs/guide/getting-started.md), or follow [Build a Todo feature](docs/guide/build-todo.md) from an OpenSpec prompt through implementation and evidence. [OpenSpec and Stele](docs/concepts/openspec-and-stele.md), [Plan verification evidence](docs/concepts/verification-evidence.md), and the [CLI reference](docs/reference/cli.md) explain the model in depth. The independent [Todo example](docs/guide/inspect-example.md) shows a completed application without requiring you to build it first.
 
 Development setup and repository architecture live in [Contributing](CONTRIBUTING.md).
 

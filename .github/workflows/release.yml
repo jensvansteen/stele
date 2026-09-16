@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require a versioned tag on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          node -e "if ('v' + require('./package.json').version !== process.env.GITHUB_REF_NAME) process.exit(1)"
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm install --global npm@11.13.0
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run docs:build
+      - name: Choose npm distribution tag
+        id: channel
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            echo 'npm_tag=next' >> "$GITHUB_OUTPUT"
+            echo 'release_flag=--prerelease' >> "$GITHUB_OUTPUT"
+          else
+            echo 'npm_tag=latest' >> "$GITHUB_OUTPUT"
+            echo 'release_flag=' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish package to npm
+        run: npm publish --access public --tag "${{ steps.channel.outputs.npm_tag }}"
+        env:
+          # The first release needs a temporary npm token. Later releases use
+          # npm trusted publishing with this workflow's GitHub OIDC identity.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+      - name: Create versioned GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_FLAG: ${{ steps.channel.outputs.release_flag }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/stele-darwin-* dist/stele-linux-* \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            $RELEASE_FLAG

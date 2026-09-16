@@ -6,29 +6,27 @@ The private `stele-examples` repository is the package consumer. It is intention
 
 The first example is a plain TypeScript Todo application. Its purpose is to demonstrate the complete verification loop:
 
-Follow the [Todo example walkthrough](/guide/inspect-example) to run it and trace one behavior from OpenSpec prose to generated evidence and the dashboard.
+Follow the [Todo example walkthrough](/guide/inspect-example) to run it and trace one behavior from OpenSpec prose to generated evidence.
 
 1. OpenSpec describes create, complete, filter, and delete behavior.
 2. Each requirement and scenario carries a stable ID.
 3. The linkage plan names expected implementation and test declarations.
 4. Source and tests carry matching anchors.
-5. The installed `stele-spec` tarball runs validation from the example repository.
-6. Generated evidence can be rendered by the report UI.
+5. The installed `stele-spec` npm package runs validation from the example repository.
+6. Generated evidence is available as JSON files for review and CI.
 
 ## Run a local example
 
-Pack Stele first, install the resulting archive in the example repository, then use that repository’s documented development command.
+Install the release candidate from npm in the example repository, then run its documented commands.
 
 ```bash
-# Stele repository
-npm pack --pack-destination ../stele-examples/vendor
-
 # stele-examples repository
-npm install --save-dev ./vendor/stele-spec-0.1.0.tgz
-npx stele validate --json
+npm ci
+npm run todo:check
+npm run todo:dev
 ```
 
-The tarball installation is part of the demonstration: the example must work without importing anything from the Stele checkout.
+The registry installation is part of the demonstration: the example must work without importing anything from the Stele checkout.
 
 ## Add another example
 

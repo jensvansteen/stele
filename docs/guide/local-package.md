@@ -18,7 +18,7 @@ The `prepack` script compiles the Go binaries before npm creates the archive.
 From the consuming repository:
 
 ```bash
-npm install --save-dev ./vendor/stele-spec-0.1.0.tgz
+npm install --save-dev ./vendor/stele-spec-0.1.0-rc.1.tgz
 npx openspec init .
 npx openspec new change todo-basics
 npx stele init --change todo-basics
@@ -42,4 +42,4 @@ Create a new archive and reinstall that file in the consumer. The archive filena
 
 The consumer owns its OpenSpec Markdown, configuration, linkage plan, anchors, tests, and evidence outputs. Version 0.1 consumer source and test anchors are TypeScript; other languages require future adapters.
 
-The current local archive contains a binary for the machine that creates it. Cross-platform registry distribution will require platform-specific npm artifacts or release downloads.
+The archive includes macOS and Linux binaries for ARM64 and x64. Installation selects the matching binary; unsupported platforms fail with a clear error.

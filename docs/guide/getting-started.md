@@ -6,7 +6,7 @@ Stele verifies that plain-English [OpenSpec](https://github.com/Fission-AI/OpenS
 
 - **Build a feature step by step:** follow [Build a Todo feature with OpenSpec and Stele](/guide/build-todo) to start from a plain-English prompt, review the OpenSpec plan, add Stele, implement the code, and produce evidence.
 - **Add verification to an existing project:** continue with the concise setup and implementation steps on this page.
-- **Inspect a finished result:** open the [Todo example walkthrough](/guide/inspect-example) to trace a complete OpenSpec change through its linkage plan, TypeScript anchors, exact tests, generated evidence, and dashboard.
+- **Inspect a finished result:** open the [Todo example walkthrough](/guide/inspect-example) to trace a complete OpenSpec change through its linkage plan, TypeScript anchors, exact tests, and generated evidence.
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ OpenSpec and Stele have separate initialization steps. OpenSpec creates the spec
 Run the complete setup from the root of the project you want to verify:
 
 ```bash
-npm install --save-dev stele-spec
+npm install --save-dev stele-spec@next
 npx openspec init .
 npx openspec new change todo-basics
 npx stele init --change todo-basics
@@ -35,7 +35,7 @@ npx stele init --change todo-basics
 
 These commands are all required for a new project:
 
-1. `npm install --save-dev stele-spec` installs Stele and pins its compatible OpenSpec CLI for local development and CI.
+1. `npm install --save-dev stele-spec@next` installs the release candidate and its compatible OpenSpec CLI for local development and CI. Pin the exact candidate version for reproducible builds.
 2. `npx openspec init .` creates the native OpenSpec workspace.
 3. `npx openspec new change todo-basics` creates the feature change where OpenSpec stores the proposal, specifications, design, and tasks.
 4. `npx stele init --change todo-basics` adds Stele's configuration and project-local skills, then selects that OpenSpec change as the default verification scope.

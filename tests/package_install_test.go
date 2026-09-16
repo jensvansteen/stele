@@ -50,12 +50,30 @@ func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 
 	var packedFiles []struct {
 		Filename string `json:"filename"`
+		Files    []struct {
+			Path string `json:"path"`
+		} `json:"files"`
 	}
 	if err := json.Unmarshal([]byte(pack.stdout), &packedFiles); err != nil {
 		t.Fatalf("decode npm pack output %q: %v", pack.stdout, err)
 	}
 	if len(packedFiles) != 1 || packedFiles[0].Filename == "" {
 		t.Fatalf("expected one packed filename, got %#v", packedFiles)
+	}
+	packagedPaths := make(map[string]bool, len(packedFiles[0].Files))
+	for _, file := range packedFiles[0].Files {
+		packagedPaths[file.Path] = true
+	}
+	for _, path := range []string{
+		"dist/stele-darwin-arm64",
+		"dist/stele-darwin-amd64",
+		"dist/stele-linux-arm64",
+		"dist/stele-linux-amd64",
+		"scripts/select-binary.mjs",
+	} {
+		if !packagedPaths[path] {
+			t.Errorf("packed package is missing %s", path)
+		}
 	}
 
 	consumerRoot := filepath.Join(temporaryRoot, "consumer")
@@ -71,7 +89,6 @@ func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 		npmEnvironment,
 		"npm",
 		"install",
-		"--ignore-scripts",
 		"--no-audit",
 		"--no-fund",
 		filepath.Join(temporaryRoot, packedFiles[0].Filename),
