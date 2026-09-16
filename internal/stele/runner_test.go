@@ -312,18 +312,20 @@ func TestRunScenarioTestsDependencyErrorsAndOrdering(t *testing.T) {
 	})
 	root := fixtureRoot(t)
 	computeScenarioDigest = func(string) (string, error) { return "digest", nil }
-	parseScenarioSpecs = func(string, string) (ParsedSpecs, error) { return ParsedSpecs{}, errors.New("parse failed") }
+	parseScenarioSpecs = func(string, verificationScope) (ParsedSpecs, error) {
+		return ParsedSpecs{}, errors.New("parse failed")
+	}
 	if _, err := RunScenarioTests(root, "example", ""); err == nil {
 		t.Fatal("expected injected parse error")
 	}
-	parseScenarioSpecs = func(string, string) (ParsedSpecs, error) { return ParsedSpecs{}, nil }
+	parseScenarioSpecs = func(string, verificationScope) (ParsedSpecs, error) { return ParsedSpecs{}, nil }
 	scanScenarioAnchors = func(string) ([]Anchor, error) { return nil, errors.New("scan failed") }
 	if _, err := RunScenarioTests(root, "example", ""); err == nil {
 		t.Fatal("expected injected scan error")
 	}
 
 	firstSelector, secondSelector := "first", "second"
-	parseScenarioSpecs = func(string, string) (ParsedSpecs, error) {
+	parseScenarioSpecs = func(string, verificationScope) (ParsedSpecs, error) {
 		return ParsedSpecs{
 			Requirements: []Requirement{{
 				Scenarios: []Scenario{

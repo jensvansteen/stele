@@ -117,7 +117,7 @@ Map each requirement to the declaration expected to enforce it and each scenario
 }
 ```
 
-Save this as `artifacts/linkage-plan.json`, then check the plan:
+Save this as `openspec/changes/todo-basics/linkage-plan.json`, next to the change it plans, then check the plan:
 
 ```bash
 npx stele verify --stage proposal

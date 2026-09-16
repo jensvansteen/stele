@@ -47,10 +47,11 @@ func gitState(root string) (string, bool) {
 }
 
 type linkageValidationInput struct {
-	Mode    string
-	Parsed  ParsedSpecs
-	Anchors []Anchor
-	Plan    LinkagePlan
+	Mode     string
+	Parsed   ParsedSpecs
+	Anchors  []Anchor
+	Plan     LinkagePlan
+	Declared map[string]bool
 }
 
 type reportBuildInput struct {
@@ -73,7 +74,11 @@ type reportContribution struct {
 }
 
 func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
-	parsed, err := ParseSpecs(root, changeID)
+	return verifyScope(root, changeScope(changeID), mode, reportPath)
+}
+
+func verifyScope(root string, scope verificationScope, mode, reportPath string) (Report, error) {
+	parsed, err := parseScopeSpecs(root, scope)
 	if err != nil {
 		return Report{}, err
 	}
@@ -81,13 +86,18 @@ func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	plan := LinkagePlan{Requirements: map[string]string{}, Scenarios: map[string]string{}}
-	_ = readJSON(filepath.Join(root, "artifacts", "linkage-plan.json"), &plan)
+	declared, err := declaredIdentities(root)
+	if err != nil {
+		return Report{}, err
+	}
+	plan, planDiagnostics := loadScopePlan(root, scope)
+	parsed.Diagnostics = append(parsed.Diagnostics, planDiagnostics...)
 	diagnostics := validateLinkage(linkageValidationInput{
-		Mode:    mode,
-		Parsed:  parsed,
-		Anchors: anchors,
-		Plan:    plan,
+		Mode:     mode,
+		Parsed:   parsed,
+		Anchors:  anchors,
+		Plan:     plan,
+		Declared: declared,
 	})
 	inputDigest, err := ComputeInputDigest(root)
 	if err != nil {
@@ -98,7 +108,7 @@ func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
 	if readJSON(filepath.Join(root, "artifacts", "test-results.json"), &loaded) {
 		evidence = &loaded
 	}
-	report := BuildReport(root, changeID, mode, inputDigest, parsed, anchors, plan, diagnostics, evidence)
+	report := BuildReport(root, scope.changeID, mode, inputDigest, parsed, anchors, plan, diagnostics, evidence)
 	if reportPath != "" {
 		absolute := resolveWithin(root, reportPath)
 		if err := writeJSON(absolute, report); err != nil {
@@ -111,7 +121,7 @@ func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
 func validateLinkage(input linkageValidationInput) []Diagnostic {
 	diagnostics := append([]Diagnostic{}, input.Parsed.Diagnostics...)
 	known := knownIdentities(input.Parsed)
-	diagnostics = append(diagnostics, anchorDiagnostics(input.Mode, input.Anchors, known)...)
+	diagnostics = append(diagnostics, anchorDiagnostics(input.Mode, input.Anchors, known, input.Declared)...)
 	for _, requirement := range input.Parsed.Requirements {
 		diagnostics = append(diagnostics, requirementLinkDiagnostics(input, requirement)...)
 		for _, scenario := range requirement.Scenarios {
@@ -139,9 +149,13 @@ func knownIdentities(parsed ParsedSpecs) map[string]bool {
 	return known
 }
 
-func anchorDiagnostics(mode string, anchors []Anchor, known map[string]bool) []Diagnostic {
+func anchorDiagnostics(mode string, anchors []Anchor, known, declared map[string]bool) []Diagnostic {
 	diagnostics := make([]Diagnostic, 0)
 	for _, anchor := range anchors {
+		if !known[anchor.ID] && declared[anchor.ID] {
+			// The identity belongs to another change or to the current specifications.
+			continue
+		}
 		if !known[anchor.ID] {
 			diagnostics = append(diagnostics, diagnostic(
 				"ANCHOR_DANGLING",

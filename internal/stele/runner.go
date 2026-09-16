@@ -30,7 +30,7 @@ var errUnsupportedTestExtension = errors.New("unsupported test file extension")
 
 var (
 	computeScenarioDigest = ComputeInputDigest
-	parseScenarioSpecs    = ParseSpecs
+	parseScenarioSpecs    = parseScopeSpecs
 	scanScenarioAnchors   = ScanAnchors
 )
 
@@ -70,11 +70,15 @@ func scenarioAnchorSortKey(anchor Anchor) string {
 }
 
 func RunScenarioTests(root, changeID, evidencePath string) (Evidence, error) {
+	return runScopeTests(root, changeScope(changeID), evidencePath)
+}
+
+func runScopeTests(root string, scope verificationScope, evidencePath string) (Evidence, error) {
 	inputDigest, err := computeScenarioDigest(root)
 	if err != nil {
 		return Evidence{}, err
 	}
-	parsed, err := parseScenarioSpecs(root, changeID)
+	parsed, err := parseScenarioSpecs(root, scope)
 	if err != nil {
 		return Evidence{}, err
 	}

@@ -15,8 +15,14 @@ interface VerificationReport {
 
 const ROOT: string = path.resolve(import.meta.dirname, "..");
 
+// node:test sets NODE_TEST_CONTEXT for its children, which makes a nested
+// `node --test` report to this process instead of printing TAP for Stele.
+const CLI_ENV: NodeJS.ProcessEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([name]: readonly [string, string | undefined]): boolean => name !== "NODE_TEST_CONTEXT"),
+);
+
 function cli(args: readonly string[]): SpawnSyncReturns<string> {
-  return spawnSync("dist/stele", args, { cwd: ROOT, encoding: "utf8" });
+  return spawnSync("dist/stele", args, { cwd: ROOT, encoding: "utf8", env: CLI_ENV });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -127,4 +133,68 @@ void test("omits volatile metadata from the deterministic payload", async (conte
   const report: VerificationReport = parseVerificationReport(result.stdout);
   assert.equal("generatedAt" in report, false);
   assert.equal("recordedAt" in report.stages.execution, false);
+});
+
+const OPENSPEC_CLI: string = path.join(ROOT, "node_modules/@fission-ai/openspec/bin/openspec.js");
+
+async function writeProjectFile(root: string, relative: string, lines: readonly string[]): Promise<void> {
+  const target: string = path.join(root, relative);
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  await fs.writeFile(target, lines.join("\n"));
+}
+
+// @verifies scn.verificationscope.8b577e9712e7.e2e
+void test("verifies current specifications after archiving", async (context: TestContext): Promise<void> => {
+  const root: string = await fs.mkdtemp(path.join(os.tmpdir(), "stele-cli-archive-"));
+  context.after((): Promise<void> => fs.rm(root, { recursive: true }));
+  const change = "openspec/changes/todo-basics";
+  await writeProjectFile(root, "package.json", ['{ "type": "module" }', ""]);
+  await writeProjectFile(root, "openspec/config.yaml", ["schema: spec-driven", ""]);
+  await fs.mkdir(path.join(root, "openspec/specs"), { recursive: true });
+  await writeProjectFile(root, `${change}/proposal.md`, [
+    "## Why", "", "Users need to record todos before they can manage their work.", "",
+    "## What Changes", "", "- Add a todo from entered text.", "",
+  ]);
+  await writeProjectFile(root, `${change}/tasks.md`, ["## 1. Work", "", "- [x] 1.1 Add todos", ""]);
+  await writeProjectFile(root, `${change}/specs/todo/spec.md`, [
+    "## Purpose", "", "Let users keep a small list of todos in the example application.", "",
+    "## ADDED Requirements", "",
+    "### Requirement: Add a todo", "Verification-ID: req.todo.0123456789ab", "",
+    "The application SHALL add a todo from entered text.", "",
+    "#### Scenario: Save entered text", "Verification-ID: scn.todo.abcdef012345", "",
+    "- **WHEN** a user enters a todo", "- **THEN** the todo is saved", "",
+  ]);
+  await writeProjectFile(root, `${change}/linkage-plan.json`, [JSON.stringify({
+    schemaVersion: 1,
+    changeId: "todo-basics",
+    requirements: { "req.todo.0123456789ab": "src/todo.mts#addTodo" },
+    scenarios: { "scn.todo.abcdef012345": "tests/todo.test.mts#saves entered text" },
+  }), ""]);
+  await writeProjectFile(root, "src/todo.mts", [
+    "// @" + "implements req.todo.0123456789ab",
+    "export function addTodo(text: string): { text: string } { return { text }; }",
+    "",
+  ]);
+  await writeProjectFile(root, "tests/todo.test.mts", [
+    'import assert from "node:assert/strict";',
+    'import test from "node:test";',
+    'import { addTodo } from "../src/todo.mts";',
+    "// @" + "verifies scn.todo.abcdef012345.e2e",
+    'void test("saves entered text", (): void => { assert.equal(addTodo("ship").text, "ship"); });',
+    "",
+  ]);
+
+  const archived: SpawnSyncReturns<string> = spawnSync(
+    "node",
+    [OPENSPEC_CLI, "archive", "todo-basics", "--yes"],
+    { cwd: root, encoding: "utf8", env: { ...process.env, OPENSPEC_TELEMETRY: "0" } },
+  );
+  assert.equal(archived.status, 0, archived.stdout + archived.stderr);
+
+  const verified: SpawnSyncReturns<string> = cli(["verify", "--specs", "--root", root, "--json"]);
+  assert.equal(verified.status, 0, verified.stdout);
+  assert.equal(parseVerificationReport(verified.stdout).verdict, "pass");
+
+  const validated: SpawnSyncReturns<string> = cli(["validate", "--specs", "--root", root]);
+  assert.equal(validated.status, 0, validated.stdout + validated.stderr);
 });

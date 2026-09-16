@@ -181,7 +181,7 @@ func TestVerificationAndTestCommands(t *testing.T) {
 		{"json pass", passReport, true, 0},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			verifyProject = func(string, string, string, string) (Report, error) { return test.report, nil }
+			verifyProject = func(string, verificationScope, string, string) (Report, error) { return test.report, nil }
 			var stdout bytes.Buffer
 			code := verifyCommand(options{json: test.json}, &stdout, io.Discard)
 			if code != test.code || stdout.Len() == 0 {
@@ -189,7 +189,7 @@ func TestVerificationAndTestCommands(t *testing.T) {
 			}
 		})
 	}
-	verifyProject = func(string, string, string, string) (Report, error) {
+	verifyProject = func(string, verificationScope, string, string) (Report, error) {
 		return Report{}, errors.New("verify failed")
 	}
 	if code := verifyCommand(options{}, io.Discard, io.Discard); code != 2 {
@@ -215,7 +215,9 @@ func TestVerificationAndTestCommands(t *testing.T) {
 		{"json pass", passEvidence, true, 0},
 	} {
 		t.Run("test "+test.name, func(t *testing.T) {
-			runProjectScenarios = func(string, string, string) (Evidence, error) { return test.evidence, nil }
+			runProjectScenarios = func(string, verificationScope, string) (Evidence, error) {
+				return test.evidence, nil
+			}
 			var stdout bytes.Buffer
 			code := testCommand(options{json: test.json}, &stdout, io.Discard)
 			if code != test.code || stdout.Len() == 0 {
@@ -223,7 +225,7 @@ func TestVerificationAndTestCommands(t *testing.T) {
 			}
 		})
 	}
-	runProjectScenarios = func(string, string, string) (Evidence, error) {
+	runProjectScenarios = func(string, verificationScope, string) (Evidence, error) {
 		return Evidence{}, errors.New("test failed")
 	}
 	if code := testCommand(options{}, io.Discard, io.Discard); code != 2 {
@@ -241,16 +243,18 @@ func TestValidateCommand(t *testing.T) {
 	passReport := Report{Verdict: "pass"}
 	passReport.Summary.Requirements, passReport.Summary.Scenarios = 1, 1
 	passEvidence := Evidence{Outcome: "passed", Scenarios: []ScenarioOutcome{{ID: "a", Outcome: "passed"}}}
-	runProjectScenarios = func(string, string, string) (Evidence, error) { return passEvidence, nil }
-	verifyProject = func(string, string, string, string) (Report, error) { return passReport, nil }
-	validateProjectOpenSpec = func(string, string) (bool, error) { return true, nil }
+	runProjectScenarios = func(string, verificationScope, string) (Evidence, error) { return passEvidence, nil }
+	verifyProject = func(string, verificationScope, string, string) (Report, error) { return passReport, nil }
+	validateProjectOpenSpec = func(string, verificationScope) (bool, error) { return true, nil }
 	for _, jsonOutput := range []bool{false, true} {
 		var stdout bytes.Buffer
 		if code := validateCommand(options{json: jsonOutput}, &stdout, io.Discard); code != 0 || stdout.Len() == 0 {
 			t.Fatalf("validate pass = %d, %q", code, stdout.String())
 		}
 	}
-	validateProjectOpenSpec = func(string, string) (bool, error) { return false, errors.New("openspec failed") }
+	validateProjectOpenSpec = func(string, verificationScope) (bool, error) {
+		return false, errors.New("openspec failed")
+	}
 	code := validateCommand(
 		options{evidencePath: "e.json", reportPath: "r.json"},
 		io.Discard,
@@ -259,14 +263,14 @@ func TestValidateCommand(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("validate OpenSpec failure = %d", code)
 	}
-	runProjectScenarios = func(string, string, string) (Evidence, error) {
+	runProjectScenarios = func(string, verificationScope, string) (Evidence, error) {
 		return Evidence{}, errors.New("scenario failed")
 	}
 	if code := validateCommand(options{}, io.Discard, io.Discard); code != 2 {
 		t.Fatalf("validate scenario error = %d", code)
 	}
-	runProjectScenarios = func(string, string, string) (Evidence, error) { return passEvidence, nil }
-	verifyProject = func(string, string, string, string) (Report, error) {
+	runProjectScenarios = func(string, verificationScope, string) (Evidence, error) { return passEvidence, nil }
+	verifyProject = func(string, verificationScope, string, string) (Report, error) {
 		return Report{}, errors.New("verify failed")
 	}
 	if code := validateCommand(options{}, io.Discard, io.Discard); code != 2 {
@@ -279,11 +283,11 @@ func TestRunOpenSpec(t *testing.T) {
 	originalExecutable := executablePath
 	t.Cleanup(func() { executablePath = originalExecutable })
 	executablePath = func() (string, error) { return "", errors.New("executable failed") }
-	if _, err := runOpenSpec(root, "example"); err == nil {
+	if _, err := runOpenSpec(root, changeScope("example")); err == nil {
 		t.Fatal("expected executable error")
 	}
 	executablePath = originalExecutable
-	if _, err := runOpenSpec(root, "example"); err == nil {
+	if _, err := runOpenSpec(root, changeScope("example")); err == nil {
 		t.Fatal("expected missing OpenSpec error")
 	}
 	writeFixture(t, root, "node_modules/@fission-ai/openspec/bin/openspec.js", "placeholder")
@@ -297,12 +301,12 @@ func TestRunOpenSpec(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin)
-	passed, err := runOpenSpec(root, "example")
+	passed, err := runOpenSpec(root, changeScope("example"))
 	if err != nil || !passed {
 		t.Fatalf("runOpenSpec success = %v, %v", passed, err)
 	}
 	t.Setenv("STELE_FAKE_EXIT", "1")
-	if _, err := runOpenSpec(root, "example"); err == nil || !strings.Contains(err.Error(), "validated") {
+	if _, err := runOpenSpec(root, changeScope("example")); err == nil || !strings.Contains(err.Error(), "validated") {
 		t.Fatalf("expected validation output, got %v", err)
 	}
 }
@@ -315,9 +319,13 @@ func TestRunRoutesCommandsAndConfigurationErrors(t *testing.T) {
 		validateProjectOpenSpec = originalOpenSpec
 	})
 	root := completeFixture(t, false)
-	verifyProject = func(string, string, string, string) (Report, error) { return Report{Verdict: "pass"}, nil }
-	runProjectScenarios = func(string, string, string) (Evidence, error) { return Evidence{Outcome: "passed"}, nil }
-	validateProjectOpenSpec = func(string, string) (bool, error) { return true, nil }
+	verifyProject = func(string, verificationScope, string, string) (Report, error) {
+		return Report{Verdict: "pass"}, nil
+	}
+	runProjectScenarios = func(string, verificationScope, string) (Evidence, error) {
+		return Evidence{Outcome: "passed"}, nil
+	}
+	validateProjectOpenSpec = func(string, verificationScope) (bool, error) { return true, nil }
 	for _, command := range []string{"verify", "test", "validate"} {
 		code := Run(
 			[]string{command, "--root", root, "--change", "example", "--json"},

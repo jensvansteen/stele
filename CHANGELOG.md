@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added `--specs` to `verify`, `test`, and `validate` to keep verifying behavior after `openspec archive`, using the combined plans of archived changes.
+- Each change now reads its own `openspec/changes/<change>/linkage-plan.json`, falling back to `artifacts/linkage-plan.json`. **Breaking:** a plan whose `changeId` names another change now fails with `PLAN_CHANGE_MISMATCH`; move each change's entries into its own directory.
+- Anchors for IDs declared by other changes or by the current specifications no longer count as `ANCHOR_DANGLING`.
 - Fixed test anchors on `void test(...)` and `await test(...)` calls, the form used in the Build a Todo guide, which previously reported `ANCHOR_TARGET_MISSING`.
 - TypeScript annotations are now read only from comments. Anchor text inside string and template literals no longer creates anchors.
 

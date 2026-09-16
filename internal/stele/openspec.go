@@ -11,7 +11,7 @@ import (
 
 var executablePath = os.Executable
 
-func runOpenSpec(root, changeID string) (bool, error) {
+func runOpenSpec(root string, scope verificationScope) (bool, error) {
 	executable, err := executablePath()
 	if err != nil {
 		return false, err
@@ -30,7 +30,11 @@ func runOpenSpec(root, changeID string) (bool, error) {
 		return false, errors.New("OpenSpec CLI was not found in the Stele package or consumer project")
 	}
 
-	command := exec.Command("node", cli, "validate", changeID, "--strict", "--no-interactive")
+	arguments := []string{cli, "validate", scope.changeID, "--strict", "--no-interactive"}
+	if scope.currentSpecs {
+		arguments = []string{cli, "validate", "--specs", "--strict", "--no-interactive"}
+	}
+	command := exec.Command("node", arguments...)
 	command.Dir = root
 	command.Env = append(os.Environ(), "OPENSPEC_TELEMETRY=0")
 	output, runErr := command.CombinedOutput()

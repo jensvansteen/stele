@@ -117,7 +117,7 @@ Before implementation, add the verification strategy to `design.md`:
 | `scn.todo.1b2c3d4e5f60` | unit | pure Todo creation | Blank-input rejection is deterministic logic. |
 ```
 
-Then create `artifacts/linkage-plan.json` with the exact declarations and tests you intend to write:
+Then create `openspec/changes/todo-basics/linkage-plan.json` with the exact declarations and tests you intend to write. The plan lives with the change, so `openspec archive` keeps it:
 
 ```json
 {
@@ -204,6 +204,22 @@ Validation now combines three results:
 
 The command exits with `0` only when every required check passes. It writes reproducible evidence under `artifacts/`. A reviewer still decides whether the implementation and tests adequately satisfy the English behavior.
 
-## 9. Continue into the complete application
+## 9. Archive and keep verifying
+
+When the change is done, archive it:
+
+```bash
+npx openspec archive todo-basics
+```
+
+OpenSpec moves the requirements into `openspec/specs/` and the change, including its linkage plan, into `openspec/changes/archive/`. Keep verifying the archived behavior:
+
+```bash
+npx stele validate --specs
+```
+
+`--specs` checks every requirement in `openspec/specs/` against the plans of archived changes. Later changes can then be verified with `--change` while the archived behavior stays checked.
+
+## 10. Continue into the complete application
 
 This walkthrough implemented one pure behavior. The finished example adds completion, deletion, filtering, and a browser UI. Follow [Inspect the finished Todo example](/guide/inspect-example) to compare its OpenSpec artifacts, anchors, and evidence with the small project you just built.

@@ -158,6 +158,8 @@ type typeScriptLexer struct {
 
 // typeScriptCommentText returns, for every line, only the text inside comments,
 // so annotations spelled in string or template literals are never matched.
+//
+// @implements req.tsanchors.c02ad141ee6a
 func typeScriptCommentText(lines []string) []string {
 	lexer := typeScriptLexer{state: lexCode}
 	comments := make([]string, len(lines))
@@ -301,6 +303,7 @@ func declarationSelector(line, kind string) string {
 	return codeSelector(line)
 }
 
+// @implements req.tsanchors.3529ec7b6931
 func testSelector(line string) string {
 	match := typeScriptTestPattern.FindStringSubmatch(line)
 	if match == nil {

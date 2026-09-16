@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "changeId": "add-go-support",
+  "requirements": {
+    "req.gosupport.4c353f2b171a": "internal/stele/goanchors.go#scanGoAnchorFile",
+    "req.gosupport.d8c058038daa": "internal/stele/gorunner.go#executeGoTest"
+  },
+  "scenarios": {
+    "scn.gosupport.203331e4d990": "internal/stele/gorunner_test.go#TestExecuteExactGoTestDetectsNoMatchingExecution",
+    "scn.gosupport.208b6a95ea3f": "internal/stele/gorunner_test.go#TestExecuteExactGoTestFails",
+    "scn.gosupport.29a77eab096c": "internal/stele/goanchors_test.go#TestScanAnchorsLeavesUnattachedGoAnchorsUnresolved",
+    "scn.gosupport.2c88ed381429": "tests/cli.test.mts#runs TypeScript and Go scenario tests together",
+    "scn.gosupport.351e919a25ad": "internal/stele/goanchors_test.go#TestScanAnchorsIgnoresGoStringLiterals",
+    "scn.gosupport.4a0637d44b7a": "internal/stele/gorunner_test.go#TestExecuteExactGoTestAppliesBuildConstraints",
+    "scn.gosupport.75d202e0ed36": "internal/stele/gorunner_test.go#TestExecuteExactGoTestReportsSkip",
+    "scn.gosupport.7798d2c7e562": "internal/stele/goanchors_test.go#TestScanAnchorsResolvesGoDeclarations",
+    "scn.gosupport.8954a51cba0f": "internal/stele/goanchors_test.go#TestVerifyRejectsInvalidGoSource",
+    "scn.gosupport.9bd4f6844031": "internal/stele/goanchors_test.go#TestScanAnchorsResolvesGoTestFunctions",
+    "scn.gosupport.d195095fc292": "internal/stele/gorunner_test.go#TestExecuteExactGoTestPasses"
+  }
+}
