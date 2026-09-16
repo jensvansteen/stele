@@ -21,6 +21,7 @@ func TestCLIHasStableExitCodes(t *testing.T) {
 	}
 }
 
+// @verifies scn.init.cbf5781012fa.unit
 func TestInitializeWritesConfigAndSkills(t *testing.T) {
 	root := fixtureRoot(t)
 	created, err := Initialize(root, "example")
@@ -36,6 +37,8 @@ func TestInitializeWritesConfigAndSkills(t *testing.T) {
 	}
 }
 
+// @verifies scn.init.e841b29256e0.unit.2
+// @verifies scn.init.754fd262e114.unit
 func TestRunHandlesHelpVersionAndInitialization(t *testing.T) {
 	for _, argument := range []string{"", "help", "--help", "-h"} {
 		var stdout, stderr bytes.Buffer
@@ -233,6 +236,7 @@ func TestVerificationAndTestCommands(t *testing.T) {
 	}
 }
 
+// @verifies scn.validate.d9553f1a4c1c.unit
 func TestValidateCommand(t *testing.T) {
 	originalVerify, originalScenarios, originalOpenSpec := verifyProject, runProjectScenarios, validateProjectOpenSpec
 	t.Cleanup(func() {
@@ -255,13 +259,15 @@ func TestValidateCommand(t *testing.T) {
 	validateProjectOpenSpec = func(string, verificationScope) (bool, error) {
 		return false, errors.New("openspec failed")
 	}
+	var failure bytes.Buffer
 	code := validateCommand(
 		options{evidencePath: "e.json", reportPath: "r.json"},
-		io.Discard,
+		&failure,
 		io.Discard,
 	)
-	if code != 1 {
-		t.Fatalf("validate OpenSpec failure = %d", code)
+	if code != 1 || !strings.Contains(failure.String(), "✗ OpenSpec strict validation failed") ||
+		!strings.Contains(failure.String(), "✓ scenario execution passed") {
+		t.Fatalf("validate OpenSpec failure = %d, %q", code, failure.String())
 	}
 	runProjectScenarios = func(string, verificationScope, string) (Evidence, error) {
 		return Evidence{}, errors.New("scenario failed")

@@ -198,3 +198,85 @@ void test("verifies current specifications after archiving", async (context: Tes
   const validated: SpawnSyncReturns<string> = cli(["validate", "--specs", "--root", root]);
   assert.equal(validated.status, 0, validated.stdout + validated.stderr);
 });
+
+interface ScenarioEvidence {
+  readonly outcome: string;
+  readonly scenarios: readonly { readonly id: string; readonly outcome: string }[];
+}
+
+function parseScenarioEvidence(value: string): ScenarioEvidence {
+  const parsed: unknown = JSON.parse(value);
+  assert.ok(isRecord(parsed));
+  assert.ok(typeof parsed.outcome === "string");
+  const scenarios: unknown = parsed.scenarios;
+  assert.ok(isUnknownArray(scenarios));
+  return {
+    outcome: parsed.outcome,
+    scenarios: scenarios.map((entry: unknown): { id: string; outcome: string } => {
+      assert.ok(isRecord(entry));
+      assert.ok(typeof entry.id === "string");
+      assert.ok(typeof entry.outcome === "string");
+      return { id: entry.id, outcome: entry.outcome };
+    }),
+  };
+}
+
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
+
+// @verifies scn.gosupport.2c88ed381429.e2e
+void test("runs TypeScript and Go scenario tests together", async (context: TestContext): Promise<void> => {
+  const root: string = await fs.mkdtemp(path.join(os.tmpdir(), "stele-cli-mixed-"));
+  context.after((): Promise<void> => fs.rm(root, { recursive: true }));
+  await writeProjectFile(root, "package.json", ['{ "type": "module" }', ""]);
+  await writeProjectFile(root, "go.mod", ["module example.com/mixed", "", "go 1.22", ""]);
+  await writeProjectFile(root, "openspec/changes/mixed/specs/mixed/spec.md", [
+    "### Requirement: Mix languages", "Verification-ID: req.mixed.0123456789ab",
+    "#### Scenario: TypeScript behavior", "Verification-ID: scn.mixed.111111111111",
+    "#### Scenario: Go behavior", "Verification-ID: scn.mixed.222222222222",
+    "",
+  ]);
+  await writeProjectFile(root, "openspec/changes/mixed/linkage-plan.json", [JSON.stringify({
+    schemaVersion: 1,
+    changeId: "mixed",
+    requirements: { "req.mixed.0123456789ab": "internal/mixed/mixed.go#Double" },
+    scenarios: {
+      "scn.mixed.111111111111": "tests/mixed.test.mts#runs in node",
+      "scn.mixed.222222222222": "internal/mixed/mixed_test.go#TestDouble",
+    },
+  }), ""]);
+  await writeProjectFile(root, "internal/mixed/mixed.go", [
+    "package mixed", "",
+    "// @" + "implements req.mixed.0123456789ab",
+    "func Double(value int) int { return value * 2 }", "",
+  ]);
+  await writeProjectFile(root, "internal/mixed/mixed_test.go", [
+    "package mixed", "", 'import "testing"', "",
+    "// @" + "verifies scn.mixed.222222222222.unit",
+    "func TestDouble(t *testing.T) {",
+    "\tif Double(2) != 4 {",
+    '\t\tt.Fatal("double failed")',
+    "\t}",
+    "}", "",
+  ]);
+  await writeProjectFile(root, "tests/mixed.test.mts", [
+    'import assert from "node:assert/strict";',
+    'import test from "node:test";',
+    "// @" + "verifies scn.mixed.111111111111.unit",
+    'void test("runs in node", (): void => { assert.equal(1 + 1, 2); });',
+    "",
+  ]);
+
+  const tested: SpawnSyncReturns<string> = cli(["test", "--root", root, "--change", "mixed", "--json"]);
+  assert.equal(tested.status, 0, tested.stdout + tested.stderr);
+  const evidence: ScenarioEvidence = parseScenarioEvidence(tested.stdout);
+  assert.equal(evidence.outcome, "passed");
+  assert.deepEqual(evidence.scenarios, [
+    { id: "scn.mixed.111111111111", outcome: "passed" },
+    { id: "scn.mixed.222222222222", outcome: "passed" },
+  ]);
+
+  const verified: SpawnSyncReturns<string> = cli(["verify", "--root", root, "--change", "mixed", "--json"]);
+  assert.equal(verified.status, 0, verified.stdout);
+});

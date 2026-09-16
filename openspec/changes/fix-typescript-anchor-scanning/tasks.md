@@ -6,7 +6,7 @@
 
 - [x] 1.1 Accept `void` and `await` prefixes in the test declaration pattern; verify `TestScanAnchorsResolvesExpressionTestCalls` and `TestScanAnchorsIgnoresOtherExpressionCalls` pass
 - [x] 1.2 Add the comment-aware lexer and match annotations only in comment text; verify `TestScanAnchorsIgnoresTypeScriptStringLiterals` and `TestScanAnchorsReadsEveryCommentForm` pass and existing anchor tests still pass
-- [ ] 1.3 Add `@verifies` comments for this change's planned tests; verify `npm run stele -- verify --change fix-typescript-anchor-scanning` passes with the local build
+- [x] 1.3 Add `@verifies` comments for this change's planned tests; verify `npm run stele -- verify --change fix-typescript-anchor-scanning` passes with the local build
 
 ## 2. Documentation and gate
 

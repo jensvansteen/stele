@@ -30,9 +30,23 @@ var (
 
 const declarationSearchLines = 6
 
+var anchorScanRoots = []string{"bin", "cmd", "internal", "pkg", "src", "public", "tools", "scripts", "tests"}
+
+// rootGoFiles lists Go files directly in the repository root, without recursing.
+func rootGoFiles(root string) []string {
+	entries, _ := os.ReadDir(root)
+	files := make([]string, 0)
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".go") {
+			files = append(files, filepath.Join(root, entry.Name()))
+		}
+	}
+	return files
+}
+
 func supportedSource(path string) bool {
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".ts", ".tsx", ".mts":
+	case ".ts", ".tsx", ".mts", ".go":
 		return true
 	default:
 		return false
@@ -41,6 +55,9 @@ func supportedSource(path string) bool {
 
 func isTestFile(path string) bool {
 	name := strings.ToLower(filepath.Base(path))
+	if strings.HasSuffix(name, ".go") {
+		return strings.HasSuffix(name, "_test.go")
+	}
 	return strings.Contains(name, ".test.") || strings.Contains(name, ".spec.")
 }
 
@@ -49,9 +66,10 @@ type anchorFile struct {
 	kind string
 }
 
-// ScanAnchors finds explicit Stele annotations in TypeScript files and binds
+// ScanAnchors finds explicit Stele annotations in TypeScript and Go files and binds
 // them to nearby implementation or test declarations. Unsupported file types
 // are ignored; the scanner does not infer behavior from code.
+// @implements req.verify.43d1d0d9f883
 func ScanAnchors(root string) ([]Anchor, error) {
 	files := discoverAnchorFiles(root)
 	anchors := make([]Anchor, 0)
@@ -72,7 +90,7 @@ func ScanAnchors(root string) ([]Anchor, error) {
 func discoverAnchorFiles(root string) []anchorFile {
 	codeSet := make(map[string]struct{})
 	testSet := make(map[string]struct{})
-	for _, directory := range []string{"bin", "cmd", "internal", "src", "public", "tools", "scripts", "tests"} {
+	for _, directory := range anchorScanRoots {
 		for _, file := range walkFiles(filepath.Join(root, directory), supportedSource) {
 			if isTestFile(file) {
 				testSet[file] = struct{}{}
@@ -81,6 +99,13 @@ func discoverAnchorFiles(root string) []anchorFile {
 			if directory != "tests" {
 				codeSet[file] = struct{}{}
 			}
+		}
+	}
+	for _, file := range rootGoFiles(root) {
+		if isTestFile(file) {
+			testSet[file] = struct{}{}
+		} else {
+			codeSet[file] = struct{}{}
 		}
 	}
 	for _, name := range []string{"server.ts", "server.tsx", "server.mts"} {
@@ -118,6 +143,9 @@ func scanAnchorFile(root string, file anchorFile) ([]Anchor, error) {
 		return nil, err
 	}
 
+	if strings.EqualFold(filepath.Ext(file.path), ".go") {
+		return scanGoAnchorFile(filepath.ToSlash(relative), content, file.kind)
+	}
 	lines := strings.Split(strings.ReplaceAll(string(content), "\r\n", "\n"), "\n")
 	anchors := make([]Anchor, 0)
 	for lineIndex, comment := range typeScriptCommentText(lines) {

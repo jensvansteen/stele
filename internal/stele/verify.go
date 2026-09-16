@@ -73,6 +73,7 @@ type reportContribution struct {
 	ExecutionOutcomes []string
 }
 
+// @implements req.verify.1d6031f2d3dd
 func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
 	return verifyScope(root, changeScope(changeID), mode, reportPath)
 }
@@ -553,6 +554,7 @@ func writeJSON(path string, value any) error {
 	return os.WriteFile(path, content, 0o644)
 }
 
+// @implements req.verify.aa9f017c4cb4
 func MarshalDeterministic(value any) ([]byte, error) {
 	content, err := marshalJSON(value, "", "  ")
 	if err != nil {

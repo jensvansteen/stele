@@ -7,7 +7,7 @@ description: Plans deterministic verification for OpenSpec scenarios. Use after 
 
 Read the selected OpenSpec proposal, delta specs, and design before editing code.
 
-For every requirement `Verification-ID`, choose the TypeScript declaration expected to implement it and record the exact `path#selector` target in `artifacts/linkage-plan.json`.
+For every requirement `Verification-ID`, choose the TypeScript or Go declaration expected to implement it and record the exact `path#selector` target in `openspec/changes/<change>/linkage-plan.json`. For Go, the selector is a function, `Type.Method`, or type name.
 
 For every scenario `Verification-ID`, choose the lowest test level that proves the behavior: unit for pure logic, integration for a system boundary, and end-to-end for a critical complete user journey.
 

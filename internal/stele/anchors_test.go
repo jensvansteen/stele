@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+// @verifies scn.verify.36f0ef1f337f.unit
 func TestScanAnchorsResolvesTypeScriptDeclarations(t *testing.T) {
 	root := fixtureRoot(t)
 	writeFixture(t, root, "src/store.ts", `// @implements req.demo.aaaaaaaaaaaa
@@ -107,14 +108,13 @@ describe("not an exact test", () => {})
 	}
 }
 
-func TestSupportedSourceUsesTypeScriptConsumerScope(t *testing.T) {
-	for _, path := range []string{"source.ts", "component.tsx", "module.mts", "UPPER.TS"} {
+func TestSupportedSourceUsesConsumerScope(t *testing.T) {
+	for _, path := range []string{"source.ts", "component.tsx", "module.mts", "UPPER.TS", "source.go"} {
 		if !supportedSource(path) {
 			t.Errorf("expected %s to be supported", path)
 		}
 	}
 	for _, path := range []string{
-		"source.go",
 		"source.js",
 		"source.jsx",
 		"source.mjs",
@@ -127,10 +127,10 @@ func TestSupportedSourceUsesTypeScriptConsumerScope(t *testing.T) {
 	}
 }
 
+// @verifies scn.verify.0d43596abe4a.unit
 func TestScanAnchorsIgnoresUnsupportedConsumerLanguages(t *testing.T) {
 	root := fixtureRoot(t)
 	for _, path := range []string{
-		"src/source.go",
 		"src/source.js",
 		"src/source.jsx",
 		"src/source.mjs",

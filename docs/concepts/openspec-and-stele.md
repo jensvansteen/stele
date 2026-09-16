@@ -15,7 +15,7 @@ OpenSpec remains the only behavioral canon. Stele reads it through an adapter an
 
 OpenSpec's specification artifacts are plain Markdown and can describe a project implemented in any programming language. Node is the runtime for the OpenSpec CLI, not a restriction on the codebase being specified.
 
-Stele's first release has a narrower execution boundary: it resolves TypeScript anchors and runs exact TypeScript tests. Go was chosen to implement the Stele verifier itself. That implementation choice does not limit OpenSpec and does not imply that Stele currently verifies Go projects. Future adapters extend Stele's deterministic code and test integration without changing the OpenSpec workflow.
+Stele has a narrower execution boundary: it resolves TypeScript and Go anchors and runs exact TypeScript and Go tests. Stele itself is written in Go and verifies its own behavior with these adapters. Future adapters extend Stele's deterministic code and test integration without changing the OpenSpec workflow.
 
 ## The dependency direction
 

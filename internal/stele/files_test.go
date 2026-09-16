@@ -50,6 +50,18 @@ func TestComputeInputDigestTracksAcceptedInputs(t *testing.T) {
 	if second == third {
 		t.Fatal("accepted input did not change the digest")
 	}
+	previous := third
+	for _, path := range []string{"pkg/lib/lib.go", "main.go", "main_test.go"} {
+		writeFixture(t, root, path, "package demo\n")
+		next, err := ComputeInputDigest(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if next == previous {
+			t.Fatalf("Go input %s did not change the digest", path)
+		}
+		previous = next
+	}
 }
 
 func TestComputeInputDigestReturnsPathAndReadErrors(t *testing.T) {

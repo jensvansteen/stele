@@ -40,6 +40,6 @@ Create a new archive and reinstall that file in the consumer. The archive filena
 - the repository-local skill templates embedded in the Go binary;
 - the documentation source.
 
-The consumer owns its OpenSpec Markdown, configuration, linkage plan, anchors, tests, and evidence outputs. Version 0.1 consumer source and test anchors are TypeScript; other languages require future adapters.
+The consumer owns its OpenSpec Markdown, configuration, linkage plan, anchors, tests, and evidence outputs. Consumer source and test anchors can be TypeScript or Go; other languages require future adapters.
 
 The archive includes macOS and Linux binaries for ARM64 and x64. Installation selects the matching binary; unsupported platforms fail with a clear error.

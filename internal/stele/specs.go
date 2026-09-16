@@ -48,6 +48,7 @@ func diagnostic(code, severity, message, path string, line int, identity string)
 	return Diagnostic{Code: code, Severity: severity, Message: message, IdentityID: identityID, Source: source}
 }
 
+// @implements req.verify.9dbf2146c01f
 func ParseSpecs(root, changeID string) (ParsedSpecs, error) {
 	return parseScopeSpecs(root, changeScope(changeID))
 }

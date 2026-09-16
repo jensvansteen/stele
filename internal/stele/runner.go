@@ -69,6 +69,7 @@ func scenarioAnchorSortKey(anchor Anchor) string {
 	return anchor.Path + ":" + pointerValue(anchor.Selector) + ":" + anchor.ID
 }
 
+// @implements req.execution.f9056cdc6fe6
 func RunScenarioTests(root, changeID, evidencePath string) (Evidence, error) {
 	return runScopeTests(root, changeScope(changeID), evidencePath)
 }
@@ -150,6 +151,8 @@ func executeTestGroup(root string, group testGroup) TestExecution {
 	switch {
 	case errors.Is(err, errUnsupportedTestExtension):
 		execution.Reason = stringPointer("unsupported-test-extension")
+	case errors.Is(err, errTestSkipped):
+		execution.Reason = stringPointer("test-skipped")
 	case err != nil:
 		execution.Reason = stringPointer("test-process-failed")
 	case !executed:
@@ -180,7 +183,10 @@ func scenarioOutcomes(parsed ParsedSpecs, executions []TestExecution) []Scenario
 	outcomes := make(map[string]string)
 	for _, execution := range executions {
 		for _, id := range execution.ScenarioIDs {
-			outcomes[id] = execution.Outcome
+			// A scenario passes only when every test linked to it passed.
+			if outcomes[id] == "" || outcomes[id] == "passed" {
+				outcomes[id] = execution.Outcome
+			}
 		}
 	}
 
@@ -214,9 +220,14 @@ func executeExactTest(root, path, selector string) (bool, bool, error) {
 	switch filepath.Ext(path) {
 	case ".mts", ".ts":
 		return executeNodeTest(root, path, selector)
+	case ".go":
+		if strings.HasSuffix(path, "_test.go") {
+			return executeGoTest(root, path, selector)
+		}
+		fallthrough
 	default:
 		return false, false, fmt.Errorf(
-			"%w %q; supported extensions: .mts, .ts",
+			"%w %q; supported extensions: .mts, .ts, _test.go",
 			errUnsupportedTestExtension,
 			filepath.Ext(path),
 		)

@@ -20,6 +20,8 @@ type commandResult struct {
 	err    error
 }
 
+// @verifies scn.init.cbf5781012fa.e2e
+// @verifies scn.validate.10388560c2dc.e2e
 func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 	repositoryRoot := testRepositoryRoot(t)
 	temporaryRoot, err := os.MkdirTemp("", "stele-package-")

@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+// @verifies scn.init.e841b29256e0.unit
 func TestInitializeIsIdempotent(t *testing.T) {
 	root := fixtureRoot(t)
 	created, err := Initialize(root, "example")

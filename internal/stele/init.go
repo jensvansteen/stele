@@ -15,6 +15,7 @@ var readSkillTemplate = skillTemplates.ReadFile
 
 var marshalConfig = json.MarshalIndent
 
+// @implements req.init.eed35c447821
 func Initialize(root, changeID string) ([]string, error) {
 	created := make([]string, 0)
 	configPath := filepath.Join(root, "stele.config.json")

@@ -56,6 +56,7 @@ var (
 	validateProjectOpenSpec = runOpenSpec
 )
 
+// @implements req.verify.999a5d082295
 func Run(arguments []string, stdout, stderr io.Writer) int {
 	if len(arguments) == 0 {
 		writeHelp(stdout)
@@ -254,6 +255,7 @@ func renderScenarioExecution(stdout io.Writer, evidence Evidence) {
 	)
 }
 
+// @implements req.validate.56cc774dc871
 func validateCommand(parsed options, stdout, stderr io.Writer) int {
 	setDefaultOutputPaths(&parsed)
 	evidence, err := runProjectScenarios(parsed.root, resolveScope(parsed), parsed.evidencePath)
