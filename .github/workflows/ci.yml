@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -22,6 +24,14 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Check branch, pull request, and commit conventions
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BRANCH: ${{ github.head_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/check-conventions.mts ci
       - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.13.2

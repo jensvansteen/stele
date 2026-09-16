@@ -41,7 +41,7 @@ Stele turns plain-English software behavior into a maintainable evidence graph. 
 </div>
 
 ```bash
-npm install --save-dev stele-spec
+npm install --save-dev stele-spec@next
 npx openspec init .
 npx openspec new change todo-basics
 npx stele init --change todo-basics

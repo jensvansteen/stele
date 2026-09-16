@@ -2,7 +2,7 @@
 
 This walkthrough starts with a behavior idea, plans it in OpenSpec, adds Stele's deterministic verification plan, and only then writes the TypeScript implementation and test. It covers one small Todo behavior so every artifact remains easy to inspect.
 
-For a shortcut to the finished browser application and evidence dashboard, use [Inspect the finished Todo example](/guide/inspect-example).
+For a shortcut to the finished browser application and evidence files, use [Inspect the finished Todo example](/guide/inspect-example).
 
 ## 1. Create the project and OpenSpec change
 
@@ -10,7 +10,7 @@ Start in a new TypeScript project:
 
 ```bash
 npm init -y
-npm install --save-dev stele-spec
+npm install --save-dev stele-spec@next
 npx openspec init .
 npx openspec new change todo-basics
 ```
@@ -206,4 +206,4 @@ The command exits with `0` only when every required check passes. It writes repr
 
 ## 9. Continue into the complete application
 
-This walkthrough implemented one pure behavior. The finished example adds completion, deletion, filtering, a browser UI, end-to-end recordings, and an evidence dashboard. Follow [Inspect the finished Todo example](/guide/inspect-example) to compare its OpenSpec artifacts, anchors, evidence, and presentation with the small project you just built.
+This walkthrough implemented one pure behavior. The finished example adds completion, deletion, filtering, and a browser UI. Follow [Inspect the finished Todo example](/guide/inspect-example) to compare its OpenSpec artifacts, anchors, and evidence with the small project you just built.

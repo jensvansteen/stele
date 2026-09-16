@@ -1,6 +1,6 @@
 {
   "name": "stele-spec",
-  "version": "0.1.0",
+  "version": "0.1.0-rc.1",
   "packageManager": "npm@11.13.0",
   "type": "module",
   "bin": {
@@ -8,12 +8,22 @@
     "stele": "./dist/stele"
   },
   "description": "Maintain software from plain-English specifications with deterministic implementation evidence",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jensvansteen/stele"
+  },
+  "homepage": "https://jensvansteen.github.io/stele/",
+  "bugs": "https://github.com/jensvansteen/stele/issues",
+  "keywords": ["openspec", "specification", "verification", "traceability", "typescript"],
   "engines": {
     "node": ">=24.0.0",
     "npm": ">=11.0.0"
   },
+  "os": ["darwin", "linux"],
+  "cpu": ["arm64", "x64"],
   "files": [
     "dist/",
+    "scripts/select-binary.mjs",
     "docs/.vitepress/",
     "docs/concepts/",
     "docs/guide/",
@@ -25,6 +35,8 @@
   ],
   "scripts": {
     "build": "node scripts/build-go.mts",
+    "prepare": "git config --local core.hooksPath .githooks",
+    "postinstall": "node scripts/select-binary.mjs",
     "docs:build": "vitepress build docs",
     "docs:dev": "vitepress dev docs",
     "docs:preview": "vitepress preview docs",
