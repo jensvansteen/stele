@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "changeId": "baseline-verification-core",
+  "requirements": {
+    "req.execution.7e4755bd8f60": "internal/stele/files.go#ComputeInputDigest",
+    "req.execution.f9056cdc6fe6": "internal/stele/runner.go#RunScenarioTests",
+    "req.init.eed35c447821": "internal/stele/init.go#Initialize",
+    "req.validate.56cc774dc871": "internal/stele/cli.go#validateCommand",
+    "req.verify.1d6031f2d3dd": "internal/stele/verify.go#RunVerification",
+    "req.verify.43d1d0d9f883": "internal/stele/anchors.go#ScanAnchors",
+    "req.verify.999a5d082295": "internal/stele/cli.go#Run",
+    "req.verify.9dbf2146c01f": "internal/stele/specs.go#ParseSpecs",
+    "req.verify.aa9f017c4cb4": "internal/stele/verify.go#MarshalDeterministic"
+  },
+  "scenarios": {
+    "scn.execution.8371d74b5134": "internal/stele/runner_test.go#TestExecuteNodeTestDetectsNoMatchingExecution",
+    "scn.execution.a70f24b45cfe": "internal/stele/verify_test.go#TestBuildReportTracksEvidenceAndDiagnostics",
+    "scn.execution.a9dde959cf57": "internal/stele/runner_test.go#TestExecuteExactTestRejectsUnsupportedExtensions",
+    "scn.execution.bce9246e1444": "internal/stele/runner_test.go#TestExecuteExactTypeScriptTest",
+    "scn.init.754fd262e114": "internal/stele/cli_test.go#TestRunHandlesHelpVersionAndInitialization",
+    "scn.init.cbf5781012fa": "internal/stele/cli_test.go#TestInitializeWritesConfigAndSkills",
+    "scn.init.e841b29256e0": "internal/stele/init_test.go#TestInitializeIsIdempotent",
+    "scn.validate.10388560c2dc": "tests/package_install_test.go#TestPackedPackageInitializesAndValidatesSeparateConsumer",
+    "scn.validate.d9553f1a4c1c": "internal/stele/cli_test.go#TestValidateCommand",
+    "scn.verify.0d43596abe4a": "internal/stele/anchors_test.go#TestScanAnchorsIgnoresUnsupportedConsumerLanguages",
+    "scn.verify.14c6b4fe39bc": "internal/stele/verify_test.go#TestRunVerificationProposalPlans",
+    "scn.verify.36f0ef1f337f": "internal/stele/anchors_test.go#TestScanAnchorsResolvesTypeScriptDeclarations",
+    "scn.verify.3a70c9d1ef24": "tests/cli.test.mts#omits volatile metadata from the deterministic payload",
+    "scn.verify.5e9a130cd7b4": "tests/cli.test.mts#exposes an executable verify command",
+    "scn.verify.6c22483ab3c3": "internal/stele/specs_test.go#TestParseSpecsPreservesRelationships",
+    "scn.verify.a2c7e48b610f": "tests/cli.test.mts#returns stable failure exit codes",
+    "scn.verify.c4db6a432869": "internal/stele/verify_test.go#TestRunVerificationRejectsMismatchedTarget",
+    "scn.verify.c5fd3656da59": "internal/stele/specs_test.go#TestParseSpecsReportsAllShapeDiagnostics",
+    "scn.verify.d6f8012b3ea5": "tests/cli.test.mts#emits identical default JSON for identical inputs"
+  }
+}

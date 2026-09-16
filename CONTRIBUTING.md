@@ -39,7 +39,14 @@ The package distribution smoke test uses the `integration` build tag because it 
 
 Changes to verification behavior need meaningful tests for both success and failure paths. The coverage gate requires 100% statement coverage for the Go core, while assertions and review remain responsible for test quality. `golangci-lint` 2.13.2 enforces Go formatting, correctness, modernization, and readability rules. ESLint, the TypeScript compiler, and `type-coverage` enforce the corresponding MTS quality gates.
 
-Consumer fixtures use TypeScript or Go. Preserve their existing behavioral IDs. Code that implements a requirement uses `@implements req.…` beside a compatible declaration; a test that verifies a scenario uses `@verifies scn.…` beside an independently selectable named test, a TypeScript `test(...)` call or a Go `TestXxx` function. Stele verifies its own Go implementation this way: plan changes under `openspec/changes/`, then run `npm run stele -- validate --change <change>` with the local build.
+Consumer fixtures use TypeScript or Go. Preserve their existing behavioral IDs. Code that implements a requirement uses `@implements req.…` beside a compatible declaration; a test that verifies a scenario uses `@verifies scn.…` beside an independently selectable named test, a TypeScript `test(...)` call or a Go `TestXxx` function. Stele verifies its own implementation this way, using the published package pinned as the `stele-published` development dependency:
+
+1. Plan a change under `openspec/changes/<change>/`: proposal, delta specs with Verification-IDs, a design with an approved verification table, tasks, and the change's own `linkage-plan.json`. Check it with `npm run stele:published -- verify --stage proposal --change <change>`.
+2. Implement it across one or more pull requests. Until a release contains the behavior the change relies on, check it with the local build: `npm run stele -- validate --change <change>`.
+3. Archive the change with `npx openspec archive <change>` once all its tasks are complete, usually in the pull request that finishes it. OpenSpec merges its specs into `openspec/specs/` and moves the change, including its linkage plan, to `openspec/changes/archive/`.
+4. `npm run verify:self` builds the CLI under test and runs `stele validate --specs` with the published package, verifying all archived behavior.
+
+`stele.config.json` has no default change, so plain `stele verify` requires `--change` or `--specs`.
 
 See [Build a verified change](docs/guide/verified-change.md) for the complete workflow.
 
