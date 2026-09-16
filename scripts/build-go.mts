@@ -4,6 +4,7 @@ import path from "node:path";
 
 const root: string = path.resolve(import.meta.dirname, "..");
 const dist: string = path.join(root, "dist");
+const hostArchitecture: string = process.arch === "x64" ? "amd64" : process.arch;
 const targets: readonly (readonly [string, string])[] = [
   ["darwin", "arm64"],
   ["darwin", "amd64"],
@@ -29,7 +30,7 @@ for (const [platform, architecture] of targets) {
     process.exitCode = result.status ?? 2;
     break;
   }
-  if (platform === process.platform && architecture === process.arch) {
+  if (platform === process.platform && architecture === hostArchitecture) {
     copyFileSync(output, path.join(dist, "stele"));
   }
 }

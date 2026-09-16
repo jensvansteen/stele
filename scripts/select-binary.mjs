@@ -3,7 +3,8 @@ import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 const dist = path.join(root, "dist");
-const source = path.join(dist, `stele-${process.platform}-${process.arch}`);
+const architecture = process.arch === "x64" ? "amd64" : process.arch;
+const source = path.join(dist, `stele-${process.platform}-${architecture}`);
 
 // Source checkouts are installed before their first build. Packed packages must
 // contain the selected binary, and installs fail visibly if they do not.
