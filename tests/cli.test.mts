@@ -53,19 +53,19 @@ async function passingFixture(context: TestContext): Promise<string> {
     "- **THEN** the todo is saved",
     "",
   ].join("\n"));
-  await fs.writeFile(path.join(root, "src/todo.mts"), "// @implements req.todo.0123456789ab\nexport function addTodo(text: string): { text: string } { return { text }; }\n");
+  await fs.writeFile(path.join(root, "src/todo.mts"), "// @" + "implements req.todo.0123456789ab\nexport function addTodo(text: string): { text: string } { return { text }; }\n");
   await fs.writeFile(path.join(root, "tests/todo.test.mts"), [
     'import assert from "node:assert/strict";',
     'import test from "node:test";',
     'import { addTodo } from "../src/todo.mts";',
-    "// @verifies scn.todo.abcdef012345",
+    "// @" + "verifies scn.todo.abcdef012345",
     'test("saves entered text", () => assert.equal(addTodo("ship").text, "ship"));',
     "",
   ].join("\n"));
   return root;
 }
 
-// @verifies scn.verify.5e9a130cd7b4
+// @verifies scn.verify.5e9a130cd7b4.e2e
 void test("exposes an executable verify command", async (context: TestContext): Promise<void> => {
   const root: string = await passingFixture(context);
   const result: SpawnSyncReturns<string> = cli([
@@ -82,7 +82,7 @@ void test("exposes an executable verify command", async (context: TestContext): 
   assert.equal(report.verdict, "pass");
 });
 
-// @verifies scn.verify.a2c7e48b610f
+// @verifies scn.verify.a2c7e48b610f.e2e
 void test("returns stable failure exit codes", async (context: TestContext): Promise<void> => {
   const root: string = await fs.mkdtemp(path.join(os.tmpdir(), "stele-cli-fail-"));
   context.after((): Promise<void> => fs.rm(root, { recursive: true }));
@@ -102,7 +102,7 @@ void test("returns stable failure exit codes", async (context: TestContext): Pro
   assert.equal(invocationFailure.status, 2);
 });
 
-// @verifies scn.verify.d6f8012b3ea5
+// @verifies scn.verify.d6f8012b3ea5.e2e
 void test("emits identical default JSON for identical inputs", async (context: TestContext): Promise<void> => {
   const root: string = await passingFixture(context);
   const args: readonly string[] = ["verify", "--root", root, "--change", "example", "--json"];
@@ -113,7 +113,7 @@ void test("emits identical default JSON for identical inputs", async (context: T
   assert.equal(first.stdout, second.stdout);
 });
 
-// @verifies scn.verify.3a70c9d1ef24
+// @verifies scn.verify.3a70c9d1ef24.e2e
 void test("omits volatile metadata from the deterministic payload", async (context: TestContext): Promise<void> => {
   const root: string = await passingFixture(context);
   const result: SpawnSyncReturns<string> = cli([
