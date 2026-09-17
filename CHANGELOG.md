@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added `stele ids`, which inserts deterministic, collision-checked Verification-IDs into a change's delta specs. `--check` reports missing IDs for CI, and `--json` lists them.
+- `stele init` now sets up OpenSpec when the project has none, using the bundled OpenSpec CLI (`--tools` chooses its tools), forks a `stele` workflow schema with a `verification` planning step, and merges Stele guidance into `openspec/config.yaml`. `--refresh-schema` re-forks the schema.
+- `stele init` installs the `stele-propose`, `stele-apply`, and `stele-archive` skills as the default entry points, next to the rewritten `stele-plan` and `stele-verify` reference skills.
+- `stele init --change` is now optional. Without a default change, `verify`, `test`, and `validate` need `--change` or `--specs`.
 - `verify`, `test`, and `validate` now stop with exit code `2` when the selected change has no delta specs or `--specs` finds no current specifications. Previously `verify` passed with zero requirements.
 - Linked Node tests no longer inherit `NODE_TEST_CONTEXT`, so Stele records them correctly when it runs inside `node --test`.
 

@@ -275,3 +275,40 @@ void test("runs TypeScript and Go scenario tests together", async (context: Test
   const verified: SpawnSyncReturns<string> = cli(["verify", "--root", root, "--change", "mixed", "--json"]);
   assert.equal(verified.status, 0, verified.stdout);
 });
+
+// @verifies scn.ids.83b2e0efd623.e2e
+void test("inserts and checks verification IDs", async (context: TestContext): Promise<void> => {
+  const root: string = await fs.mkdtemp(path.join(os.tmpdir(), "stele-cli-ids-"));
+  context.after((): Promise<void> => fs.rm(root, { recursive: true }));
+  const specPath: string = path.join(root, "openspec/changes/draft/specs/todo/spec.md");
+  await fs.mkdir(path.dirname(specPath), { recursive: true });
+  await fs.writeFile(specPath, [
+    "## ADDED Requirements",
+    "",
+    "### Requirement: Add a todo",
+    "The application SHALL add a todo.",
+    "",
+    "#### Scenario: Save entered text",
+    "- **WHEN** a user enters a todo",
+    "- **THEN** the todo is saved",
+    "",
+  ].join("\n"));
+  const scope: readonly string[] = ["--root", root, "--change", "draft"];
+
+  const missing: SpawnSyncReturns<string> = cli(["ids", ...scope, "--check"]);
+  assert.equal(missing.status, 1, missing.stderr);
+  assert.match(missing.stdout, /2 headings lack a Verification-ID/v);
+
+  const inserted: SpawnSyncReturns<string> = cli(["ids", ...scope]);
+  assert.equal(inserted.status, 0, inserted.stderr);
+  const content: string = await fs.readFile(specPath, "utf8");
+  assert.match(content, /### Requirement: Add a todo\nVerification-ID: req\.todo\.[a-f0-9]{12}\n/v);
+  assert.match(content, /#### Scenario: Save entered text\nVerification-ID: scn\.todo\.[a-f0-9]{12}\n/v);
+
+  const checked: SpawnSyncReturns<string> = cli(["ids", ...scope, "--check"]);
+  assert.equal(checked.status, 0, checked.stdout);
+
+  const proposal: SpawnSyncReturns<string> = cli(["verify", ...scope, "--stage", "proposal", "--json"]);
+  assert.equal(parseVerificationReport(proposal.stdout).schemaVersion.length > 0, true);
+  assert.doesNotMatch(proposal.stdout, /ID_(?:REQUIREMENT|SCENARIO)_MISSING/v);
+});

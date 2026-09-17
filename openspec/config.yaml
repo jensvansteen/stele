@@ -1,4 +1,21 @@
-schema: spec-driven
+schema: stele
+operations:
+  apply:
+    guidance:
+      - "Stele: before the first task, confirm the verification levels with the
+        user as the approval step in the stele-plan skill describes."
+      - "Stele: add @implements and @verifies anchors while writing code and
+        tests, as the stele-verify skill describes."
+      - "Stele: run `stele validate --change <change>` and fix failures before
+        reporting the change done."
+  archive:
+    guidance:
+      - "Stele: `stele validate --change <change>` must pass before archiving."
+      - "Stele: after archiving, run `stele validate --specs`."
+rules:
+  verification:
+    - "Stele: follow the stele-plan skill for levels, rationale, advisory
+      placement, and the plan format."
 
 # Project context (optional)
 # This is shown to AI when creating artifacts.

@@ -28,13 +28,31 @@ func TestInitializeWritesConfigAndSkills(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(created) != 3 {
-		t.Fatalf("expected config plus two skills, got %#v", created)
+	if len(created) != 1+len(steleSkills) {
+		t.Fatalf("expected config plus five skills, got %#v", created)
 	}
-	if !fileExists(root+"/.agents/skills/stele-plan/SKILL.md") ||
-		!fileExists(root+"/.agents/skills/stele-verify/SKILL.md") {
-		t.Fatalf("skills were not installed")
+	for _, skill := range steleSkills {
+		if !fileExists(filepath.Join(root, ".agents", "skills", skill, "SKILL.md")) {
+			t.Fatalf("skill %s was not installed", skill)
+		}
 	}
+	if !directoryExists(filepath.Join(root, "artifacts")) {
+		t.Fatal("artifacts directory was not created")
+	}
+}
+
+// stubOpenSpecSetup replaces the OpenSpec backend setup for unit tests and
+// records the options it received.
+func stubOpenSpecSetup(t *testing.T, notes []string, err error) *[]openSpecSetup {
+	t.Helper()
+	original := setUpOpenSpec
+	t.Cleanup(func() { setUpOpenSpec = original })
+	calls := make([]openSpecSetup, 0)
+	setUpOpenSpec = func(_ string, setup openSpecSetup) ([]string, error) {
+		calls = append(calls, setup)
+		return notes, err
+	}
+	return &calls
 }
 
 // @verifies scn.init.e841b29256e0.unit.2
@@ -62,12 +80,20 @@ func TestRunHandlesHelpVersionAndInitialization(t *testing.T) {
 		}
 	}
 
-	root := fixtureRoot(t)
+	stubOpenSpecSetup(t, nil, nil)
+	bare := fixtureRoot(t)
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"init", "--root", root}, &stdout, &stderr)
-	if code != 2 || !strings.Contains(stderr.String(), "--change is required") {
-		t.Fatalf("missing-change init = %d, %q, %q", code, stdout.String(), stderr.String())
+	code := Run([]string{"init", "--root", bare}, &stdout, &stderr)
+	if code != 0 || !strings.Contains(stdout.String(), "Initialized Stele") {
+		t.Fatalf("init without a change = %d, %q, %q", code, stdout.String(), stderr.String())
 	}
+	stdout.Reset()
+	code = Run([]string{"verify", "--root", bare}, &stdout, &stderr)
+	if code != 2 || !strings.Contains(stderr.String(), "no OpenSpec change selected") {
+		t.Fatalf("bare verify after init = %d, %q, %q", code, stdout.String(), stderr.String())
+	}
+
+	root := fixtureRoot(t)
 	stderr.Reset()
 	code = Run([]string{"init", "--root", root, "--change", "example"}, &stdout, &stderr)
 	if code != 0 || !strings.Contains(stdout.String(), "Initialized Stele") {
@@ -85,6 +111,40 @@ func TestRunHandlesHelpVersionAndInitialization(t *testing.T) {
 	)
 	if code != 2 {
 		t.Fatalf("failing init exit = %d", code)
+	}
+}
+
+// @verifies scn.init.c8813c799047.unit
+func TestInitPrintsDefaultWorkflow(t *testing.T) {
+	calls := stubOpenSpecSetup(t, []string{"Installed the stele workflow schema in openspec/schemas/stele."}, nil)
+	var stdout bytes.Buffer
+	root := fixtureRoot(t)
+	if code := Run([]string{"init", "--root", root, "--tools", "claude,cursor", "--refresh-schema"},
+		&stdout, io.Discard); code != 0 {
+		t.Fatalf("init = %d", code)
+	}
+	if len(*calls) != 1 || (*calls)[0] != (openSpecSetup{tools: "claude,cursor", refreshSchema: true}) {
+		t.Fatalf("setup options = %#v", *calls)
+	}
+	assertOrdered(t, stdout.String(),
+		"Initialized Stele:",
+		"Installed the stele workflow schema",
+		"stele-propose, stele-apply, and stele-archive skills",
+		"Using OpenSpec skills directly?",
+		"stele ids, then stele verify --stage proposal",
+		"stele validate --change <change>",
+		"stele validate --specs",
+		"openspec config profile",
+	)
+
+	stdout.Reset()
+	if code := Run([]string{"init", "--root", root}, &stdout, io.Discard); code != 0 {
+		t.Fatalf("second init = %d", code)
+	}
+	if (*calls)[1] != (openSpecSetup{tools: defaultOpenSpecTools}) ||
+		!strings.Contains(stdout.String(), "already initialized") ||
+		!strings.Contains(stdout.String(), "stele-propose") {
+		t.Fatalf("second init = %#v, %q", (*calls)[1], stdout.String())
 	}
 }
 

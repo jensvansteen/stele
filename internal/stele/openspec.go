@@ -11,10 +11,12 @@ import (
 
 var executablePath = os.Executable
 
-func runOpenSpec(root string, scope verificationScope) (bool, error) {
+// openSpecCLI locates the OpenSpec CLI bundled with the Stele package, falling
+// back to the consumer project's own pinned installation.
+func openSpecCLI(root string) (string, error) {
 	executable, err := executablePath()
 	if err != nil {
-		return false, err
+		return "", err
 	}
 	if resolved, resolveErr := filepath.EvalSymlinks(executable); resolveErr == nil {
 		executable = resolved
@@ -27,19 +29,36 @@ func runOpenSpec(root string, scope verificationScope) (bool, error) {
 	}
 	cli := firstExistingPath(candidates)
 	if cli == "" {
-		return false, errors.New("OpenSpec CLI was not found in the Stele package or consumer project")
+		return "", errors.New("OpenSpec CLI was not found in the Stele package or consumer project")
 	}
+	return cli, nil
+}
 
-	arguments := []string{cli, "validate", scope.changeID, "--strict", "--no-interactive"}
-	if scope.currentSpecs {
-		arguments = []string{cli, "validate", "--specs", "--strict", "--no-interactive"}
+// runBundledOpenSpec runs the pinned OpenSpec CLI in root and returns its
+// combined output.
+func runBundledOpenSpec(root string, arguments ...string) (string, error) {
+	cli, err := openSpecCLI(root)
+	if err != nil {
+		return "", err
 	}
-	command := exec.Command("node", arguments...)
+	command := exec.Command("node", append([]string{cli}, arguments...)...)
 	command.Dir = root
 	command.Env = append(os.Environ(), "OPENSPEC_TELEMETRY=0")
 	output, runErr := command.CombinedOutput()
-	if runErr != nil {
-		return false, fmt.Errorf("OpenSpec validation failed: %s", strings.TrimSpace(string(output)))
+	return strings.TrimSpace(string(output)), runErr
+}
+
+func runOpenSpec(root string, scope verificationScope) (bool, error) {
+	arguments := []string{"validate", scope.changeID, "--strict", "--no-interactive"}
+	if scope.currentSpecs {
+		arguments = []string{"validate", "--specs", "--strict", "--no-interactive"}
+	}
+	output, err := runBundledOpenSpec(root, arguments...)
+	if err != nil {
+		if output == "" {
+			return false, err
+		}
+		return false, fmt.Errorf("OpenSpec validation failed: %s", output)
 	}
 	return true, nil
 }

@@ -47,7 +47,7 @@ The scanners prove that an explicit anchor resolves to a nearby declaration. It 
 
 ## Skills
 
-`stele init` writes versioned planning and verification skills into the consuming repository. Agents can read the same project-local workflow instructions without requiring a provider-specific service. The CLI remains the authority for deterministic results.
+`stele init` writes versioned lifecycle, planning, and verification skills into the consuming repository and extends the project's OpenSpec setup with a `stele` workflow schema and configuration guidance, using the OpenSpec CLI bundled with the package. Agents can read the same project-local workflow instructions without requiring a provider-specific service. The CLI remains the authority for deterministic results.
 
 ## Consumer boundary
 

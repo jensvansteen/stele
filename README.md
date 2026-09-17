@@ -24,19 +24,22 @@ OpenSpec remains the behavioral source of truth. Stele reports planning, linkage
 
 ## Get started
 
-Install the release candidate in the project that owns the OpenSpec change:
+Install the release candidate and let Stele set up the project:
 
 ```bash
 npm install --save-dev stele-spec@next
-npx openspec init .
-npx openspec new change my-change
-npx stele init --change my-change
-npx stele verify --stage proposal --json
-# Add IDs, a linkage plan, implementation anchors, and test anchors.
-npx stele validate
+npx stele init
 ```
 
-OpenSpec initialization and change creation are required native OpenSpec steps. `stele init` then adds Stele configuration and repository-local skills and selects the existing change; it does not replace OpenSpec's authoring workflow. `stele verify --stage proposal` checks that the proposed verification plan is complete before implementation starts. After the anchors and tests exist, `stele validate` runs the complete deterministic check.
+`stele init` initializes OpenSpec with the bundled, pinned CLI when the project has none, adds the Stele workflow schema and guidance to OpenSpec, and installs the Stele skills. Then ask your coding agent to plan a change with the `stele-propose` skill:
+
+```text
+Use stele-propose to plan a change that lets a user add a todo from non-empty text.
+```
+
+The agent writes the OpenSpec proposal, specifications with Verification-IDs (`stele ids`), a design with a verification table, and a linkage plan, and stops for your review. `stele-apply` asks you to confirm the verification levels before it implements anything and finishes with `stele validate --change <change>`. `stele-archive` archives the change only after validation passes.
+
+Prefer OpenSpec's own skills? They keep working: the `stele` schema adds the planning step to new changes. See [Use Stele with OpenSpec](docs/guide/openspec.md).
 
 The installed dependency pins Stele and its compatible OpenSpec CLI for both local use and CI. For reproducible CI builds, pin the exact release candidate version. To test an unreleased checkout without publishing it, create and install a tarball as described in [Use a local package](docs/guide/local-package.md).
 
@@ -45,7 +48,7 @@ The independent [`stele-examples`](https://github.com/jensvansteen/stele-example
 ## Verification loop
 
 1. Write the feature as OpenSpec requirements and concrete scenarios.
-2. Add one immutable `req.<namespace>.<token>` ID to each requirement and one `scn.<namespace>.<token>` ID to each scenario.
+2. Run `stele ids` to give each requirement an immutable `req.<namespace>.<token>` ID and each scenario an `scn.<namespace>.<token>` ID.
 3. Plan the source declaration and test selector for every ID.
 4. Put `@implements <requirement-id>` beside the code declaration and `@verifies <scenario-id>` beside the named test.
 5. Run `stele validate`. Stele checks OpenSpec, resolves the anchors, runs every scenario test by its exact selector, and binds the result to the relevant input digest.

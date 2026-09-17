@@ -15,6 +15,13 @@ var readSkillTemplate = skillTemplates.ReadFile
 
 var marshalConfig = json.MarshalIndent
 
+// steleSkills lists the lifecycle entry points first, then the reference skills.
+var steleSkills = []string{"stele-propose", "stele-apply", "stele-archive", "stele-plan", "stele-verify"}
+
+// Initialize writes the Stele configuration, installs the Stele skills, and
+// ensures the artifacts directory exists. An empty changeID leaves the
+// configuration without a default change.
+//
 // @implements req.init.eed35c447821
 func Initialize(root, changeID string) ([]string, error) {
 	created := make([]string, 0)
@@ -30,7 +37,24 @@ func Initialize(root, changeID string) ([]string, error) {
 		}
 		created = append(created, "stele.config.json")
 	}
-	for _, skill := range []string{"stele-plan", "stele-verify"} {
+	installed, err := installSkills(root)
+	if err != nil {
+		return nil, err
+	}
+	created = append(created, installed...)
+	if err := os.MkdirAll(filepath.Join(root, "artifacts"), 0o755); err != nil {
+		return nil, err
+	}
+	return created, nil
+}
+
+// installSkills installs every missing Stele skill and leaves existing skill
+// files, including project skills, unchanged.
+//
+// @implements req.lifecycle.4c9232a6cf44
+func installSkills(root string) ([]string, error) {
+	created := make([]string, 0)
+	for _, skill := range steleSkills {
 		destination := filepath.Join(root, ".agents", "skills", skill, "SKILL.md")
 		if fileExists(destination) {
 			continue
@@ -45,11 +69,7 @@ func Initialize(root, changeID string) ([]string, error) {
 		if err := os.WriteFile(destination, content, 0o644); err != nil {
 			return nil, err
 		}
-		relative, _ := filepath.Rel(root, destination)
-		created = append(created, filepath.ToSlash(relative))
-	}
-	if err := os.MkdirAll(filepath.Join(root, "artifacts"), 0o755); err != nil {
-		return nil, err
+		created = append(created, filepath.ToSlash(filepath.Join(".agents", "skills", skill, "SKILL.md")))
 	}
 	return created, nil
 }

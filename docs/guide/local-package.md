@@ -19,13 +19,10 @@ From the consuming repository:
 
 ```bash
 npm install --save-dev ./vendor/stele-spec-0.1.0-rc.2.tgz
-npx openspec init .
-npx openspec new change todo-basics
-npx stele init --change todo-basics
-npx stele verify --stage proposal --json
+npx stele init
 ```
 
-The native OpenSpec steps create the specification workspace and feature change. `stele init` then configures Stele for that existing change. Continue with the [complete project setup](/guide/getting-started#build-it-yourself-complete-project-setup).
+`stele init` sets up OpenSpec and Stele with the packaged CLIs. Continue with [Getting started](/guide/getting-started#plan-a-change-with-your-agent).
 
 This is preferable to a filesystem link for the package-boundary test. It reveals missing packaged files, incorrect relative paths, and executable assumptions that a symlink can hide.
 
