@@ -21,4 +21,4 @@
 - [x] 3.1 Update the CLI reference, the architecture page, the IDs and anchors page, and the changelog to describe Go consumers; verify `npm run docs:build` passes
 - [x] 3.2 Add `@implements` and `@verifies` comments for this change's planned targets; verify `npm run stele -- verify --change add-go-support` passes with the local build
 - [x] 3.3 Run `npm run verify`; verify it passes with exactly 100% core coverage
-- [ ] 3.4 After a release that contains this change, verify `npm run stele:published -- validate --change add-go-support` exits with `0`
+- [x] 3.4 After a release that contains this change, verify `npm run stele:published -- validate --change add-go-support` exits with `0`

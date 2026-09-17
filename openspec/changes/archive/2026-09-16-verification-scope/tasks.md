@@ -19,4 +19,4 @@
 
 - [x] 3.1 Document `--specs`, per-change plans, and the dangling-anchor rule in the CLI reference, getting started, the Build a Todo guide, and the changelog; verify `npm run docs:build` passes
 - [x] 3.2 Add anchors for this change's planned targets and run `npm run verify`; verify it passes with exactly 100% core coverage and `npm run stele -- verify --change verification-scope` passes with the local build
-- [ ] 3.3 After a release that contains this change, split this repository's plan into per-change plans, archive `baseline-verification-core`, and verify `npm run stele:published -- verify --specs` passes
+- [x] 3.3 After a release that contains this change, split this repository's plan into per-change plans, archive `baseline-verification-core`, and verify `npm run stele:published -- verify --specs` passes

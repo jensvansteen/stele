@@ -14,7 +14,7 @@
 
 ## 3. Evidence after dependencies ship
 
-- [ ] 3.1 After a published release selects `void test(...)` declarations, confirm the four Node scenarios execute with `npm run stele:published -- test`
-- [ ] 3.2 After `add-go-support` ships in a published release, add `@implements` comments to the planned Go declarations and `@verifies` comments to the planned Go tests; verify `npm run stele:published -- verify` passes
+- [x] 3.1 After a published release selects `void test(...)` declarations, confirm the four Node scenarios execute with `npm run stele:published -- test`
+- [x] 3.2 After `add-go-support` ships in a published release, add `@implements` comments to the planned Go declarations and `@verifies` comments to the planned Go tests; verify `npm run stele:published -- verify` passes
 - [x] 3.3 Close the test gap for `scn.validate.d9553f1a4c1c` by asserting that the failing check is named; verify the test fails when the name is removed
-- [ ] 3.4 Run `npm run stele:published -- validate`; verify it exits with `0`
+- [x] 3.4 Run `npm run stele:published -- validate`; verify it exits with `0`

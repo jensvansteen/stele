@@ -66,3 +66,6 @@ jobs:
         run: npm run docs:build
       - name: Verify packed npm boundary
         run: npm pack --dry-run
+      - name: Verify Stele's archived behavior with the published Stele
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run verify:self

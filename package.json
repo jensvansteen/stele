@@ -71,7 +71,8 @@
     "prepack": "npm run build",
     "stele": "npm run build --silent && ./dist/stele",
     "verify": "npm run lint && npm test",
-    "stele:published": "stele"
+    "stele:published": "stele",
+    "verify:self": "npm run build --silent && stele validate --specs"
   },
   "dependencies": {
     "@fission-ai/openspec": "1.13.0"
@@ -79,7 +80,7 @@
   "devDependencies": {
     "@types/node": "26.5.1",
     "eslint": "10.10.0",
-    "stele-published": "npm:stele-spec@0.1.0-rc.1",
+    "stele-published": "npm:stele-spec@0.1.0-rc.2",
     "type-coverage": "2.30.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.0",
