@@ -142,12 +142,7 @@ func loadApprovalDocuments(root string, scope verificationScope) ([]*planDocumen
 			scenarios[scenario.ID] = scenario
 		}
 	}
-	paths := []string{filepath.Join(root, "openspec", "changes", scope.changeID, linkagePlanFile)}
-	if scope.currentSpecs {
-		paths = walkFiles(filepath.Join(root, "openspec", "changes", "archive"), func(path string) bool {
-			return filepath.Base(path) == linkagePlanFile
-		})
-	}
+	paths := scope.spec().PlanPaths(root, scope)
 	documents := make([]*planDocument, 0, len(paths))
 	for _, path := range paths {
 		if !fileExists(path) {

@@ -176,7 +176,7 @@ func TestCombinedArchivePlanPrefersLatest(t *testing.T) {
 			`"scenarios":{"scn.demo.bbbbbbbbbbbb":"tests/demo.test.mts#old"}}`)
 	writeFixture(t, root, "openspec/changes/archive/2026-02-01-rework/linkage-plan.json", scopePlanForExample)
 	writeFixture(t, root, "openspec/changes/archive/2026-03-01-broken/linkage-plan.json", "{")
-	plan, _ := loadArchivedPlans(root)
+	plan, _ := loadArchivedPlans(root, verificationScope{currentSpecs: true})
 	if plan.Requirements["req.demo.aaaaaaaaaaaa"] != "src/demo.mts#value" ||
 		plan.Scenarios["scn.demo.bbbbbbbbbbbb"] != "tests/demo.test.mts#returns value" {
 		t.Fatalf("latest archived plan did not win: %#v", plan)
@@ -255,7 +255,8 @@ func TestRunRejectsSpecsWithChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	parsed, err = withConfig(parsed)
-	if err != nil || resolveScope(parsed) != (verificationScope{currentSpecs: true}) {
+	if scope := resolveScope(parsed); err != nil || !scope.currentSpecs || scope.changeID != "" ||
+		scope.spec().Name() != "openspec" {
 		t.Fatalf("--specs did not select the current specifications: %#v, %v", parsed, err)
 	}
 	if resolveScope(options{changeID: "example"}) != changeScope("example") {

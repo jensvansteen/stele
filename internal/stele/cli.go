@@ -1,7 +1,6 @@
 package stele
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -19,11 +18,13 @@ const (
 const helpBody = ` — deterministic OpenSpec implementation verification
 
 Usage:
-  stele init [--change ID] [--tools TOOLS] [--refresh-schema] [--root PATH]
+  stele init [--change ID] [--tools TOOLS] [--refresh-schema] [--strict-versions] [--root PATH]
   stele ids [--change ID] [--root PATH] [--check] [--json]
   stele verify [--stage proposal|implementation] [--change ID | --specs] [--root PATH] [--report PATH] [--json]
+               [--strict-versions]
   stele test [--change ID | --specs] [--root PATH] [--evidence PATH] [--json]
   stele validate [--change ID | --specs] [--root PATH] [--report PATH] [--evidence PATH] [--json]
+                 [--strict-versions]
   stele approve [--change ID | --specs] [--evidence ID]... [--scenario ID]... [--all --yes | --confirmed-in-chat]
                 [--by NAME] [--root PATH]
   stele plan migrate [--change ID | --specs] [--root PATH]
@@ -52,6 +53,9 @@ type options struct {
 	yes             bool
 	confirmedInChat bool
 	approver        string
+	// backend is the specification backend selected by the adapter setting.
+	backend        specificationBackend
+	strictVersions bool
 }
 
 type validationResult struct {
@@ -67,8 +71,32 @@ var (
 	absolutePath            = filepath.Abs
 	verifyProject           = verifyScope
 	runProjectScenarios     = runScopeTests
-	validateProjectOpenSpec = runOpenSpec
+	validateProjectOpenSpec = validateScopeSpecs
 )
+
+// validateScopeSpecs runs the backend's strict validation for a scope.
+func validateScopeSpecs(root string, scope verificationScope) (bool, error) {
+	return scope.spec().Validate(root, scope)
+}
+
+// reportVersionDrift prints backend version drift. Without strict versions the
+// findings are warnings; with them they are errors and the result is false.
+func reportVersionDrift(parsed options, lookPath bool, stderr io.Writer) bool {
+	findings := resolveScope(parsed).spec().VersionDrift(parsed.root, lookPath)
+	for _, finding := range findings {
+		_, _ = fmt.Fprintf(stderr, "stele: %s: %s\n", choose(parsed.strictVersions, "error", "warning"), finding)
+	}
+	return !parsed.strictVersions || len(findings) == 0
+}
+
+// withVersionCheck turns a passing exit code into a policy failure when strict
+// versions are requested and the backend drifted.
+func withVersionCheck(code int, parsed options, stderr io.Writer) int {
+	if !reportVersionDrift(parsed, false, stderr) && code == 0 {
+		return 1
+	}
+	return code
+}
 
 // @implements req.verify.999a5d082295
 func Run(arguments []string, stdout, stderr io.Writer) int {
@@ -151,11 +179,16 @@ Enable OpenSpec's verify-change skill with: npx openspec config profile
 `
 
 func initCommand(parsed options, stdout, stderr io.Writer) int {
-	notes, err := setUpOpenSpec(parsed.root, openSpecSetup{tools: parsed.tools, refreshSchema: parsed.refreshSchema})
+	backend, err := configuredBackend(parsed.root)
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
-	created, err := Initialize(parsed.root, parsed.changeID)
+	parsed.backend = backend
+	notes, err := backend.Install(parsed.root, openSpecSetup{tools: parsed.tools, refreshSchema: parsed.refreshSchema})
+	if err != nil {
+		return writeCommandError(stderr, err)
+	}
+	created, err := initializeBackend(parsed.root, parsed.changeID, backend)
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
@@ -168,11 +201,11 @@ func initCommand(parsed options, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stdout, note)
 	}
 	_, _ = fmt.Fprint(stdout, initWorkflow)
-	return 0
+	return resultExitCode(reportVersionDrift(parsed, true, stderr))
 }
 
 func identitiesCommand(parsed options, stdout, stderr io.Writer) int {
-	result, err := AssignIdentities(parsed.root, parsed.changeID, parsed.check)
+	result, err := assignScopeIdentities(parsed.root, resolveScope(parsed), parsed.check)
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
@@ -249,6 +282,7 @@ func registerCommandFlags(flags *flag.FlagSet, command string, parsed *options) 
 	case "init":
 		flags.StringVar(&parsed.tools, "tools", defaultOpenSpecTools, "OpenSpec tools to initialize")
 		flags.BoolVar(&parsed.refreshSchema, "refresh-schema", false, "re-fork the stele workflow schema")
+		flags.BoolVar(&parsed.strictVersions, "strict-versions", false, "fail on backend version drift")
 		return
 	case "ids":
 		flags.BoolVar(&parsed.check, "check", false, "report missing identities without writing")
@@ -261,8 +295,11 @@ func registerCommandFlags(flags *flag.FlagSet, command string, parsed *options) 
 		flags.BoolVar(&parsed.confirmedInChat, "confirmed-in-chat", false, "record a confirmation given in chat")
 		flags.StringVar(&parsed.approver, "by", "", "approver name")
 	case "plan migrate":
+	case "test":
+		flags.StringVar(&parsed.evidencePath, "evidence", "", "evidence path")
 	default:
 		flags.StringVar(&parsed.evidencePath, "evidence", "", "evidence path")
+		flags.BoolVar(&parsed.strictVersions, "strict-versions", false, "fail on backend version drift")
 	}
 	flags.BoolVar(&parsed.specs, "specs", false, "use the current specifications")
 }
@@ -289,17 +326,15 @@ func (list listFlag) Set(value string) error {
 }
 
 func withConfig(parsed options) (options, error) {
-	configPath := filepath.Join(parsed.root, "stele.config.json")
-	content, err := os.ReadFile(configPath)
-	if err == nil {
-		var config Config
-		if err := json.Unmarshal(content, &config); err != nil {
-			return options{}, fmt.Errorf("invalid stele.config.json: %w", err)
-		}
-		if parsed.changeID == "" {
-			parsed.changeID = config.Change
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
+	config, err := readConfig(parsed.root)
+	if err != nil {
+		return options{}, err
+	}
+	if parsed.changeID == "" {
+		parsed.changeID = config.Change
+	}
+	parsed.backend, err = resolveBackend(config.Adapter)
+	if err != nil {
 		return options{}, err
 	}
 	if parsed.specs {
@@ -321,7 +356,7 @@ func verifyCommand(parsed options, stdout, stderr io.Writer) int {
 	} else {
 		renderVerification(stdout, report)
 	}
-	return resultExitCode(report.Verdict == "pass")
+	return withVersionCheck(resultExitCode(report.Verdict == "pass"), parsed, stderr)
 }
 
 func renderVerification(stdout io.Writer, report Report) {
@@ -396,7 +431,7 @@ func validateCommand(parsed options, stdout, stderr io.Writer) int {
 	} else {
 		renderValidation(stdout, evidence, report, openSpecPassed, passed)
 	}
-	return resultExitCode(passed)
+	return withVersionCheck(resultExitCode(passed), parsed, stderr)
 }
 
 func setDefaultOutputPaths(parsed *options) {

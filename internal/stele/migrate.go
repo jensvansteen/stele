@@ -33,12 +33,7 @@ func migrateV1Plan(root string, scope verificationScope) ([]migrationResult, err
 	if err != nil {
 		return nil, err
 	}
-	paths := []string{filepath.Join(root, "openspec", "changes", scope.changeID, linkagePlanFile)}
-	if scope.currentSpecs {
-		paths = walkFiles(filepath.Join(root, "openspec", "changes", "archive"), func(path string) bool {
-			return filepath.Base(path) == linkagePlanFile
-		})
-	}
+	paths := scope.spec().PlanPaths(root, scope)
 	results := make([]migrationResult, 0, len(paths))
 	for _, path := range paths {
 		plan, err := readLinkagePlan(path)
@@ -52,8 +47,7 @@ func migrateV1Plan(root string, scope verificationScope) ([]migrationResult, err
 		if err := writePlanFile(path, converted); err != nil {
 			return results, err
 		}
-		relative := strings.TrimPrefix(filepath.ToSlash(path), filepath.ToSlash(root)+"/")
-		result := migrationResult{Path: relative, Scenarios: len(converted.Scenarios)}
+		result := migrationResult{Path: repositoryPath(root, path), Scenarios: len(converted.Scenarios)}
 		for _, scenario := range converted.Scenarios {
 			result.Entries += len(scenario.Evidence)
 		}

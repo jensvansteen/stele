@@ -9,7 +9,7 @@ Stele's broader goal is to let teams describe and maintain a codebase in plain E
 | Product tests | Executable examples of selected behavior |
 | Human reviewer | Semantic adequacy of the implementation and its evidence |
 
-OpenSpec remains the only behavioral canon. Stele reads it through an adapter and builds an evidence graph around it.
+OpenSpec remains the only behavioral canon. Stele reads it through an adapter and builds an evidence graph around it. [The Stele model](/concepts/model) describes Stele's own concepts and maps them to OpenSpec files.
 
 ## Programming-language boundary
 

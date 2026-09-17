@@ -25,10 +25,14 @@ var steleSkills = []string{"stele-propose", "stele-apply", "stele-archive", "ste
 // @implements req.init.eed35c447821
 // @implements req.verificationstrategy.ace39f5009c6
 func Initialize(root, changeID string) ([]string, error) {
+	return initializeBackend(root, changeID, specificationBackends[defaultAdapter])
+}
+
+func initializeBackend(root, changeID string, backend specificationBackend) ([]string, error) {
 	created := make([]string, 0)
 	configPath := filepath.Join(root, "stele.config.json")
 	if !fileExists(configPath) {
-		config := Config{SchemaVersion: 1, Adapter: "openspec", Change: changeID}
+		config := Config{SchemaVersion: 1, Adapter: backend.Name(), Change: changeID}
 		content, err := marshalConfig(config, "", "  ")
 		if err != nil {
 			return nil, err

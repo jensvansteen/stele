@@ -18,17 +18,19 @@ var errConflictingScope = errors.New("--specs cannot be combined with --change")
 type verificationScope struct {
 	changeID     string
 	currentSpecs bool
+	backend      specificationBackend
 }
 
 func changeScope(changeID string) verificationScope {
 	return verificationScope{changeID: changeID}
 }
 
-func (scope verificationScope) specsRoot(root string) string {
-	if scope.currentSpecs {
-		return filepath.Join(root, "openspec", "specs")
+// spec returns the scope's specification backend, OpenSpec by default.
+func (scope verificationScope) spec() specificationBackend {
+	if scope.backend == nil {
+		return specificationBackends[defaultAdapter]
 	}
-	return filepath.Join(root, "openspec", "changes", scope.changeID, "specs")
+	return scope.backend
 }
 
 // resolveScope turns parsed options into the scope that verify, test, and
@@ -37,9 +39,9 @@ func (scope verificationScope) specsRoot(root string) string {
 // @implements req.verificationscope.bee89d6750ed
 func resolveScope(parsed options) verificationScope {
 	if parsed.specs {
-		return verificationScope{currentSpecs: true}
+		return verificationScope{currentSpecs: true, backend: parsed.backend}
 	}
-	return changeScope(parsed.changeID)
+	return verificationScope{changeID: parsed.changeID, backend: parsed.backend}
 }
 
 // requireScopeSpecs rejects a scope without specification files, so a gate
@@ -47,10 +49,7 @@ func resolveScope(parsed options) verificationScope {
 //
 // @implements req.verificationscope.270b822fff6b
 func requireScopeSpecs(root string, scope verificationScope) error {
-	files := walkFiles(scope.specsRoot(root), func(path string) bool {
-		return strings.EqualFold(filepath.Ext(path), ".md")
-	})
-	if len(files) > 0 {
+	if len(scope.spec().SpecFiles(root, scope)) > 0 {
 		return nil
 	}
 	if scope.currentSpecs {
@@ -65,21 +64,26 @@ func emptyLinkagePlan() LinkagePlan {
 
 func loadScopePlan(root string, scope verificationScope) (LinkagePlan, []Diagnostic) {
 	if scope.currentSpecs {
-		return loadArchivedPlans(root)
+		return loadArchivedPlans(root, scope)
 	}
-	return loadChangePlan(root, scope.changeID)
+	return loadChangePlan(root, scope)
 }
 
 // loadChangePlan reads the plan stored with the change, falling back to the
 // shared artifacts plan, and rejects a plan written for a different change.
 //
 // @implements req.verificationscope.713ceb31377c
-func loadChangePlan(root, changeID string) (LinkagePlan, []Diagnostic) {
-	source := "openspec/changes/" + changeID + "/" + linkagePlanFile
-	if !fileExists(filepath.Join(root, filepath.FromSlash(source))) {
-		source = "artifacts/" + linkagePlanFile
+func loadChangePlan(root string, scope verificationScope) (LinkagePlan, []Diagnostic) {
+	changeID := scope.changeID
+	file := filepath.Join(root, "artifacts", linkagePlanFile)
+	for _, candidate := range scope.spec().PlanPaths(root, scope) {
+		if fileExists(candidate) {
+			file = candidate
+			break
+		}
 	}
-	plan, err := readLinkagePlan(filepath.Join(root, filepath.FromSlash(source)))
+	source := repositoryPath(root, file)
+	plan, err := readLinkagePlan(file)
 	if err != nil {
 		return emptyLinkagePlan(), nil
 	}
@@ -104,12 +108,11 @@ func loadChangePlan(root, changeID string) (LinkagePlan, []Diagnostic) {
 // archive directories with their date, so path order is archive order and a
 // later plan replaces an earlier entry for the same identity, whatever the
 // schema version of either plan.
-func loadArchivedPlans(root string) (LinkagePlan, []Diagnostic) {
+func loadArchivedPlans(root string, scope verificationScope) (LinkagePlan, []Diagnostic) {
 	combined := emptyLinkagePlan()
 	combined.Evidence = map[string][]EvidenceEntry{}
 	diagnostics := make([]Diagnostic, 0)
-	archive := filepath.Join(root, "openspec", "changes", "archive")
-	for _, file := range walkFiles(archive, func(path string) bool { return filepath.Base(path) == linkagePlanFile }) {
+	for _, file := range scope.spec().PlanPaths(root, scope) {
 		plan, err := readLinkagePlan(file)
 		if err != nil {
 			continue
@@ -121,8 +124,7 @@ func loadArchivedPlans(root string) (LinkagePlan, []Diagnostic) {
 			}
 			continue
 		}
-		source := strings.TrimPrefix(filepath.ToSlash(file), filepath.ToSlash(root)+"/")
-		diagnostics = append(diagnostics, deprecatedPlanDiagnostic(source))
+		diagnostics = append(diagnostics, deprecatedPlanDiagnostic(repositoryPath(root, file)))
 		maps.Copy(combined.Requirements, plan.Requirements)
 		for id, target := range plan.Scenarios {
 			combined.Scenarios[id] = target
@@ -130,6 +132,11 @@ func loadArchivedPlans(root string) (LinkagePlan, []Diagnostic) {
 		}
 	}
 	return combined, diagnostics
+}
+
+// repositoryPath returns a file's slash-separated path relative to root.
+func repositoryPath(root, file string) string {
+	return strings.TrimPrefix(filepath.ToSlash(file), filepath.ToSlash(root)+"/")
 }
 
 // declaredIdentities returns every Verification-ID declared anywhere under

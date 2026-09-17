@@ -317,7 +317,7 @@ func TestArchivedPlansMixSchemaVersions(t *testing.T) {
 		`.unit","level":"unit","rationale":"r"}]}}}`
 	writeFixture(t, root, "openspec/changes/archive/2026-01-01-example/linkage-plan.json", scopePlanForExample)
 	writeFixture(t, root, "openspec/changes/archive/2026-02-01-rework/linkage-plan.json", v2)
-	plan, diagnostics := loadArchivedPlans(root)
+	plan, diagnostics := loadArchivedPlans(root, verificationScope{currentSpecs: true})
 	if !plan.usesEvidence(scenario) || plan.Scenarios[scenario] != "" || len(diagnostics) != 1 ||
 		diagnostics[0].Source.Path != "openspec/changes/archive/2026-01-01-example/linkage-plan.json" {
 		t.Fatalf("later v2 plan did not win: %#v, %#v", plan, diagnostics)
@@ -332,7 +332,7 @@ func TestArchivedPlansMixSchemaVersions(t *testing.T) {
 	}
 
 	writeFixture(t, root, "openspec/changes/archive/2026-03-01-revert/linkage-plan.json", scopePlanForExample)
-	plan, diagnostics = loadArchivedPlans(root)
+	plan, diagnostics = loadArchivedPlans(root, verificationScope{currentSpecs: true})
 	if plan.usesEvidence(scenario) || len(diagnostics) != 2 {
 		t.Fatalf("later v1 plan did not win: %#v", plan)
 	}

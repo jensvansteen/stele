@@ -55,9 +55,13 @@ func ParseSpecs(root, changeID string) (ParsedSpecs, error) {
 	return parseScopeSpecs(root, changeScope(changeID))
 }
 
+// parseScopeSpecs reads a scope's specifications through its backend.
 func parseScopeSpecs(root string, scope verificationScope) (ParsedSpecs, error) {
-	specsRoot := scope.specsRoot(root)
-	files := walkFiles(specsRoot, func(path string) bool { return strings.EqualFold(filepath.Ext(path), ".md") })
+	return scope.spec().ParseSpecs(root, scope)
+}
+
+// parseSpecFiles parses OpenSpec requirement and scenario blocks.
+func parseSpecFiles(root string, files []string) (ParsedSpecs, error) {
 	parsed := ParsedSpecs{Requirements: []Requirement{}, Diagnostics: []Diagnostic{}, Files: []string{}}
 
 	for _, file := range files {

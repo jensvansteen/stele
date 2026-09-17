@@ -90,7 +90,7 @@ func verifyScope(root string, scope verificationScope, mode, reportPath string) 
 	if err != nil {
 		return Report{}, err
 	}
-	declared, err := declaredIdentities(root)
+	declared, err := scope.spec().DeclaredIdentities(root)
 	if err != nil {
 		return Report{}, err
 	}
