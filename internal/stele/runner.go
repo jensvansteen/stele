@@ -75,6 +75,9 @@ func RunScenarioTests(root, changeID, evidencePath string) (Evidence, error) {
 }
 
 func runScopeTests(root string, scope verificationScope, evidencePath string) (Evidence, error) {
+	if err := requireScopeSpecs(root, scope); err != nil {
+		return Evidence{}, err
+	}
 	inputDigest, err := computeScenarioDigest(root)
 	if err != nil {
 		return Evidence{}, err
@@ -244,7 +247,7 @@ func executeNodeTest(root, path, selector string) (bool, bool, error) {
 		filepath.ToSlash(path),
 	)
 	command.Dir = root
-	command.Env = append(os.Environ(), "STELE_CHILD_TEST=1")
+	command.Env = nodeTestEnvironment()
 	output, err := command.CombinedOutput()
 	executed := false
 	passPattern := regexp.MustCompile(`^ok \d+ - ` + regexp.QuoteMeta(selector) + `$`)
@@ -257,6 +260,21 @@ func executeNodeTest(root, path, selector string) (bool, bool, error) {
 		}
 	}
 	return err == nil && executed, executed, err
+}
+
+// nodeTestEnvironment returns the environment for a linked Node test. Node sets
+// NODE_TEST_CONTEXT for children of `node --test`; a nested test that inherits
+// it reports to that outer runner instead of printing TAP for Stele.
+//
+// @implements req.execution.c27e3b85223e
+func nodeTestEnvironment() []string {
+	environment := make([]string, 0, len(os.Environ())+1)
+	for _, entry := range os.Environ() {
+		if !strings.HasPrefix(entry, "NODE_TEST_CONTEXT=") {
+			environment = append(environment, entry)
+		}
+	}
+	return append(environment, "STELE_CHILD_TEST=1")
 }
 
 func pointerValue(value *string) string {

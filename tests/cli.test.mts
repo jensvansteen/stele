@@ -15,14 +15,8 @@ interface VerificationReport {
 
 const ROOT: string = path.resolve(import.meta.dirname, "..");
 
-// node:test sets NODE_TEST_CONTEXT for its children, which makes a nested
-// `node --test` report to this process instead of printing TAP for Stele.
-const CLI_ENV: NodeJS.ProcessEnv = Object.fromEntries(
-  Object.entries(process.env).filter(([name]: readonly [string, string | undefined]): boolean => name !== "NODE_TEST_CONTEXT"),
-);
-
 function cli(args: readonly string[]): SpawnSyncReturns<string> {
-  return spawnSync("dist/stele", args, { cwd: ROOT, encoding: "utf8", env: CLI_ENV });
+  return spawnSync("dist/stele", args, { cwd: ROOT, encoding: "utf8" });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -226,6 +220,7 @@ function isUnknownArray(value: unknown): value is readonly unknown[] {
 }
 
 // @verifies scn.gosupport.2c88ed381429.e2e
+// @verifies scn.execution.9cbf5cc6d03d.e2e
 void test("runs TypeScript and Go scenario tests together", async (context: TestContext): Promise<void> => {
   const root: string = await fs.mkdtemp(path.join(os.tmpdir(), "stele-cli-mixed-"));
   context.after((): Promise<void> => fs.rm(root, { recursive: true }));

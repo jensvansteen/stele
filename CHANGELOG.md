@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- `verify`, `test`, and `validate` now stop with exit code `2` when the selected change has no delta specs or `--specs` finds no current specifications. Previously `verify` passed with zero requirements.
+- Linked Node tests no longer inherit `NODE_TEST_CONTEXT`, so Stele records them correctly when it runs inside `node --test`.
+
 ## 0.1.0-rc.2 — Release candidate
 
 - **Breaking:** a linkage plan whose `changeId` names another change now fails with `PLAN_CHANGE_MISMATCH`. Store each change's plan in `openspec/changes/<change>/linkage-plan.json`.
