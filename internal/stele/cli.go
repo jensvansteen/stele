@@ -24,6 +24,9 @@ Usage:
   stele verify [--stage proposal|implementation] [--change ID | --specs] [--root PATH] [--report PATH] [--json]
   stele test [--change ID | --specs] [--root PATH] [--evidence PATH] [--json]
   stele validate [--change ID | --specs] [--root PATH] [--report PATH] [--evidence PATH] [--json]
+  stele approve [--change ID | --specs] [--evidence ID]... [--scenario ID]... [--all --yes | --confirmed-in-chat]
+                [--by NAME] [--root PATH]
+  stele plan migrate [--change ID | --specs] [--root PATH]
 
 Exit codes:
   0  selected checks passed
@@ -42,6 +45,13 @@ type options struct {
 	check         bool
 	tools         string
 	refreshSchema bool
+	// approve options
+	evidenceIDs     []string
+	scenarioIDs     []string
+	all             bool
+	yes             bool
+	confirmedInChat bool
+	approver        string
 }
 
 type validationResult struct {
@@ -67,7 +77,7 @@ func Run(arguments []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	command := arguments[0]
+	command, rest := arguments[0], arguments[1:]
 	switch command {
 	case "help", "--help", "-h":
 		writeHelp(stdout)
@@ -75,14 +85,18 @@ func Run(arguments []string, stdout, stderr io.Writer) int {
 	case "version", "--version", "-v":
 		_, _ = fmt.Fprintln(stdout, Version)
 		return 0
-	case "init", "ids", "verify", "test", "validate":
-		break
+	case "plan":
+		if len(rest) == 0 || rest[0] != "migrate" {
+			return writeCommandError(stderr, errUnknownPlanCommand)
+		}
+		command, rest = "plan migrate", rest[1:]
+	case "init", "ids", "verify", "test", "validate", "approve":
 	default:
 		_, _ = fmt.Fprintf(stderr, "stele: unknown command: %s\n", command)
 		return 2
 	}
 
-	parsed, err := parseOptions(command, arguments[1:])
+	parsed, err := parseOptions(command, rest)
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
@@ -112,6 +126,10 @@ func routeCommand(command string, parsed options, stdout, stderr io.Writer) int 
 		return verifyCommand(parsed, stdout, stderr)
 	case "ids":
 		return identitiesCommand(parsed, stdout, stderr)
+	case "approve":
+		return approveCommand(parsed, stdout, stderr)
+	case "plan migrate":
+		return migrateCommand(parsed, stdout, stderr)
 	case "test":
 		return testCommand(parsed, stdout, stderr)
 	default:
@@ -202,17 +220,8 @@ func parseOptions(command string, arguments []string) (options, error) {
 	flags.StringVar(&parsed.changeID, "change", "", "OpenSpec change")
 	flags.StringVar(&parsed.stage, "stage", parsed.stage, "verification stage")
 	flags.StringVar(&parsed.reportPath, "report", "", "report path")
-	flags.StringVar(&parsed.evidencePath, "evidence", "", "evidence path")
 	flags.BoolVar(&parsed.json, "json", false, "JSON output")
-	switch command {
-	case "init":
-		flags.StringVar(&parsed.tools, "tools", defaultOpenSpecTools, "OpenSpec tools to initialize")
-		flags.BoolVar(&parsed.refreshSchema, "refresh-schema", false, "re-fork the stele workflow schema")
-	case "ids":
-		flags.BoolVar(&parsed.check, "check", false, "report missing identities without writing")
-	default:
-		flags.BoolVar(&parsed.specs, "specs", false, "verify the current specifications")
-	}
+	registerCommandFlags(flags, command, &parsed)
 	if err := flags.Parse(arguments); err != nil {
 		return options{}, err
 	}
@@ -232,6 +241,51 @@ func parseOptions(command string, arguments []string) (options, error) {
 		return options{}, fmt.Errorf("unknown stage: %s", parsed.stage)
 	}
 	return parsed, nil
+}
+
+// registerCommandFlags adds the options that only some commands accept.
+func registerCommandFlags(flags *flag.FlagSet, command string, parsed *options) {
+	switch command {
+	case "init":
+		flags.StringVar(&parsed.tools, "tools", defaultOpenSpecTools, "OpenSpec tools to initialize")
+		flags.BoolVar(&parsed.refreshSchema, "refresh-schema", false, "re-fork the stele workflow schema")
+		return
+	case "ids":
+		flags.BoolVar(&parsed.check, "check", false, "report missing identities without writing")
+		return
+	case "approve":
+		flags.Var(listFlag{&parsed.evidenceIDs}, "evidence", "evidence IDs to approve")
+		flags.Var(listFlag{&parsed.scenarioIDs}, "scenario", "scenario IDs to approve")
+		flags.BoolVar(&parsed.all, "all", false, "select every pending entry")
+		flags.BoolVar(&parsed.yes, "yes", false, "approve without prompts")
+		flags.BoolVar(&parsed.confirmedInChat, "confirmed-in-chat", false, "record a confirmation given in chat")
+		flags.StringVar(&parsed.approver, "by", "", "approver name")
+	case "plan migrate":
+	default:
+		flags.StringVar(&parsed.evidencePath, "evidence", "", "evidence path")
+	}
+	flags.BoolVar(&parsed.specs, "specs", false, "use the current specifications")
+}
+
+// listFlag collects repeated or comma-separated values.
+type listFlag struct {
+	values *[]string
+}
+
+func (list listFlag) String() string {
+	if list.values == nil {
+		return ""
+	}
+	return strings.Join(*list.values, ",")
+}
+
+func (list listFlag) Set(value string) error {
+	for part := range strings.SplitSeq(value, ",") {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			*list.values = append(*list.values, trimmed)
+		}
+	}
+	return nil
 }
 
 func withConfig(parsed options) (options, error) {

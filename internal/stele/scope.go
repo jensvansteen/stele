@@ -65,7 +65,7 @@ func emptyLinkagePlan() LinkagePlan {
 
 func loadScopePlan(root string, scope verificationScope) (LinkagePlan, []Diagnostic) {
 	if scope.currentSpecs {
-		return loadArchivedPlans(root), nil
+		return loadArchivedPlans(root)
 	}
 	return loadChangePlan(root, scope.changeID)
 }
@@ -79,8 +79,8 @@ func loadChangePlan(root, changeID string) (LinkagePlan, []Diagnostic) {
 	if !fileExists(filepath.Join(root, filepath.FromSlash(source))) {
 		source = "artifacts/" + linkagePlanFile
 	}
-	plan := emptyLinkagePlan()
-	if !readJSON(filepath.Join(root, filepath.FromSlash(source)), &plan) {
+	plan, err := readLinkagePlan(filepath.Join(root, filepath.FromSlash(source)))
+	if err != nil {
 		return emptyLinkagePlan(), nil
 	}
 	if plan.ChangeID != "" && plan.ChangeID != changeID {
@@ -93,34 +93,43 @@ func loadChangePlan(root, changeID string) (LinkagePlan, []Diagnostic) {
 			"",
 		)}
 	}
-	return normalizedPlan(plan), nil
-}
-
-func normalizedPlan(plan LinkagePlan) LinkagePlan {
-	if plan.Requirements == nil {
-		plan.Requirements = map[string]string{}
+	plan.Source = source
+	if plan.SchemaVersion != evidencePlanVersion {
+		return plan, []Diagnostic{deprecatedPlanDiagnostic(source)}
 	}
-	if plan.Scenarios == nil {
-		plan.Scenarios = map[string]string{}
-	}
-	return plan
+	return plan, nil
 }
 
 // loadArchivedPlans combines the plans of archived changes. OpenSpec prefixes
 // archive directories with their date, so path order is archive order and a
-// later plan replaces an earlier target for the same identity.
-func loadArchivedPlans(root string) LinkagePlan {
+// later plan replaces an earlier entry for the same identity, whatever the
+// schema version of either plan.
+func loadArchivedPlans(root string) (LinkagePlan, []Diagnostic) {
 	combined := emptyLinkagePlan()
+	combined.Evidence = map[string][]EvidenceEntry{}
+	diagnostics := make([]Diagnostic, 0)
 	archive := filepath.Join(root, "openspec", "changes", "archive")
 	for _, file := range walkFiles(archive, func(path string) bool { return filepath.Base(path) == linkagePlanFile }) {
-		var plan LinkagePlan
-		if !readJSON(file, &plan) {
+		plan, err := readLinkagePlan(file)
+		if err != nil {
 			continue
 		}
+		if plan.SchemaVersion == evidencePlanVersion {
+			for id, entries := range plan.Evidence {
+				combined.Evidence[id] = entries
+				delete(combined.Scenarios, id)
+			}
+			continue
+		}
+		source := strings.TrimPrefix(filepath.ToSlash(file), filepath.ToSlash(root)+"/")
+		diagnostics = append(diagnostics, deprecatedPlanDiagnostic(source))
 		maps.Copy(combined.Requirements, plan.Requirements)
-		maps.Copy(combined.Scenarios, plan.Scenarios)
+		for id, target := range plan.Scenarios {
+			combined.Scenarios[id] = target
+			delete(combined.Evidence, id)
+		}
 	}
-	return combined
+	return combined, diagnostics
 }
 
 // declaredIdentities returns every Verification-ID declared anywhere under

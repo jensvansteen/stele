@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -306,5 +307,36 @@ export class Box {}
 		if anchor.ID == "req.demo.111111111111" && anchor.Line != 1 {
 			t.Fatalf("line comment anchor reported at line %d", anchor.Line)
 		}
+	}
+}
+
+func TestAnchorsSplitEvidenceIDs(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "tests/levels.test.mts", "import test from \"node:test\";\n"+
+		"// @verifies "+"scn.demo.bbbbbbbbbbbb.unit\n"+
+		"void test(\"unit\", () => {});\n"+
+		"// @verifies "+"scn.demo.bbbbbbbbbbbb.e2e.2 and prose after it\n"+
+		"void test(\"second e2e\", () => {});\n"+
+		"// @verifies "+"scn.demo.bbbbbbbbbbbb.unitary is not a level\n"+
+		"void test(\"bare\", () => {});\n")
+	writeFixture(t, root, "tests/levels_test.go", "package tests\n\n"+
+		"// @verifies "+"scn.demo.cccccccccccc.integration\n"+
+		"func TestLevels(t *testing.T) {}\n")
+	anchors, err := ScanAnchors(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(anchors))
+	for _, anchor := range anchors {
+		got = append(got, anchor.ID+"|"+anchor.EvidenceID+"|"+anchor.Level)
+	}
+	want := []string{
+		"scn.demo.bbbbbbbbbbbb|scn.demo.bbbbbbbbbbbb.unit|unit",
+		"scn.demo.bbbbbbbbbbbb|scn.demo.bbbbbbbbbbbb.e2e.2|e2e",
+		"scn.demo.bbbbbbbbbbbb||",
+		"scn.demo.cccccccccccc|scn.demo.cccccccccccc.integration|integration",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("anchors =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }

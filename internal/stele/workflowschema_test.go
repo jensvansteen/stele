@@ -151,7 +151,7 @@ func TestVerificationInstructionsReachOpenSpec(t *testing.T) {
 	if len(instructions.Rules) == 0 || !strings.Contains(instructions.Rules[0], "stele-plan") {
 		t.Fatalf("verification rules are missing: %#v", instructions.Rules)
 	}
-	if !strings.Contains(instructions.Template, `"schemaVersion": 1`) {
+	if !strings.Contains(instructions.Template, `"schemaVersion": 2`) {
 		t.Fatalf("plan template is missing: %q", instructions.Template)
 	}
 }

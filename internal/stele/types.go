@@ -20,6 +20,8 @@ type Scenario struct {
 	ID     string
 	Title  string
 	Source Source
+	// Text is the scenario block without its Verification-ID line.
+	Text string
 }
 
 // Requirement is a parsed OpenSpec requirement and its scenarios.
@@ -46,14 +48,56 @@ type Anchor struct {
 	Line            int     `json:"line"`
 	Selector        *string `json:"selector"`
 	DeclarationLine *int    `json:"declarationLine"`
+	// EvidenceID is the full level-qualified ID of a `@verifies` anchor, such as
+	// scn.todo.0a1b2c3d4e5f.unit, and empty for a bare identity.
+	EvidenceID string `json:"evidenceId,omitempty"`
+	Level      string `json:"level,omitempty"`
 }
 
-// LinkagePlan records the implementation and test targets planned for a change.
+// EvidenceApproval records who approved an evidence entry and what they saw.
+type EvidenceApproval struct {
+	Approver string `json:"approver"`
+	Date     string `json:"date"`
+	Digest   string `json:"digest"`
+	Via      string `json:"via"`
+	Revision string `json:"revision,omitempty"`
+}
+
+// EvidenceEntry is one planned kind of evidence for a scenario.
+type EvidenceEntry struct {
+	ID        string            `json:"id"`
+	Level     string            `json:"level"`
+	Rationale string            `json:"rationale"`
+	Placement string            `json:"placement,omitempty"`
+	Approval  *EvidenceApproval `json:"approval,omitempty"`
+}
+
+// ScenarioEvidence lists the planned evidence of one scenario in a v2 plan.
+type ScenarioEvidence struct {
+	Evidence []EvidenceEntry `json:"evidence"`
+}
+
+// LinkagePlan records the planned links of a change: v1 code and test targets,
+// or v2 evidence entries per scenario.
 type LinkagePlan struct {
 	SchemaVersion int               `json:"schemaVersion"`
 	ChangeID      string            `json:"changeId"`
 	Requirements  map[string]string `json:"requirements"`
 	Scenarios     map[string]string `json:"scenarios"`
+	// Evidence holds v2 entries by scenario. EvidenceOnly is set for a v2 change
+	// plan, where every scenario follows the v2 rules.
+	Evidence     map[string][]EvidenceEntry `json:"-"`
+	EvidenceOnly bool                       `json:"-"`
+	// Source is the repository path the plan was read from.
+	Source string `json:"-"`
+}
+
+// PlannedEvidence is the report summary of one evidence entry.
+type PlannedEvidence struct {
+	ID        string `json:"id"`
+	Level     string `json:"level"`
+	Approval  string `json:"approval"`
+	Placement string `json:"placement,omitempty"`
 }
 
 // Link describes a resolved or planned relationship between an identity and a repository target.
@@ -67,6 +111,8 @@ type Link struct {
 	DeclarationLine *int    `json:"declarationLine,omitempty"`
 	State           string  `json:"state"`
 	Target          *string `json:"target,omitempty"`
+	EvidenceID      string  `json:"evidenceId,omitempty"`
+	Level           string  `json:"level,omitempty"`
 }
 
 // ExecutionState separates test execution state from its outcome.
@@ -83,6 +129,8 @@ type ScenarioReport struct {
 	TestLinks []Link         `json:"testLinks"`
 	Linkage   string         `json:"linkage"`
 	Execution ExecutionState `json:"execution"`
+	// Evidence lists the planned evidence of a scenario under a v2 plan.
+	Evidence []PlannedEvidence `json:"evidence,omitempty"`
 }
 
 // RequirementReport is the verification result for one canonical requirement.
@@ -170,6 +218,8 @@ type Report struct {
 type ScenarioOutcome struct {
 	ID      string `json:"id"`
 	Outcome string `json:"outcome"`
+	// FailedEvidence names the evidence IDs whose tests did not pass.
+	FailedEvidence []string `json:"failedEvidence,omitempty"`
 }
 
 // TestExecution records one exact test invocation and the scenarios it covers.
@@ -177,6 +227,7 @@ type TestExecution struct {
 	Path        string   `json:"path"`
 	Selector    *string  `json:"selector"`
 	ScenarioIDs []string `json:"scenarioIds"`
+	EvidenceIDs []string `json:"evidenceIds,omitempty"`
 	Outcome     string   `json:"outcome"`
 	Reason      *string  `json:"reason"`
 }

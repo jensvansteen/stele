@@ -41,13 +41,15 @@ This distinction matters when a passing user journey crosses several internal co
 Place the scenario anchor beside an independently selectable named test:
 
 ```ts
-// @verifies scn.todo.591a3b429cf0
+// @verifies scn.todo.591a3b429cf0.unit
 test("deletes an existing task", () => {
   // ...
 });
 ```
 
 The runner selects exact named TypeScript tests through Node and exact Go test functions through `go test`. Multiple scenario IDs may point to one test declaration when the test truly exercises each scenario, though smaller evidence units are easier to diagnose. Other consumer languages need dedicated declaration and test-runner adapters.
+
+With a version 2 plan, the anchor names an evidence ID: the scenario ID plus the planned level, such as `.unit` or `.e2e.2`. A bare scenario ID, or a level the plan does not list, fails with `ANCHOR_EVIDENCE_UNPLANNED`. Version 1 plans also accept bare scenario IDs.
 
 The test anchor identifies the intended evidence unit. It becomes behavioral evidence only after Stele confirms that the exact test executed and passed for the current inputs.
 
@@ -65,7 +67,7 @@ func DeleteTodo(id string) error {
 	// ...
 }
 
-// @verifies scn.todo.591a3b429cf0
+// @verifies scn.todo.591a3b429cf0.unit
 func TestDeleteExistingTask(t *testing.T) {
 	// ...
 }
@@ -79,7 +81,7 @@ Stele reads annotations only from `//` comments, `/* */` comments, and JSDoc lin
 
 ## Why nearby declarations matter
 
-A matching string in a comment is not enough. Stele checks that the anchor is attached to a compatible declaration and that its path and selector match the linkage plan. This rejects stale copy-pasted comments and anchors placed in unrelated files.
+A matching string in a comment is not enough. Stele checks that the anchor is attached to a compatible declaration, so a stale copy-pasted comment does not count. With a version 2 plan, the anchors are the only record of where code and tests live, and Stele never judges their location. A version 1 plan additionally requires the path and selector to match its targets.
 
 ## Common failures
 
@@ -88,5 +90,8 @@ A matching string in a comment is not enough. Stele checks that the anchor is at
 | Unknown ID | An anchor names behavior absent from the selected OpenSpec change |
 | Missing anchor | Planned behavior has no corresponding declaration |
 | Duplicate ID | The spec defines one behavior identity more than once |
-| Target mismatch | The real path or selector differs from the linkage plan |
+| Target mismatch | The real path or selector differs from a version 1 plan (`LINK_TARGET_MISMATCH`) |
+| Missing evidence | An approved evidence entry has no `@verifies` anchor on a named test (`LINK_EVIDENCE_MISSING`) |
+| Unplanned evidence | A test claims an evidence ID the plan does not list (`ANCHOR_EVIDENCE_UNPLANNED`) |
+| Unapproved or stale plan | An entry was never approved, or changed since approval (`PLAN_UNAPPROVED`, `PLAN_APPROVAL_STALE`) |
 | Unselected test | A process exited successfully but the named test did not run |

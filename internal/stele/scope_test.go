@@ -85,7 +85,7 @@ Verification-ID: scn.other.dddddddddddd
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "pass" || len(report.Diagnostics) != 0 {
+	if report.Verdict != "pass" || report.Summary.Errors != 0 {
 		t.Fatalf("anchors of another change affected the verdict: %#v", report.Diagnostics)
 	}
 }
@@ -176,7 +176,7 @@ func TestCombinedArchivePlanPrefersLatest(t *testing.T) {
 			`"scenarios":{"scn.demo.bbbbbbbbbbbb":"tests/demo.test.mts#old"}}`)
 	writeFixture(t, root, "openspec/changes/archive/2026-02-01-rework/linkage-plan.json", scopePlanForExample)
 	writeFixture(t, root, "openspec/changes/archive/2026-03-01-broken/linkage-plan.json", "{")
-	plan := loadArchivedPlans(root)
+	plan, _ := loadArchivedPlans(root)
 	if plan.Requirements["req.demo.aaaaaaaaaaaa"] != "src/demo.mts#value" ||
 		plan.Scenarios["scn.demo.bbbbbbbbbbbb"] != "tests/demo.test.mts#returns value" {
 		t.Fatalf("latest archived plan did not win: %#v", plan)

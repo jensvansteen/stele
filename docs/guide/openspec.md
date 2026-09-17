@@ -27,7 +27,7 @@ OpenSpec shows the apply and archive guidance to the agent, but cannot enforce i
 | OpenSpec step | Stele step |
 |---|---|
 | After writing specifications (`openspec-propose`, `openspec-update-change`) | `stele ids --change <change>`, then `stele verify --stage proposal --change <change>` |
-| Before `openspec-apply-change` starts | Confirm the verification levels, as the `stele-plan` skill describes |
+| Before `openspec-apply-change` starts | Confirm the verification levels in the conversation, then `stele approve --change <change> --confirmed-in-chat`, as the `stele-plan` skill describes |
 | After `openspec-apply-change` | `stele validate --change <change>` |
 | OpenSpec's `openspec-verify-change` | Run it after `stele validate` passes; it reviews the implementation, Stele proves the links and tests |
 | Before `openspec-archive-change` | `stele validate --change <change>` must pass |
@@ -42,7 +42,7 @@ OpenSpec shows the apply and archive guidance to the agent, but cannot enforce i
 
 1. Change `schema: spec-driven` to `schema: stele` in `openspec/changes/<change>/.openspec.yaml`.
 2. Run `stele ids --change <change>`.
-3. Follow the `stele-plan` skill to add the verification table to `design.md` and write `linkage-plan.json`.
+3. Follow the `stele-plan` skill to add the verification table to `design.md` and write a version 2 `linkage-plan.json`. If the change already has a version 1 plan, run `stele plan migrate --change <change>` instead and review the migrated levels.
 4. Run `stele verify --stage proposal --change <change>`.
 
 Changes that stay on `spec-driven` still verify with Stele; they just do not get the planning step from OpenSpec.

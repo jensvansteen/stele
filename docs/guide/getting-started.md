@@ -94,38 +94,56 @@ Verification-ID: scn.todo.20d9cd2785a4
 
 ## Plan before implementation
 
-Map each requirement to the declaration expected to enforce it and each scenario to an independently selectable test:
+Plan, for every scenario, which kinds of evidence prove it and why. The plan names no files: anchors in the code say where things live.
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "changeId": "todo-basics",
-  "requirements": {
-    "req.todo.22b616c90f42": "src/todo.ts#addTodo"
-  },
   "scenarios": {
-    "scn.todo.20d9cd2785a4": "tests/todo.test.ts#adds a todo with a non-empty title"
+    "scn.todo.20d9cd2785a4": {
+      "evidence": [
+        {
+          "id": "scn.todo.20d9cd2785a4.unit",
+          "level": "unit",
+          "rationale": "Adding a todo is pure logic; no I/O is needed.",
+          "placement": "tests/todo.test.ts, beside the other Todo tests"
+        }
+      ]
+    }
   }
 }
 ```
 
-Save this as `openspec/changes/todo-basics/linkage-plan.json`, next to the change it plans, then check the plan:
+Save this as `openspec/changes/todo-basics/linkage-plan.json`, next to the change it plans. The evidence ID is the scenario ID plus the level. `placement` is advisory and never checked. See [Test levels](/concepts/test-levels) for the level definitions.
+
+## Approve the levels
+
+A person approves the planned levels before implementation starts. Until then, the proposal check reports every entry as `PLAN_UNAPPROVED`:
 
 ```bash
 npx stele verify --stage proposal --change todo-basics
 ```
 
-Proposal verification allows targets that have not been created yet.
+Approve in one of three ways:
+
+- In the conversation: `stele-apply` shows the levels and asks "Approve these levels and start implementing?". After your explicit yes, the agent runs `stele approve --change todo-basics --confirmed-in-chat`.
+- In a terminal: `npx stele approve --change todo-basics` shows each entry and asks approve, reject, or skip.
+- In bulk: `npx stele approve --change todo-basics --all --yes`.
+
+Each approval records the approver (your `git config user.name`, or `--by`), the date, how it was given, and a digest of the entry and the scenario's wording. Rewording the scenario or changing the level or rationale makes the approval stale; whitespace-only edits do not. Teams that want a second check can require pull-request review of plan files.
 
 ## Implement and verify
 
-Attach `@implements` to the code declaration and `@verifies` to the named test. Then run:
+Attach `@implements` to the code declaration and `@verifies scn.todo.20d9cd2785a4.unit` to the named test, wherever your project's conventions place them. Then run:
 
 ```bash
 npx stele validate --change todo-basics
 ```
 
-Validation runs the selected scenario tests, OpenSpec strict validation, and implementation linkage verification. Exit code `0` means all selected checks passed; see the [CLI reference](/reference/cli) for the complete contract.
+Validation runs every evidence test, OpenSpec strict validation, and implementation verification. Every approved entry needs a matching `@verifies` anchor on a test that passes, and every requirement needs an `@implements` anchor. Exit code `0` means all selected checks passed; see the [CLI reference](/reference/cli) for the complete contract.
+
+Plans with `schemaVersion` 1, which map each ID to a `path#selector` target, still work with a `PLAN_V1_DEPRECATED` warning until Stele 0.2.0. Convert one with `npx stele plan migrate --change <change>`.
 
 ## Commit inputs, ignore outputs
 

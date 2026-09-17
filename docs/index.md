@@ -18,8 +18,8 @@ features:
     title: Behavior keeps its identity
     details: Requirement and scenario IDs survive wording, file, and implementation changes.
   - icon: ↗
-    title: Plans resolve to real code
-    details: Anchors must match the file and declaration named in the linkage plan.
+    title: People approve the evidence
+    details: Each scenario's planned test levels are approved before implementation, and anchors in the code show where the evidence lives.
   - icon: ✓
     title: Tests must actually run
     details: A successful process is insufficient. Stele confirms the exact named scenario test executed and passed.
@@ -46,6 +46,8 @@ npx stele init
 # Ask your agent: "Use stele-propose to plan <your change>."
 npx stele validate --change <your-change>
 ```
+
+Read the [product intent](/intent/vision) for where Stele is heading.
 
 ::: info Current scope
 The package ships a Go verification executable, TypeScript and Go consumer support, an OpenSpec adapter with a Stele workflow schema, and repository-local skills to propose, apply, archive, plan, and verify changes.

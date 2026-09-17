@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added version 2 linkage plans. A plan now lists, per scenario, evidence entries with an evidence ID (`<scenario>.<level>[.<n>]`), a level, a rationale, an advisory placement, and an approval, and no code or test locations. `@verifies` anchors name evidence IDs, and verification reports `PLAN_EVIDENCE_MISSING`, `PLAN_EVIDENCE_INVALID`, `PLAN_UNKNOWN_ID`, `PLAN_UNAPPROVED`, `PLAN_APPROVAL_STALE`, `LINK_EVIDENCE_MISSING`, and `ANCHOR_EVIDENCE_UNPLANNED`.
+- Added `stele approve`, which reviews entries in a terminal, approves them in bulk with `--all --yes`, or records a confirmation given in an agent conversation with `--confirmed-in-chat`. It refuses to approve anything otherwise.
+- Added `stele plan migrate`, which converts version 1 plans to version 2 with unapproved entries.
+- Version 1 plans still work until 0.2.0 and now produce a `PLAN_V1_DEPRECATED` warning. Warnings no longer mark the proposal stage as failed.
+- Reports list planned evidence per scenario, links and test executions carry evidence IDs and levels, and a failed scenario names its failed evidence.
+- The `stele-plan` skill now covers level definitions, rationales, advisory placement, the version 2 format, and the conversational approval step; the `stele` schema's plan template is a version 2 skeleton.
 - Added `stele ids`, which inserts deterministic, collision-checked Verification-IDs into a change's delta specs. `--check` reports missing IDs for CI, and `--json` lists them.
 - `stele init` now sets up OpenSpec when the project has none, using the bundled OpenSpec CLI (`--tools` chooses its tools), forks a `stele` workflow schema with a `verification` planning step, and merges Stele guidance into `openspec/config.yaml`. `--refresh-schema` re-forks the schema.
 - `stele init` installs the `stele-propose`, `stele-apply`, and `stele-archive` skills as the default entry points, next to the rewritten `stele-plan` and `stele-verify` reference skills.

@@ -29,7 +29,10 @@ func scanGoAnchorFile(relative string, content []byte, kind string) ([]Anchor, e
 			for _, match := range anchorPattern.FindAllStringSubmatchIndex(comment.Text, -1) {
 				line := start + strings.Count(comment.Text[:match[0]], "\n")
 				selector, declarationLine := goAdjacentDeclaration(lines, line-1, declarations)
+				evidence, level := anchorEvidence(comment.Text[match[4]:match[5]], comment.Text[match[6]:match[7]])
 				anchors = append(anchors, Anchor{
+					EvidenceID:      evidence,
+					Level:           level,
 					ID:              comment.Text[match[4]:match[5]],
 					Annotation:      comment.Text[match[2]:match[3]],
 					Kind:            kind,
