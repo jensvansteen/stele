@@ -1,6 +1,6 @@
 {
   "name": "stele-spec",
-  "version": "0.1.0-rc.2",
+  "version": "0.1.0-rc.3",
   "packageManager": "npm@11.13.0",
   "type": "module",
   "bin": {

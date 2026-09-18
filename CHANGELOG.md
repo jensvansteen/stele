@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-rc.3 — Release candidate
 
 - **Breaking:** the report's top-level `verdict` is now the overall verdict, and reports have schema version `2.1` with `verdicts: {linkage, execution, overall}`. `overall` is `pass` only when linkage passes and the current evidence passed; missing or stale evidence makes it `incomplete`, and a failed test makes it `fail`. In the proposal stage it equals `linkage`. Read `verdicts.linkage` for the old meaning of `verdict`. `stele verify` still exits according to linkage, and its human output adds execution and overall lines. `stele validate --json` adds the same `verdicts`.
 - Added `stele index`, which prints a deterministic JSON link index of requirements, scenarios, anchors, planned evidence with approval states, and last execution outcomes marked `stale` when inputs changed. With `--change` it also includes the current specifications, labelled by scope; `--output-file` writes it to a file. See the new [Link index](https://jensvansteen.github.io/stele/reference/link-index) reference.
