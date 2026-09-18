@@ -8,6 +8,7 @@ import test, { type TestContext } from "node:test";
 interface VerificationReport {
   readonly schemaVersion: string;
   readonly verdict: string;
+  readonly linkage: string;
   readonly stages: {
     readonly execution: Readonly<Record<string, unknown>>;
   };
@@ -30,9 +31,12 @@ function parseVerificationReport(value: string): VerificationReport {
   assert.ok(typeof parsed.verdict === "string");
   assert.ok(isRecord(parsed.stages));
   assert.ok(isRecord(parsed.stages.execution));
+  assert.ok(isRecord(parsed.verdicts));
+  assert.ok(typeof parsed.verdicts.linkage === "string");
   return {
     schemaVersion: parsed.schemaVersion,
     verdict: parsed.verdict,
+    linkage: parsed.verdicts.linkage,
     stages: { execution: parsed.stages.execution },
   };
 }
@@ -78,8 +82,9 @@ void test("exposes an executable verify command", async (context: TestContext): 
   ]);
   assert.equal(result.status, 0, result.stderr);
   const report: VerificationReport = parseVerificationReport(result.stdout);
-  assert.equal(report.schemaVersion, "2.0");
-  assert.equal(report.verdict, "pass");
+  assert.equal(report.schemaVersion, "2.1");
+  assert.equal(report.linkage, "pass");
+  assert.equal(report.verdict, "incomplete");
 });
 
 // @verifies scn.verify.a2c7e48b610f.e2e
@@ -187,7 +192,7 @@ void test("verifies current specifications after archiving", async (context: Tes
 
   const verified: SpawnSyncReturns<string> = cli(["verify", "--specs", "--root", root, "--json"]);
   assert.equal(verified.status, 0, verified.stdout);
-  assert.equal(parseVerificationReport(verified.stdout).verdict, "pass");
+  assert.equal(parseVerificationReport(verified.stdout).linkage, "pass");
 
   const validated: SpawnSyncReturns<string> = cli(["validate", "--specs", "--root", root]);
   assert.equal(validated.status, 0, validated.stdout + validated.stderr);
@@ -388,4 +393,141 @@ void test("runs the approved evidence workflow end to end", async (context: Test
     await fs.readFile(path.join(root, "artifacts/test-results.json"), "utf8"),
   );
   assert.deepEqual(evidence.scenarios, [{ id: scenario, outcome: "passed" }]);
+});
+
+interface LinkIndex {
+  readonly scopes: readonly string[];
+  readonly scenarioSteps: readonly string[];
+  readonly evidence: readonly string[];
+  readonly anchors: readonly string[];
+}
+
+function field(record: Record<string, unknown>, key: string): string {
+  const value: unknown = record[key];
+  assert.ok(typeof value === "string" || value === null || value === undefined, key);
+  return value ?? "";
+}
+
+function records(value: unknown): readonly Record<string, unknown>[] {
+  assert.ok(isUnknownArray(value));
+  return value.map((item: unknown): Record<string, unknown> => {
+    assert.ok(isRecord(item));
+    return item;
+  });
+}
+
+function parseLinkIndex(value: string): LinkIndex {
+  const parsed: unknown = JSON.parse(value);
+  assert.ok(isRecord(parsed));
+  const scenarios: readonly Record<string, unknown>[] = records(parsed.scenarios);
+  return {
+    scopes: records(parsed.scopes).map((scope: Record<string, unknown>): string => `${field(scope, "kind")}:${field(scope, "id")}`),
+    scenarioSteps: scenarios.flatMap((scenario: Record<string, unknown>): string[] =>
+      records(scenario.steps).map((step: Record<string, unknown>): string => `${field(step, "keyword")} ${field(step, "text")}`)),
+    evidence: scenarios.flatMap((scenario: Record<string, unknown>): string[] =>
+      records(scenario.evidence).map((item: Record<string, unknown>): string => `${field(item, "id")}:${field(item, "approval")}`)),
+    anchors: records(parsed.anchors).map((anchor: Record<string, unknown>): string =>
+      `${field(anchor, "kind")}:${field(anchor, "level")}:${field(anchor, "selector")}:${field(anchor, "status")}`),
+  };
+}
+
+async function evidencePlanFixture(context: TestContext): Promise<string> {
+  const root: string = await fs.mkdtemp(path.join(os.tmpdir(), "stele-cli-index-"));
+  context.after((): Promise<void> => fs.rm(root, { recursive: true }));
+  const change = "openspec/changes/todo-basics";
+  const scenario = "scn.todo.abcdef012345";
+  await writeProjectFile(root, "package.json", ['{ "type": "module" }', ""]);
+  await writeProjectFile(root, `${change}/specs/todo/spec.md`, [
+    "## ADDED Requirements", "",
+    "### Requirement: Add a todo", "Verification-ID: req.todo.0123456789ab", "",
+    "The application SHALL add a todo from entered text.", "",
+    "#### Scenario: Save entered text", `Verification-ID: ${scenario}`, "",
+    "- **WHEN** a user enters a todo", "- **THEN** the todo is saved", "",
+  ]);
+  await writeProjectFile(root, `${change}/linkage-plan.json`, [JSON.stringify({
+    schemaVersion: 2,
+    changeId: "todo-basics",
+    scenarios: {
+      [scenario]: {
+        evidence: [
+          { id: `${scenario}.unit`, level: "unit", rationale: "Pure logic." },
+          { id: `${scenario}.e2e`, level: "e2e", rationale: "The user journey." },
+        ],
+      },
+    },
+  }, null, 2), ""]);
+  await writeProjectFile(root, "src/todo.mts", [
+    "// @" + "implements req.todo.0123456789ab",
+    "export function addTodo(text: string): { text: string } { return { text }; }",
+    "",
+  ]);
+  const testFile = (anchor: string, title: string): readonly string[] => [
+    'import assert from "node:assert/strict";',
+    'import test from "node:test";',
+    'import { addTodo } from "../src/todo.mts";',
+    "// @" + `verifies ${anchor}`,
+    `void test("${title}", (): void => { assert.equal(addTodo("ship").text, "ship"); });`,
+    "",
+  ];
+  await writeProjectFile(root, "tests/todo.test.mts", testFile(`${scenario}.unit`, "saves entered text"));
+  await writeProjectFile(root, "tests/journey.test.mts", testFile(`${scenario}.e2e`, "records a todo"));
+  const approved: SpawnSyncReturns<string> = cli(["approve", "--root", root, "--change", "todo-basics", "--all", "--yes", "--by", "Tester"]);
+  assert.equal(approved.status, 0, approved.stderr);
+  return root;
+}
+
+// @verifies scn.linkindex.30ab15bc8293.e2e
+void test("prints a link index for editors", async (context: TestContext): Promise<void> => {
+  const root: string = await evidencePlanFixture(context);
+  const result: SpawnSyncReturns<string> = cli(["index", "--root", root, "--change", "todo-basics", "--json"]);
+  assert.equal(result.status, 0, result.stderr);
+  const index: LinkIndex = parseLinkIndex(result.stdout);
+  assert.deepEqual(index.scopes, ["change:todo-basics"]);
+  assert.deepEqual(index.scenarioSteps, ["WHEN a user enters a todo", "THEN the todo is saved"]);
+  assert.deepEqual(index.evidence, ["scn.todo.abcdef012345.unit:approved", "scn.todo.abcdef012345.e2e:approved"]);
+  assert.deepEqual(index.anchors, [
+    "code::addTodo:linked",
+    "test:e2e:records a todo:linked",
+    "test:unit:saves entered text:linked",
+  ]);
+
+  const tested: SpawnSyncReturns<string> = cli(["test", "scn.todo.abcdef012345.e2e", "--root", root, "--change", "todo-basics"]);
+  assert.equal(tested.status, 0, tested.stdout + tested.stderr);
+  assert.match(tested.stdout, /selected tests: 1\/1 passed/v);
+  const after: SpawnSyncReturns<string> = cli(["index", "--root", root, "--change", "todo-basics"]);
+  assert.match(after.stdout, /"state": "executed",\n\s+"outcome": "passed"/v);
+});
+
+// @verifies scn.linkindex.c0e515c9575a.e2e
+void test("emits an identical link index for identical inputs", async (context: TestContext): Promise<void> => {
+  const root: string = await evidencePlanFixture(context);
+  const printed: SpawnSyncReturns<string> = cli(["index", "--root", root, "--change", "todo-basics", "--json"]);
+  const written: SpawnSyncReturns<string> = cli(["index", "--root", root, "--change", "todo-basics", "--output-file", "out/index.json"]);
+  assert.equal(printed.status, 0, printed.stderr);
+  assert.equal(written.status, 0, written.stderr);
+  assert.equal(written.stdout, "");
+  assert.equal(await fs.readFile(path.join(root, "out/index.json"), "utf8"), printed.stdout);
+  assert.doesNotMatch(printed.stdout, /generatedAt|recordedAt|timestamp/v);
+});
+
+// @verifies scn.linkindex.7c1d78728036.e2e
+void test("checks every scope with --all", async (context: TestContext): Promise<void> => {
+  const root: string = await passingFixture(context);
+  await writeProjectFile(root, "openspec/specs/todo/spec.md", [
+    "### Requirement: Add a todo", "Verification-ID: req.todo.0123456789ab",
+    "#### Scenario: Save entered text", "Verification-ID: scn.todo.abcdef012345", "",
+  ]);
+  await writeProjectFile(root, "openspec/changes/broken/specs/broken/spec.md", [
+    "### Requirement: Broken", "Verification-ID: req.broken.0123456789ab",
+    "#### Scenario: Broken", "Verification-ID: scn.broken.abcdef012345", "",
+  ]);
+  const result: SpawnSyncReturns<string> = cli(["verify", "--all", "--root", root]);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /== current specifications ==\n✓ implementation verification pass/v);
+  assert.match(result.stdout, /== change broken ==\n✗ implementation verification fail/v);
+  assert.match(result.stdout, /== change example ==\n✓ implementation verification pass/v);
+  assert.match(result.stdout, /✗ 1 of 3 scopes failed: change broken/v);
+
+  const conflicting: SpawnSyncReturns<string> = cli(["verify", "--all", "--change", "example", "--root", root]);
+  assert.equal(conflicting.status, 2);
 });

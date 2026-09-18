@@ -50,7 +50,7 @@ func TestProposalReportsUnapprovedEntries(t *testing.T) {
 	for _, stage := range []string{"proposal", "implementation"} {
 		report := verifyFixture(t, root, stage)
 		unapproved := diagnosticsWithCode(report.Diagnostics, "PLAN_UNAPPROVED")
-		if report.Verdict != "fail" || len(unapproved) != 1 ||
+		if report.Verdicts.Linkage != "fail" || len(unapproved) != 1 ||
 			identityOf(unapproved[0]) != evidenceScenarioID+".unit" ||
 			!strings.Contains(unapproved[0].Message, evidenceScenarioID+".unit") {
 			t.Fatalf("%s: PLAN_UNAPPROVED = %#v", stage, unapproved)
@@ -74,7 +74,7 @@ func TestProposalReportsStaleApprovals(t *testing.T) {
 	spacious := strings.Replace(evidenceSpec,
 		"- **WHEN** no value is stored", "-   **WHEN**   no value\n  is stored", 1)
 	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", spacious)
-	if report := verifyFixture(t, root, "proposal"); report.Verdict != "pass" {
+	if report := verifyFixture(t, root, "proposal"); report.Verdicts.Linkage != "pass" {
 		t.Fatalf("whitespace made an approval stale: %#v", report.Diagnostics)
 	}
 
@@ -206,7 +206,7 @@ func TestApproveRecordsConversationConfirmation(t *testing.T) {
 		strings.Contains(stdout, other+".unit") {
 		t.Fatalf("evidence selection = %d:\n%s", code, stdout)
 	}
-	if report := verifyFixture(t, root, "proposal"); report.Verdict != "pass" {
+	if report := verifyFixture(t, root, "proposal"); report.Verdicts.Linkage != "pass" {
 		t.Fatalf("approved plan does not pass: %#v", report.Diagnostics)
 	}
 }

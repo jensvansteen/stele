@@ -151,7 +151,7 @@ func TestProposalAcceptsApprovedEvidencePlan(t *testing.T) {
 		missing: {approved(t, root, entry(missing, "integration", "Needs the real store."))},
 	})
 	report := verifyFixture(t, root, "proposal")
-	if report.Verdict != "pass" || len(report.Diagnostics) != 0 || report.Stages.Proposal.Status != "pass" {
+	if report.Verdicts.Linkage != "pass" || len(report.Diagnostics) != 0 || report.Stages.Proposal.Status != "pass" {
 		t.Fatalf("approved plan did not pass: %#v", report.Diagnostics)
 	}
 	requirement := report.Requirements[0]
@@ -256,7 +256,7 @@ func TestProposalRequiresEvidencePerScenario(t *testing.T) {
 	for _, stage := range []string{"proposal", "implementation"} {
 		report := verifyFixture(t, root, stage)
 		missing := diagnosticsWithCode(report.Diagnostics, "PLAN_EVIDENCE_MISSING")
-		if report.Verdict != "fail" || len(missing) != 2 {
+		if report.Verdicts.Linkage != "fail" || len(missing) != 2 {
 			t.Fatalf("%s: PLAN_EVIDENCE_MISSING = %#v", stage, missing)
 		}
 		for _, scenario := range report.Requirements[0].Scenarios {
@@ -293,12 +293,12 @@ func TestV1PlanStillVerifiesWithWarning(t *testing.T) {
 	root := completeFixture(t, false)
 	report := verifyFixture(t, root, "implementation")
 	warnings := diagnosticsWithCode(report.Diagnostics, "PLAN_V1_DEPRECATED")
-	if report.Verdict != "pass" || len(warnings) != 1 || warnings[0].Severity != "warning" ||
+	if report.Verdicts.Linkage != "pass" || len(warnings) != 1 || warnings[0].Severity != "warning" ||
 		!strings.Contains(warnings[0].Message, "0.2.0") || report.Summary.Warnings != 1 {
-		t.Fatalf("v1 plan report = %s, %#v", report.Verdict, report.Diagnostics)
+		t.Fatalf("v1 plan report = %s, %#v", report.Verdicts.Linkage, report.Diagnostics)
 	}
 	proposal := verifyFixture(t, root, "proposal")
-	if proposal.Verdict != "pass" || proposal.Stages.Proposal.Status != "pass" ||
+	if proposal.Verdicts.Linkage != "pass" || proposal.Stages.Proposal.Status != "pass" ||
 		proposal.Requirements[0].Scenarios[0].Evidence != nil {
 		t.Fatalf("v1 proposal = %#v", proposal)
 	}
@@ -340,7 +340,9 @@ func TestArchivedPlansMixSchemaVersions(t *testing.T) {
 	if err := os.Remove(revert); err != nil {
 		t.Fatal(err)
 	}
-	report, err := verifyScope(root, verificationScope{currentSpecs: true}, "proposal", "")
+	report, err := verifyScope(verifyRequest{
+		root: root, scope: verificationScope{currentSpecs: true}, mode: "proposal",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

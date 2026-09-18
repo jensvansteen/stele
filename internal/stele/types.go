@@ -15,20 +15,34 @@ type Diagnostic struct {
 	Source     *Source `json:"source"`
 }
 
+// ScenarioStep is one `- **KEYWORD** text` bullet of a scenario.
+type ScenarioStep struct {
+	Keyword string `json:"keyword"`
+	Text    string `json:"text"`
+}
+
 // Scenario is a parsed OpenSpec behavior scenario.
 type Scenario struct {
 	ID     string
 	Title  string
 	Source Source
-	// Text is the scenario block without its Verification-ID line.
+	// Text is the scenario title followed by its block, without the
+	// Verification-ID line. The approval digest fingerprints it.
 	Text string
+	// Body is the raw Markdown below the heading, without the Verification-ID
+	// line, and Steps are its keyword bullets.
+	Body  string
+	Steps []ScenarioStep
 }
 
 // Requirement is a parsed OpenSpec requirement and its scenarios.
 type Requirement struct {
-	ID        string
-	Title     string
-	Source    Source
+	ID     string
+	Title  string
+	Source Source
+	// Text is the Markdown under the heading, without the Verification-ID line
+	// and without the scenarios.
+	Text      string
 	Scenarios []Scenario
 }
 
@@ -199,19 +213,30 @@ type ReportSummary struct {
 	Warnings           int `json:"warnings"`
 }
 
+// ReportVerdicts separates the linkage verdict (pass or fail), the execution
+// verdict (passed, failed, stale, or not-run), and the overall verdict (pass,
+// fail, or incomplete).
+type ReportVerdicts struct {
+	Linkage   string `json:"linkage"`
+	Execution string `json:"execution"`
+	Overall   string `json:"overall"`
+}
+
 // Report is the deterministic verification result for one OpenSpec change.
 type Report struct {
-	SchemaVersion string              `json:"schemaVersion"`
-	Verifier      VerifierMetadata    `json:"verifier"`
-	OpenSpec      OpenSpecMetadata    `json:"openspec"`
-	Mode          string              `json:"mode"`
-	Repository    RepositoryMetadata  `json:"repository"`
-	Complete      bool                `json:"complete"`
-	Verdict       string              `json:"verdict"`
-	Stages        VerificationStages  `json:"stages"`
-	Summary       ReportSummary       `json:"summary"`
-	Requirements  []RequirementReport `json:"requirements"`
-	Diagnostics   []Diagnostic        `json:"diagnostics"`
+	SchemaVersion string             `json:"schemaVersion"`
+	Verifier      VerifierMetadata   `json:"verifier"`
+	OpenSpec      OpenSpecMetadata   `json:"openspec"`
+	Mode          string             `json:"mode"`
+	Repository    RepositoryMetadata `json:"repository"`
+	Complete      bool               `json:"complete"`
+	// Verdict is the overall verdict, the same as Verdicts.Overall.
+	Verdict      string              `json:"verdict"`
+	Verdicts     ReportVerdicts      `json:"verdicts"`
+	Stages       VerificationStages  `json:"stages"`
+	Summary      ReportSummary       `json:"summary"`
+	Requirements []RequirementReport `json:"requirements"`
+	Diagnostics  []Diagnostic        `json:"diagnostics"`
 }
 
 // ScenarioOutcome records the execution outcome associated with a scenario identity.
@@ -230,6 +255,8 @@ type TestExecution struct {
 	EvidenceIDs []string `json:"evidenceIds,omitempty"`
 	Outcome     string   `json:"outcome"`
 	Reason      *string  `json:"reason"`
+	// InputDigest is the input digest of the run that recorded this execution.
+	InputDigest string `json:"inputDigest"`
 }
 
 // Evidence is the deterministic execution manifest consumed by verification.

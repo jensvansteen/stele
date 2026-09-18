@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -168,4 +169,65 @@ func hasDiagnostic(diagnostics []Diagnostic, code string) bool {
 		}
 	}
 	return false
+}
+
+// @verifies scn.linkindex.2bec33059b75.unit
+func TestParseSpecsKeepsRequirementTextAndScenarioSteps(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", "## ADDED Requirements\r\n\r\n"+
+		"### Requirement: Return value\r\n"+
+		"Verification-ID: req.demo.aaaaaaaaaaaa\r\n\r\n"+
+		"The system SHALL return the stored value.\r\n"+
+		"It SHALL NOT change it.\r\n\r\n"+
+		"#### Scenario: Value is returned\r\n"+
+		"Verification-ID: scn.demo.bbbbbbbbbbbb\r\n\r\n"+
+		"- **GIVEN** a stored value\r\n"+
+		"- **WHEN** the value is read\r\n"+
+		"  after a restart\r\n"+
+		"- **THEN** it is returned\r\n"+
+		"- **AND** nothing is written\r\n\r\n"+
+		"#### Scenario: Empty\r\n"+
+		"Verification-ID: scn.demo.cccccccccccc\r\n\r\n"+
+		"#### Scenario: Malformed\r\n"+
+		"Verification-ID: scn.demo.dddddddddddd\r\n\r\n"+
+		"Some context first.\r\n"+
+		"- a bullet without a keyword\r\n"+
+		"* **then**: lower case\r\n")
+	parsed, err := ParseSpecs(root, "example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requirement := parsed.Requirements[0]
+	if requirement.Text != "The system SHALL return the stored value.\nIt SHALL NOT change it." {
+		t.Fatalf("requirement text = %q", requirement.Text)
+	}
+	scenarios := requirement.Scenarios
+	wantBody := "- **GIVEN** a stored value\n- **WHEN** the value is read\n  after a restart\n" +
+		"- **THEN** it is returned\n- **AND** nothing is written"
+	if scenarios[0].Body != wantBody {
+		t.Fatalf("scenario body = %q", scenarios[0].Body)
+	}
+	wantSteps := []ScenarioStep{
+		{Keyword: "GIVEN", Text: "a stored value"},
+		{Keyword: "WHEN", Text: "the value is read after a restart"},
+		{Keyword: "THEN", Text: "it is returned"},
+		{Keyword: "AND", Text: "nothing is written"},
+	}
+	if !slices.Equal(scenarios[0].Steps, wantSteps) {
+		t.Fatalf("scenario steps = %#v", scenarios[0].Steps)
+	}
+	if scenarios[1].Body != "" || scenarios[1].Steps == nil || len(scenarios[1].Steps) != 0 {
+		t.Fatalf("empty scenario = %#v", scenarios[1])
+	}
+	wantMalformed := []ScenarioStep{
+		{Keyword: "", Text: "a bullet without a keyword"},
+		{Keyword: "THEN", Text: "lower case"},
+	}
+	if !slices.Equal(scenarios[2].Steps, wantMalformed) ||
+		!strings.HasPrefix(scenarios[2].Body, "Some context first.\n") {
+		t.Fatalf("malformed scenario = %#v", scenarios[2])
+	}
+	if !strings.HasPrefix(scenarios[0].Text, "Value is returned\n") {
+		t.Fatalf("the approval text changed: %q", scenarios[0].Text)
+	}
 }

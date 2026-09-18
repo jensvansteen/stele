@@ -7,9 +7,10 @@ The npm package exposes the compiled Go executable directly as the `stele` comma
 ```text
 stele init [--change ID] [--tools TOOLS] [--refresh-schema] [--strict-versions] [--root PATH]
 stele ids [--change ID] [--check] [--root PATH] [--json]
-stele verify [--stage proposal|implementation] [--change ID | --specs] [--root PATH] [--report PATH] [--json] [--strict-versions]
-stele test [--change ID | --specs] [--root PATH] [--evidence PATH] [--json]
-stele validate [--change ID | --specs] [--root PATH] [--report PATH] [--evidence PATH] [--json] [--strict-versions]
+stele verify [--stage proposal|implementation] [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--json] [--strict-versions]
+stele test [targets...] [--change ID | --specs | --all] [--root PATH] [--evidence-file PATH] [--json]
+stele validate [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--evidence-file PATH] [--json] [--strict-versions]
+stele index [--change ID | --specs | --all] [--root PATH] [--output-file PATH] [--json]
 stele approve [--change ID | --specs] [--evidence ID]... [--scenario ID]... [--all --yes | --confirmed-in-chat] [--by NAME] [--root PATH]
 stele plan migrate [--change ID | --specs] [--root PATH]
 stele help
@@ -46,7 +47,7 @@ Inserts a `Verification-ID` line below every requirement and scenario heading of
 
 ## `stele verify`
 
-Parses the selected OpenSpec change and validates identities, the linkage plan, and anchors.
+Parses the selected OpenSpec change and validates identities, the linkage plan, and anchors. It reads the stored evidence in `artifacts/test-results.json` to report execution.
 
 | Option | Meaning |
 |---|---|
@@ -54,25 +55,98 @@ Parses the selected OpenSpec change and validates identities, the linkage plan, 
 | `--stage implementation` | Require real anchors that match planned declarations; default |
 | `--change ID` | Override the configured OpenSpec change |
 | `--specs` | Verify the current specifications in `openspec/specs/` instead of a change |
-| `--report PATH` | Write the deterministic verification report to this path |
+| `--all` | Verify every scope; see [Every scope](#every-scope) |
+| `--report-file PATH` | Write the deterministic verification report to this path |
 | `--json` | Print canonical machine-readable JSON to standard output |
+
+The exit code follows the linkage verdict, so a proposal gate or a verify-only CI step keeps its meaning. In the implementation stage the human output adds an execution line, names failed scenarios, and names the overall verdict:
+
+```text
+✓ implementation verification pass: 3 requirements, 7 scenarios, 0 errors
+✗ execution failed: 6/7 scenarios passed
+  FAILED scn.todo.20d9cd2785a4 Non-empty title
+✗ overall fail
+```
+
+### Report verdicts
+
+Reports have schema version `2.1` and keep three verdicts apart in `verdicts`:
+
+| Field | Values | Meaning |
+|---|---|---|
+| `linkage` | `pass`, `fail` | Diagnostics: identities, plan, and anchors |
+| `execution` | `passed`, `failed`, `stale`, `not-run` | The current evidence of the scope's scenarios |
+| `overall` | `pass`, `fail`, `incomplete` | In the proposal stage, `linkage`. Otherwise `fail` when linkage failed or execution `failed`, `incomplete` when execution is `not-run` or `stale`, and `pass` only when both pass |
+
+The top-level `verdict` equals `verdicts.overall`. In reports before schema version 2.1 it meant linkage only; read `verdicts.linkage` for that meaning.
 
 ## `stele test`
 
-Finds scenario test anchors, selects every named test independently, and writes execution evidence.
+Finds scenario test anchors, selects every named test independently, and records execution evidence.
+
+```bash
+npx stele test --change todo-basics                          # every test of the change
+npx stele test scn.todo.20d9cd2785a4                          # one scenario
+npx stele test scn.todo.20d9cd2785a4.e2e                      # one evidence entry
+npx stele test req.todo.22b616c90f42                          # every scenario of a requirement
+npx stele test openspec/changes/todo-basics/specs/todo/spec.md  # every scenario in a file
+```
+
+Positional targets select what runs, Jest-style:
+
+- An argument that starts with `req.` or `scn.` is an ID: a requirement selects the tests of all its scenarios, a scenario its tests, and an evidence ID (`<scenario>.<level>[.<n>]`) the tests of that entry.
+- Any other argument is a `spec.md` file under `openspec/`, resolved against the repository root, and selects every scenario the scope parsed from it.
+- Targets combine as a union, and each test runs once, even when several targets or scenarios share it.
+- An ID the scope does not declare, or a file that does not exist or is not part of the scope, exits with code `2` before any test runs, naming the target.
+
+With targets, Stele merges the outcomes into the stored evidence, `artifacts/test-results.json` unless `--evidence-file` names another file. Only executions of the tests that ran are replaced; other outcomes are kept. Each scenario's outcome is recomputed over all its tests, so a scenario whose other tests never ran is `not-run`, and one whose tests ran with older inputs is `stale`. The exit code follows the tests that ran: `0` when all passed, otherwise `1`. Without targets the whole scope runs as before, and evidence is written only with `--evidence-file`.
+
+Only exact test names are selectable. A test whose name is a template literal with an interpolation, a `test.each` table, or a `describe` block leaves its anchor without a selector; the test is reported as not selectable (`target-not-resolved`), never run by a partial name.
 
 | Option | Meaning |
 |---|---|
 | `--change ID` | Override the configured change |
 | `--specs` | Run the tests linked to the current specifications |
-| `--evidence PATH` | Write test evidence to this path |
-| `--json` | Print the evidence document to standard output |
+| `--all` | Run the tests of every scope |
+| `--evidence-file PATH` | Write test evidence to this path |
+| `--json` | Print the scope's evidence document to standard output |
+
+### Evidence schema 3
+
+Evidence files have schema version `3`. Every execution records the `inputDigest` of the run that produced it, next to its `path`, `selector`, `scenarioIds`, `evidenceIds`, `outcome`, and `reason`, so an execution is stale when its digest differs from the current one. The digest covers the whole repository, so any input change marks every outcome stale. Readers of `outcome` and `scenarios` are unaffected; schema 2 files are still read, with the file's digest for every execution.
 
 ## `stele validate`
 
-Runs scenario tests, OpenSpec strict validation, and implementation verification as one gate. Default outputs are `artifacts/test-results.json` and `artifacts/verification-report.json`.
+Runs scenario tests, OpenSpec strict validation, and implementation verification as one gate. Default outputs are `artifacts/test-results.json` and `artifacts/verification-report.json`; `--evidence-file` and `--report-file` choose others. The implementation verification uses the evidence of this run. Its JSON output has the same `verdicts` as the report.
 
 With `--specs`, OpenSpec validates all specifications with `openspec validate --specs --strict`.
+
+## `stele index`
+
+Prints a deterministic JSON link index for editors and review tools: every requirement and scenario with its text, structured steps, and source location; every code and test anchor with its status; the planned evidence with its approval state; and the last execution outcome of each piece of evidence, marked `stale` when inputs changed since. It writes to standard output, or with `--output-file PATH` to that file. `--json` is accepted for symmetry; the output is always JSON. Identical inputs give identical bytes, without timestamps.
+
+With `--change`, the index also includes the current specifications, and every item is labelled with its scope. With `--specs`, only the current specifications are included, and with `--all`, the current specifications and every active change. See [Link index](/reference/link-index) for the document format.
+
+## Every scope
+
+`--all` on `verify`, `test`, `validate`, and `index` covers the current specifications and then every active change in `openspec/changes/` (archived changes excluded), in directory order. When there are no current specifications, that scope is skipped. `--all` cannot be combined with `--change`, `--specs`, or test targets; such a command exits with code `2` and checks nothing.
+
+`verify`, `test`, and `validate` check each scope separately and print its result under a heading, then a summary that names the failing scopes:
+
+```text
+== current specifications ==
+✓ implementation verification pass: 12 requirements, 30 scenarios, 0 errors
+== change todo-basics ==
+✗ implementation verification fail: 1 requirements, 2 scenarios, 1 errors
+  ERROR LINK_CODE_MISSING: No code anchor resolves for req.todo.22b616c90f42.
+✗ 1 of 2 scopes failed: change todo-basics
+```
+
+The exit code is the worst of the scopes: `2` when a scope could not be checked, else `1` when a scope failed, else `0`. With `--json`, standard output is an array with one `{scope, kind, exitCode, result}` entry per scope. An output file receives every scope in one file: `--report-file` an array of reports, and `--evidence-file` one evidence document that merges the scopes. `stele index --all` prints one index with every scope.
+
+## Output file flags
+
+`--evidence-file PATH` (`test`, `validate`) and `--report-file PATH` (`verify`, `validate`) name the output files. The earlier `--evidence PATH` and `--report PATH` keep working until 0.2.0 and print `stele: warning: --report is deprecated and will be removed in 0.2.0; use --report-file` to standard error without changing the exit code.
 
 ## `stele approve`
 
@@ -130,11 +204,11 @@ A **version 2** plan records decisions a person approves, not locations:
 
 A **version 1** plan maps each requirement and scenario to one `path#selector` target. It keeps its earlier rules until Stele 0.2.0 and adds a `PLAN_V1_DEPRECATED` warning, which does not change the verdict.
 
-Reports list each version 2 scenario's planned `evidence` with its approval state, and links carry `evidenceId` and `level`. Test evidence lists the `evidenceIds` of each execution and the `failedEvidence` of a failed scenario.
+Reports list each version 2 scenario's planned `evidence` with its approval state, and links carry `evidenceId` and `level`. Test evidence lists the `evidenceIds` and `inputDigest` of each execution and the `failedEvidence` of a failed scenario.
 
 ## Scopes and linkage plans
 
-Each run checks one scope: a change, selected with `--change` or the configured default, or the current specifications, selected with `--specs`. The two options cannot be combined.
+Each run checks one scope: a change, selected with `--change` or the configured default, or the current specifications, selected with `--specs`. The two options cannot be combined. `--all` checks [every scope](#every-scope) separately.
 
 | Scope | Specifications | Linkage plan |
 |---|---|---|

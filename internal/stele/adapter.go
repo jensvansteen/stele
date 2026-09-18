@@ -34,6 +34,8 @@ type specificationBackend interface {
 	Capability(scope verificationScope, relative string) string
 	// CurrentSpecFile locates the current specification of a capability.
 	CurrentSpecFile(root, capability string) string
+	// Changes lists the active changes, in directory order.
+	Changes(root string) []string
 	// PlanPaths lists the linkage plans of a scope, oldest first.
 	PlanPaths(root string, scope verificationScope) []string
 	// Validate runs the backend's own strict validation.
@@ -140,6 +142,18 @@ func (openSpecBackend) Capability(scope verificationScope, relative string) stri
 
 func (openSpecBackend) CurrentSpecFile(root, capability string) string {
 	return filepath.Join(root, "openspec", "specs", filepath.FromSlash(capability), "spec.md")
+}
+
+// Changes lists the directories of openspec/changes except the archive.
+func (openSpecBackend) Changes(root string) []string {
+	entries, _ := os.ReadDir(filepath.Join(root, "openspec", "changes"))
+	changes := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() && entry.Name() != "archive" {
+			changes = append(changes, entry.Name())
+		}
+	}
+	return changes
 }
 
 func (openSpecBackend) PlanPaths(root string, scope verificationScope) []string {

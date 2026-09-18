@@ -16,7 +16,7 @@ var (
 			`((?:\.(?:unit|integration|e2e)(?:\.[0-9]+)?\b)?)`,
 	)
 	typeScriptTestPattern = regexp.MustCompile(
-		`^(?:(?:void|await)\s+)?(?:test|it)\(\s*["'\x60]([^"'\x60]+)["'\x60]`,
+		`^(?:(?:void|await)\s+)?(?:test|it)\(\s*(["'\x60])([^"'\x60]+)["'\x60]`,
 	)
 	typeScriptFunctionPattern = regexp.MustCompile(
 		`^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)`,
@@ -345,13 +345,18 @@ func declarationSelector(line, kind string) string {
 	return codeSelector(line)
 }
 
+// testSelector returns the exact name of a test call. A template literal with
+// an interpolation has no exact name, so it stays unresolved instead of
+// selecting tests by a partial name.
+//
 // @implements req.tsanchors.3529ec7b6931
+// @implements req.linkindex.860a4d91b9fe
 func testSelector(line string) string {
 	match := typeScriptTestPattern.FindStringSubmatch(line)
-	if match == nil {
+	if match == nil || (match[1] == "`" && strings.Contains(match[2], "${")) {
 		return ""
 	}
-	return match[1]
+	return match[2]
 }
 
 func codeSelector(line string) string {

@@ -47,6 +47,7 @@ export default defineConfig({
         text: "Reference",
         items: [
           { text: "CLI", link: "/reference/cli" },
+          { text: "Link index", link: "/reference/link-index" },
           { text: "Package architecture", link: "/reference/architecture" },
           { text: "Versions", link: "/reference/versions" },
           { text: "Examples", link: "/reference/examples" },

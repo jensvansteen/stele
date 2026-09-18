@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -14,7 +15,8 @@ func TestRunVerificationResolvesPlannedAnchors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "pass" || report.Summary.LinkedRequirements != 1 || report.Summary.LinkedScenarios != 1 {
+	if report.Verdicts.Linkage != "pass" || report.Summary.LinkedRequirements != 1 ||
+		report.Summary.LinkedScenarios != 1 {
 		t.Fatalf("unexpected report: %#v", report)
 	}
 }
@@ -29,7 +31,7 @@ func TestRunVerificationRejectsMismatchedTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "fail" || !hasDiagnostic(report.Diagnostics, "LINK_TARGET_MISMATCH") {
+	if report.Verdicts.Linkage != "fail" || !hasDiagnostic(report.Diagnostics, "LINK_TARGET_MISMATCH") {
 		t.Fatalf("expected target mismatch, got %#v", report.Diagnostics)
 	}
 }
@@ -85,7 +87,7 @@ test("wrong kind", () => {});
 			t.Errorf("missing %s in %#v", code, report.Diagnostics)
 		}
 	}
-	if report.Verdict != "fail" || report.Stages.Linkage.Status != "fail" {
+	if report.Verdicts.Linkage != "fail" || report.Stages.Linkage.Status != "fail" {
 		t.Fatalf("unexpected failure report: %#v", report)
 	}
 }
@@ -113,7 +115,7 @@ func TestRunVerificationProposalPlans(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "pass" ||
+	if report.Verdicts.Linkage != "pass" ||
 		report.Stages.Linkage.Status != "planned" ||
 		report.Requirements[0].Linkage != "planned" ||
 		report.Requirements[0].Scenarios[0].Linkage != "planned" {
@@ -229,7 +231,7 @@ func TestBuildReportTracksEvidenceAndDiagnostics(t *testing.T) {
 		[]Diagnostic{{Severity: "error"}},
 		current,
 	)
-	if stale.Verdict != "fail" ||
+	if stale.Verdicts.Linkage != "fail" ||
 		stale.Stages.Execution.Status != "stale" ||
 		stale.Requirements[0].Linkage != "missing" {
 		t.Fatalf("unexpected stale report: %#v", stale)
@@ -392,4 +394,91 @@ Verification-ID: scn.demo.bbbbbbbbbbbb
 		t.Fatal(err)
 	}
 	return root
+}
+
+// verdictInputs returns a linked requirement with two scenarios; it passes
+// no linkage diagnostics.
+func verdictInputs() (ParsedSpecs, []Anchor) {
+	requirement := Requirement{
+		ID:     "req.demo.aaaaaaaaaaaa",
+		Title:  "Demo",
+		Source: Source{Path: "spec.md", Line: 1},
+		Scenarios: []Scenario{
+			{ID: "scn.demo.bbbbbbbbbbbb", Title: "Works", Source: Source{Path: "spec.md", Line: 2}},
+			{ID: "scn.demo.cccccccccccc", Title: "Fails", Source: Source{Path: "spec.md", Line: 3}},
+		},
+	}
+	selector := "demo"
+	anchors := []Anchor{{ID: requirement.ID, Kind: "code", Path: "src/demo.go", Selector: &selector}}
+	return ParsedSpecs{Requirements: []Requirement{requirement}}, anchors
+}
+
+// @verifies scn.verify.140b21cbc3f0.unit
+func TestReportSeparatesExecutionVerdict(t *testing.T) {
+	parsed, anchors := verdictInputs()
+	evidence := &Evidence{InputDigest: "digest", Scenarios: []ScenarioOutcome{
+		{ID: "scn.demo.bbbbbbbbbbbb", Outcome: "passed"},
+		{ID: "scn.demo.cccccccccccc", Outcome: "failed"},
+	}}
+	report := BuildReport(t.TempDir(), "example", "implementation", "digest", parsed, anchors,
+		emptyLinkagePlan(), []Diagnostic{}, evidence)
+	want := ReportVerdicts{Linkage: "pass", Execution: "failed", Overall: "fail"}
+	if report.Verdicts != want || report.Verdict != "fail" || report.SchemaVersion != "2.1" {
+		t.Fatalf("verdicts = %#v, verdict = %s, schema %s", report.Verdicts, report.Verdict, report.SchemaVersion)
+	}
+	var output bytes.Buffer
+	renderVerification(&output, report)
+	for _, line := range []string{
+		"✓ implementation verification pass",
+		"✗ execution failed: 1/2 scenarios passed",
+		"FAILED scn.demo.cccccccccccc Fails",
+		"✗ overall fail",
+	} {
+		if !strings.Contains(output.String(), line) {
+			t.Fatalf("human summary lacks %q: %q", line, output.String())
+		}
+	}
+
+	proposal := BuildReport(t.TempDir(), "example", "proposal", "digest", parsed, anchors,
+		emptyLinkagePlan(), []Diagnostic{}, evidence)
+	if proposal.Verdicts.Overall != "pass" || proposal.Verdict != "pass" {
+		t.Fatalf("the proposal stage did not follow linkage: %#v", proposal.Verdicts)
+	}
+	output.Reset()
+	renderVerification(&output, proposal)
+	if strings.Contains(output.String(), "execution") {
+		t.Fatalf("the proposal summary names execution: %q", output.String())
+	}
+	failing := BuildReport(t.TempDir(), "example", "implementation", "digest", parsed, anchors,
+		emptyLinkagePlan(), []Diagnostic{{Code: "FAIL", Severity: "error"}}, nil)
+	if failing.Verdicts != (ReportVerdicts{Linkage: "fail", Execution: "not-run", Overall: "fail"}) {
+		t.Fatalf("failed linkage = %#v", failing.Verdicts)
+	}
+}
+
+// @verifies scn.verify.a7ae8afade0a.unit
+func TestReportMarksMissingEvidenceIncomplete(t *testing.T) {
+	parsed, anchors := verdictInputs()
+	report := BuildReport(t.TempDir(), "example", "implementation", "digest", parsed, anchors,
+		emptyLinkagePlan(), []Diagnostic{}, nil)
+	want := ReportVerdicts{Linkage: "pass", Execution: "not-run", Overall: "incomplete"}
+	if report.Verdicts != want || report.Verdict != "incomplete" {
+		t.Fatalf("missing evidence = %#v, %s", report.Verdicts, report.Verdict)
+	}
+	stale := BuildReport(t.TempDir(), "example", "implementation", "digest", parsed, anchors,
+		emptyLinkagePlan(), []Diagnostic{}, &Evidence{InputDigest: "old", Scenarios: []ScenarioOutcome{
+			{ID: "scn.demo.bbbbbbbbbbbb", Outcome: "passed"},
+			{ID: "scn.demo.cccccccccccc", Outcome: "passed"},
+		}})
+	if stale.Verdicts.Execution != "stale" || stale.Verdict != "incomplete" {
+		t.Fatalf("stale evidence = %#v", stale.Verdicts)
+	}
+	passing := BuildReport(t.TempDir(), "example", "implementation", "old", parsed, anchors,
+		emptyLinkagePlan(), []Diagnostic{}, &Evidence{InputDigest: "old", Scenarios: []ScenarioOutcome{
+			{ID: "scn.demo.bbbbbbbbbbbb", Outcome: "passed"},
+			{ID: "scn.demo.cccccccccccc", Outcome: "passed"},
+		}})
+	if passing.Verdicts != (ReportVerdicts{Linkage: "pass", Execution: "passed", Overall: "pass"}) {
+		t.Fatalf("passing evidence = %#v", passing.Verdicts)
+	}
 }

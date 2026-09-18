@@ -147,6 +147,11 @@ func (backend memoryBackend) CurrentSpecFile(root, capability string) string {
 	return filepath.Join(root, "memory", "current", capability+".md")
 }
 
+func (backend memoryBackend) Changes(string) []string {
+	backend.record("Changes")
+	return []string{"example"}
+}
+
 func (backend memoryBackend) PlanPaths(root string, _ verificationScope) []string {
 	backend.record("PlanPaths")
 	return []string{filepath.Join(root, "memory", "plan.json")}
@@ -357,8 +362,8 @@ func TestStrictVersionsFailOnDrift(t *testing.T) {
 	originalValidate, originalTests := validateProjectOpenSpec, runProjectScenarios
 	t.Cleanup(func() { validateProjectOpenSpec, runProjectScenarios = originalValidate, originalTests })
 	validateProjectOpenSpec = func(string, verificationScope) (bool, error) { return true, nil }
-	runProjectScenarios = func(string, verificationScope, string) (Evidence, error) {
-		return Evidence{Outcome: "passed"}, nil
+	runProjectScenarios = func(testRequest) (testRun, error) {
+		return testRun{evidence: Evidence{Outcome: "passed"}}, nil
 	}
 
 	if code, _, stderr := runCommand(t, "verify", "--root", root, "--change", "example"); code != 0 ||
