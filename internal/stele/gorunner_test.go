@@ -37,14 +37,6 @@ func goRunnerModule(t *testing.T) string {
 	return root
 }
 
-func runGoGroup(root, path, selector string) TestExecution {
-	return executeTestGroup(root, testGroup{
-		Key:      testGroupKey{Path: path, Selector: selector},
-		Selector: &selector,
-		IDs:      []string{"scn.demo.aaaaaaaaaaaa"},
-	})
-}
-
 // @verifies scn.gosupport.d195095fc292.integration
 func TestExecuteExactGoTestPasses(t *testing.T) {
 	root := goRunnerModule(t)
@@ -52,7 +44,7 @@ func TestExecuteExactGoTestPasses(t *testing.T) {
 	if err != nil || !passed || !ran {
 		t.Fatalf("executeExactTest = %v, %v, %v", passed, ran, err)
 	}
-	execution := runGoGroup(root, "module/pkg/demo_test.go", "TestPasses")
+	execution := runBatchedGroup(root, "module/pkg/demo_test.go", "TestPasses")
 	if execution.Outcome != "passed" || execution.Reason != nil {
 		t.Fatalf("passing Go test was not recorded as passed: %#v", execution)
 	}
@@ -61,7 +53,7 @@ func TestExecuteExactGoTestPasses(t *testing.T) {
 // @verifies scn.gosupport.208b6a95ea3f.integration
 func TestExecuteExactGoTestFails(t *testing.T) {
 	root := goRunnerModule(t)
-	execution := runGoGroup(root, "module/pkg/demo_test.go", "TestFails")
+	execution := runBatchedGroup(root, "module/pkg/demo_test.go", "TestFails")
 	if execution.Outcome != "failed" || pointerValue(execution.Reason) != "test-process-failed" {
 		t.Fatalf("failing Go test = %#v", execution)
 	}
@@ -74,7 +66,7 @@ func TestExecuteExactGoTestReportsSkip(t *testing.T) {
 	if passed || !ran || !errors.Is(err, errTestSkipped) {
 		t.Fatalf("executeExactTest = %v, %v, %v", passed, ran, err)
 	}
-	execution := runGoGroup(root, "module/pkg/demo_test.go", "TestSkips")
+	execution := runBatchedGroup(root, "module/pkg/demo_test.go", "TestSkips")
 	if execution.Outcome != "failed" || pointerValue(execution.Reason) != "test-skipped" {
 		t.Fatalf("skipped Go test = %#v", execution)
 	}
@@ -91,13 +83,13 @@ func TestExecuteExactGoTestDetectsNoMatchingExecution(t *testing.T) {
 		{"module/pkg/never_test.go", "TestNever"},
 		{"module/badtags/bad_test.go", "TestBad"},
 	} {
-		execution := runGoGroup(root, test.path, test.selector)
+		execution := runBatchedGroup(root, test.path, test.selector)
 		if execution.Outcome != "failed" || pointerValue(execution.Reason) != "test-not-executed" {
 			t.Fatalf("%s#%s = %#v", test.path, test.selector, execution)
 		}
 	}
 
-	execution := runGoGroup(root, "module/pkg/missing_test.go", "TestMissing")
+	execution := runBatchedGroup(root, "module/pkg/missing_test.go", "TestMissing")
 	if pointerValue(execution.Reason) != "test-process-failed" {
 		t.Fatalf("missing Go test file = %#v", execution)
 	}
@@ -105,7 +97,7 @@ func TestExecuteExactGoTestDetectsNoMatchingExecution(t *testing.T) {
 	original := relativePath
 	t.Cleanup(func() { relativePath = original })
 	relativePath = func(string, string) (string, error) { return "", errors.New("relative failed") }
-	if _, _, err := executeGoTest(root, "module/pkg/demo_test.go", "TestPasses"); err == nil {
+	if _, _, err := executeExactTest(root, "module/pkg/demo_test.go", "TestPasses"); err == nil {
 		t.Fatal("expected relative path error")
 	}
 }
@@ -113,7 +105,7 @@ func TestExecuteExactGoTestDetectsNoMatchingExecution(t *testing.T) {
 // @verifies scn.gosupport.4a0637d44b7a.integration
 func TestExecuteExactGoTestAppliesBuildConstraints(t *testing.T) {
 	root := goRunnerModule(t)
-	execution := runGoGroup(root, "module/pkg/tagged_test.go", "TestTagged")
+	execution := runBatchedGroup(root, "module/pkg/tagged_test.go", "TestTagged")
 	if execution.Outcome != "passed" {
 		t.Fatalf("tagged Go test = %#v", execution)
 	}
@@ -121,8 +113,27 @@ func TestExecuteExactGoTestAppliesBuildConstraints(t *testing.T) {
 	// A test file directly in the module root runs as package ".".
 	writeFixture(t, root, "go.mod", "module example.com/root\n\ngo 1.22\n")
 	writeFixture(t, root, "root_test.go", "package root\n\nimport \"testing\"\n\nfunc TestRoot(t *testing.T) {}\n")
-	if execution := runGoGroup(root, "root_test.go", "TestRoot"); execution.Outcome != "passed" {
+	if execution := runBatchedGroup(root, "root_test.go", "TestRoot"); execution.Outcome != "passed" {
 		t.Fatalf("root package Go test = %#v", execution)
+	}
+}
+
+// @verifies scn.execution.500afe3889f6.integration
+func TestBatchRunsOneGoPackage(t *testing.T) {
+	root := goRunnerModule(t)
+	processes := countBatchProcesses(t)
+	executions := runBatched(root,
+		selectedGroup("module/pkg/demo_test.go", "TestPasses"),
+		selectedGroup("module/pkg/demo_test.go", "TestFails"),
+		selectedGroup("module/pkg/demo_test.go", "TestSkips"),
+		selectedGroup("module/pkg/demo_test.go", "TestMissing"),
+	)
+	if *processes != 1 {
+		t.Fatalf("the package's tests started %d processes, want 1", *processes)
+	}
+	want := []string{"passed:", "failed:test-process-failed", "failed:test-skipped", "failed:test-not-executed"}
+	if got := reasonsOf(executions); !slices.Equal(got, want) {
+		t.Fatalf("outcomes = %v, want %v", got, want)
 	}
 }
 

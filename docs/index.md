@@ -36,7 +36,7 @@ Stele turns plain-English software behavior into a maintainable evidence graph. 
   <div><strong>OpenSpec</strong><span>Requirements and concrete scenarios</span></div>
   <div><strong>Plan</strong><span>Expected code and named tests</span></div>
   <div><strong>Anchors</strong><span>IDs beside real declarations</span></div>
-  <div><strong>Execution</strong><span>Exact scenario tests run independently</span></div>
+  <div><strong>Execution</strong><span>Exact scenario tests, each with its own outcome</span></div>
   <div><strong>Evidence</strong><span>Revision-bound JSON for CI and review</span></div>
 </div>
 

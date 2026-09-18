@@ -34,7 +34,7 @@ cmp /tmp/first.json /tmp/second.json
 
 ## Exact execution
 
-Stele runs each anchored named TypeScript or Go test independently. It accepts a pass only when the Node or `go test -json` output confirms that exact test executed and passed; a skipped Go test is not a pass. This prevents an unmatched filter, skipped test, or unrelated green suite from becoming scenario evidence.
+Stele runs each anchored named TypeScript or Go test exactly. Tests of one Go package or Node file share one process, and each test's outcome comes from its own result in the `go test -json` or Node TAP output: Stele accepts a pass only when that output confirms that exact test executed and passed; a skipped Go or Node test is not a pass, and the tests of a process that crashed before reporting them fail. This prevents an unmatched filter, skipped test, or unrelated green suite from becoming scenario evidence.
 
 ## CI use
 

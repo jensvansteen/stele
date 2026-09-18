@@ -149,6 +149,7 @@ test("selected", () => {});
 `)
 		original := runExactTest
 		t.Cleanup(func() { runExactTest = original })
+		runOneByOne(t)
 		runExactTest = func(string, string, string) (bool, bool, error) { return false, false, nil }
 		evidence, err := RunScenarioTests(root, "example", "")
 		if err != nil {
@@ -194,7 +195,33 @@ test("passes", () => { if (value !== 1) throw new Error("failed"); });
 			if err != nil || !passed || !ran {
 				t.Fatalf("executeExactTest = %v, %v, %v", passed, ran, err)
 			}
+			if execution := runBatchedGroup(root, test.path, "passes"); execution.Outcome != "passed" {
+				t.Fatalf("batched execution = %#v", execution)
+			}
 		})
+	}
+}
+
+// @verifies scn.execution.8653331d296a.integration
+func TestBatchRunsOneNodeFile(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "tests/demo.test.mts", "import test from \"node:test\";\n"+
+		"void test(\"passes\", () => {});\n"+
+		"void test(\"fails\", () => { throw new Error(\"no\"); });\n"+
+		"void test(\"skips\", (context) => { context.skip(\"not now\"); });\n")
+	processes := countBatchProcesses(t)
+	executions := runBatched(root,
+		selectedGroup("tests/demo.test.mts", "passes"),
+		selectedGroup("tests/demo.test.mts", "fails"),
+		selectedGroup("tests/demo.test.mts", "skips"),
+		selectedGroup("tests/demo.test.mts", "missing"),
+	)
+	if *processes != 1 {
+		t.Fatalf("the file's tests started %d processes, want 1", *processes)
+	}
+	want := []string{"passed:", "failed:test-process-failed", "failed:test-skipped", "failed:test-not-executed"}
+	if got := reasonsOf(executions); !slices.Equal(got, want) {
+		t.Fatalf("outcomes = %v, want %v", got, want)
 	}
 }
 
@@ -232,13 +259,14 @@ func TestExecuteExactTestRejectsUnsupportedExtensions(t *testing.T) {
 		})
 	}
 
-	selector := "passes"
-	execution := executeTestGroup("unused", testGroup{
-		Key:      testGroupKey{Path: "demo/demo.go", Selector: selector},
-		Selector: &selector,
-	})
-	if pointerValue(execution.Reason) != "unsupported-test-extension" {
-		t.Fatalf("unsupported execution = %#v", execution)
+	processes := countBatchProcesses(t)
+	group := selectedGroup("demo/demo.go", "passes")
+	if plan := planTestBatches("unused", []testGroup{group}); len(plan.batches) != 0 || len(plan.settled) != 1 {
+		t.Fatalf("a file without a runner was batched: %#v", plan)
+	}
+	execution := runBatched("unused", group)[0]
+	if pointerValue(execution.Reason) != "unsupported-test-extension" || *processes != 0 {
+		t.Fatalf("unsupported execution = %#v, %d processes", execution, *processes)
 	}
 }
 
@@ -246,9 +274,13 @@ func TestExecuteExactTestRejectsUnsupportedExtensions(t *testing.T) {
 func TestExecuteNodeTestDetectsNoMatchingExecution(t *testing.T) {
 	root := fixtureRoot(t)
 	writeFixture(t, root, "tests/demo.test.ts", "import test from 'node:test'; test('different', () => {});\n")
-	passed, ran, err := executeNodeTest(root, "tests/demo.test.ts", "missing")
+	passed, ran, err := executeExactTest(root, "tests/demo.test.ts", "missing")
 	if err != nil || passed || ran {
-		t.Fatalf("executeNodeTest = %v, %v, %v", passed, ran, err)
+		t.Fatalf("executeExactTest = %v, %v, %v", passed, ran, err)
+	}
+	execution := runBatchedGroup(root, "tests/demo.test.ts", "missing")
+	if execution.Outcome != "failed" || pointerValue(execution.Reason) != "test-not-executed" {
+		t.Fatalf("batched execution = %#v", execution)
 	}
 	if pointerValue(nil) != "" {
 		t.Fatal("nil pointer value should be empty")
@@ -260,9 +292,9 @@ func TestExecuteNodeTestIgnoresEnclosingTestRunner(t *testing.T) {
 	root := fixtureRoot(t)
 	writeFixture(t, root, "tests/demo.test.mts", "import test from 'node:test';\nvoid test('passes', () => {});\n")
 	t.Setenv("NODE_TEST_CONTEXT", "child-v8")
-	passed, ran, err := executeNodeTest(root, "tests/demo.test.mts", "passes")
+	passed, ran, err := executeExactTest(root, "tests/demo.test.mts", "passes")
 	if err != nil || !passed || !ran {
-		t.Fatalf("executeNodeTest inside a node test context = %v, %v, %v", passed, ran, err)
+		t.Fatalf("executeExactTest inside a node test context = %v, %v, %v", passed, ran, err)
 	}
 	for _, entry := range nodeTestEnvironment() {
 		if strings.HasPrefix(entry, "NODE_TEST_CONTEXT=") {
@@ -348,6 +380,7 @@ func TestRunScenarioTestsDependencyErrorsAndOrdering(t *testing.T) {
 		scanScenarioAnchors = originalScan
 		runExactTest = originalRun
 	})
+	runOneByOne(t)
 	root := fixtureRoot(t)
 	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", "### Requirement: Demo\n")
 	computeScenarioDigest = func(string) (string, error) { return "digest", nil }
@@ -401,6 +434,7 @@ func TestScenarioFailsWhenOneEvidenceFails(t *testing.T) {
 	writeEvidenceTest(t, root, "tests/other.test.mts", otherScenarioID+".unit", "reports a missing value")
 	original := runExactTest
 	t.Cleanup(func() { runExactTest = original })
+	runOneByOne(t)
 	runExactTest = func(_ string, path, _ string) (bool, bool, error) {
 		return path != "tests/journey.test.mts", true, nil
 	}
@@ -485,6 +519,7 @@ func recordTests(t *testing.T, failing ...string) *[]string {
 	t.Helper()
 	original := runExactTest
 	t.Cleanup(func() { runExactTest = original })
+	runOneByOne(t)
 	ran := make([]string, 0)
 	runExactTest = func(_, _, selector string) (bool, bool, error) {
 		ran = append(ran, selector)

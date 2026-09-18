@@ -123,7 +123,7 @@ The top-level `verdict` equals `verdicts.overall`. In reports before schema vers
 
 ## `stele test`
 
-Finds scenario test anchors, selects every named test independently, and records execution evidence.
+Finds scenario test anchors, runs every selected named test exactly, and records execution evidence.
 
 ```bash
 npx stele test --change todo-basics                          # every test of the change
@@ -143,6 +143,27 @@ Positional targets select what runs, Jest-style:
 With targets, Stele merges the outcomes into the stored evidence, `artifacts/test-results.json` unless `--evidence-file` names another file. Only executions of the tests that ran are replaced; other outcomes are kept. Each scenario's outcome is recomputed over all its tests, so a scenario whose other tests never ran is `not-run`, and one whose tests ran with older inputs is `stale`. The exit code follows the tests that ran: `0` when all passed, otherwise `1`. Without targets the whole scope runs as before, and evidence is written only with `--evidence-file`.
 
 Only exact test names are selectable. A test whose name is a template literal with an interpolation, a `test.each` table, or a `describe` block leaves its anchor without a selector; the test is reported as not selectable (`target-not-resolved`), never run by a partial name.
+
+### Batches
+
+Stele starts one test process per batch, not one per test, and runs the batches one at a time, ordered by path and then build tags:
+
+- **Go:** the selected tests of one package that need the same build tags run as `go test -json -count=1 -run '^(TestA|TestB)$' [-tags=…] ./pkg`, from the nearest `go.mod`. Tests of a file guarded by `//go:build integration` run in their own batch with `-tags=integration`.
+- **Node:** the selected tests of one `.ts` or `.mts` file run as `node --test --test-reporter=tap --test-name-pattern='^(a|b)$' file`.
+
+Names are escaped, so the pattern matches exactly the selected names and nothing else. A test shared by several scenarios still runs once. Each test's outcome comes from its own result in the batch output, never from the process as a whole:
+
+| Result in the batch output | Outcome and reason |
+|---|---|
+| Passed (`pass` event, `ok` line) | `passed`, even when another test of the batch failed |
+| Failed (`fail` event, `not ok` line, including `# TODO`) | `failed`, `test-process-failed` |
+| Skipped (`t.Skip`, Node `# SKIP`) | `failed`, `test-skipped` |
+| No result, in a batch that completed | `failed`, `test-not-executed` |
+| No result, in a batch that did not complete | `failed`, `test-process-failed` |
+
+A batch **completes** when its process reports the end of its run: for Go, the test binary's final `PASS` or `FAIL` line; for Node, the TAP `# tests` summary without a failure of the test file itself. A batch that crashes, calls `os.Exit` or `process.exit`, fails to build, or is killed does not complete. Its tests that already had a result keep it, the others fail with `test-process-failed`, and they are not re-run on their own. Progress prints `INCOMPLETE <batch> did not complete (exit status N)`, and the report lists the batch under **Incomplete test processes** with its exit status, the number of tests without a result, and the last 20 lines of its output. Evidence never contains process output.
+
+Tests of one batch share their process, as they do under `go test ./pkg` and `node --test file`: package-level state, `TestMain`, `init`, and Node module state are shared. A test that only passes alone in its process may change outcome. For tests that neither crash nor depend on running alone, the evidence, report files, `--json` output, and final report are identical to those of one process per test.
 
 | Option | Meaning |
 |---|---|
@@ -323,6 +344,7 @@ Without `--json`, `validate`, `verify`, `test`, and `check` print a report for p
 - **Check lines**: one per stage, each named for what it checks: OpenSpec strict validation (`validate`), Specifications (IDs and annotations), Plan approval, Linkage (anchors), and Test execution with passed and total tests, counts by level, and the duration. A problem fails only the line of its own stage, so an unapproved plan never reads as a linkage failure. `test` shows only the test execution line.
 - **Errors, then Warnings**: grouped by diagnostic code, with the number of findings, the code's meaning, a `→ Fix:` line with the next step for this scope, and the first five findings with their ID, title, and `file:line`; `… N more (--details)` counts the rest.
 - **Failed tests and Stale tests**: by name and location, with their evidence IDs and reason; a stale test names the `stele test` command that runs it again.
+- **Incomplete test processes**: each test batch whose process did not complete, with its exit status, its tests without a result, and its last output lines (see [Batches](#batches)).
 - **Verdict**: `✓ PASSED` or `✗ FAILED`, the scope, the failing stages, and the number of warnings.
 
 ```text
@@ -361,8 +383,8 @@ Any other `--color` or `--annotations` value exits with code `2`. `--json` outpu
 
 While a command runs, progress goes to standard error, never to standard output:
 
-- **On a terminal**, one line is updated in place: the stage, or during tests the test counter, the current scenario and evidence level, the passed and failed counts, and the elapsed time. A failed test is printed on its own line as soon as it fails, and the progress line is cleared before the report.
-- **Otherwise**, as in CI, progress is plain append-only lines without escape sequences: one per stage, one per test file when its tests finish, and one per failed test.
+- **On a terminal**, one line is updated in place: the stage, or during tests the test counter, the running batch (or the current scenario and evidence level when one test runs), the passed and failed counts, and the elapsed time. A failed test is printed on its own line as soon as the batch output shows its result, before the batch ends, and the progress line is cleared before the report.
+- **Otherwise**, as in CI, progress is plain append-only lines without escape sequences: one per stage, one per test file when its last test has a result, one per failed test, and one per batch that did not complete.
 
 ```text
 OpenSpec strict validation: passed (0.2s)

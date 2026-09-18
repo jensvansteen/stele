@@ -184,6 +184,7 @@ func TestCommandsUseSelectedBackend(t *testing.T) {
 	t.Cleanup(func() { delete(specificationBackends, "memory") })
 	originalRun := runExactTest
 	t.Cleanup(func() { runExactTest = originalRun })
+	runOneByOne(t)
 	runExactTest = func(string, string, string) (bool, bool, error) { return true, true, nil }
 
 	root := fixtureRoot(t)

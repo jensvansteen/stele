@@ -73,7 +73,7 @@ func TestDeleteExistingTask(t *testing.T) {
 }
 ```
 
-A code anchor resolves to a function (`DeleteTodo`), a method (`Store.Delete`, without pointer or type parameters), or a single type declaration. A test anchor in a `_test.go` file resolves only to a top-level `TestXxx(t *testing.T)` function. Subtests, examples, benchmarks, and fuzz targets are not selectable. Stele runs each linked test with `go test -json -count=1 -run '^Name$'` in its package, from the nearest `go.mod`, and passes the custom tags named by the file's `//go:build` line. A skipped test is not a pass. A Go file that does not parse stops verification with exit code `2`.
+A code anchor resolves to a function (`DeleteTodo`), a method (`Store.Delete`, without pointer or type parameters), or a single type declaration. A test anchor in a `_test.go` file resolves only to a top-level `TestXxx(t *testing.T)` function. Subtests, examples, benchmarks, and fuzz targets are not selectable. Stele runs the linked tests of one package and build tag set together with `go test -json -count=1 -run '^(NameA|NameB)$'`, from the nearest `go.mod`, passes the custom tags named by the file's `//go:build` line, and decides each test's outcome from its own events. A skipped test is not a pass. A Go file that does not parse stops verification with exit code `2`.
 
 ## Anchors live in comments
 
