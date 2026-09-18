@@ -134,12 +134,12 @@ func TestIdsPreservesBytesAndExistingIdentities(t *testing.T) {
 	want := strings.Replace(original,
 		"#### Scenario: Missing ID\r\n",
 		"#### Scenario: Missing ID\r\nVerification-ID: "+result.Insertions[0].ID+"\r\n", 1)
-	want += "\r\nVerification-ID: " + result.Insertions[1].ID
+	want = annotationCanonical + "\r\n" + want + "\r\nVerification-ID: " + result.Insertions[1].ID
 	if content != want {
 		t.Fatalf("unexpected bytes:\n%q\nwant\n%q", content, want)
 	}
-	if result.Insertions[1].Line != 12 {
-		t.Fatalf("written line = %d, want 12", result.Insertions[1].Line)
+	if result.Insertions[1].Line != 13 {
+		t.Fatalf("written line = %d, want 13", result.Insertions[1].Line)
 	}
 
 	again, err := AssignIdentities(root, "draft", false)
@@ -203,7 +203,7 @@ func TestIdsReportsJSON(t *testing.T) {
 	}
 	first := result.Insertions[0]
 	if first.Kind != "requirement" || first.Title != "Add a task" || first.Path != draftSpecPath ||
-		first.Line != 4 || first.Origin != "generated" {
+		first.Line != 5 || first.Origin != "generated" {
 		t.Fatalf("unexpected first insertion: %#v", first)
 	}
 	if second := result.Insertions[1]; second.Kind != "scenario" || second.Title != "Add a task with text" {
@@ -380,7 +380,7 @@ func TestIdsSkipRemovedAndRenamedSections(t *testing.T) {
 	}
 	content := readTestFile(t, root, draftSpecPath)
 	untouched, _, _ := strings.Cut(original, "## ADDED")
-	if !strings.HasPrefix(content, untouched) {
+	if !strings.HasPrefix(content, annotationCanonical+"\n"+untouched) {
 		t.Fatalf("removed or renamed sections changed:\n%s", content)
 	}
 }
@@ -491,4 +491,95 @@ func TestIdentityHelpers(t *testing.T) {
 	}
 	var result IdentityResult
 	renderIdentities(io.Discard, result)
+}
+
+// @verifies scn.specannotation.7a12f1bf3cf0.unit
+func TestIdsAddTheAnnotationWithMissingIdentities(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, draftSpecPath, draftSpec)
+	code, stdout, stderr := runIdentities(t, "--root", root, "--change", "draft", "--json")
+	var result IdentityResult
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil || code != 0 {
+		t.Fatalf("ids = %d, %v, %q", code, err, stderr)
+	}
+	content := readTestFile(t, root, draftSpecPath)
+	if !strings.HasPrefix(content, annotationCanonical+"\n## ADDED Requirements\n") ||
+		strings.Count(content, annotationCanonical) != 1 {
+		t.Fatalf("the annotation was not added once:\n%s", content)
+	}
+	if len(result.Annotations) != 1 || result.Annotations[0] != (AnnotationFile{
+		Path: draftSpecPath, State: annotationMissing, Changed: true,
+	}) {
+		t.Fatalf("annotations = %#v", result.Annotations)
+	}
+	lines := strings.Split(content, "\n")
+	if len(result.Insertions) != 3 {
+		t.Fatalf("insertions = %#v", result.Insertions)
+	}
+	for _, insertion := range result.Insertions {
+		if lines[insertion.Line-1] != "Verification-ID: "+insertion.ID {
+			t.Fatalf("line %d of the written file is %q, not the ID of %#v", insertion.Line,
+				lines[insertion.Line-1], insertion)
+		}
+	}
+
+	code, stdout, _ = runIdentities(t, "--root", root, "--change", "draft")
+	if code != 0 || readTestFile(t, root, draftSpecPath) != content || strings.Contains(stdout, "annotated") {
+		t.Fatalf("second run = %d, %q", code, stdout)
+	}
+}
+
+// @verifies scn.specannotation.f0d8e6fbaa2d.unit
+func TestIdsCheckAppliesTheAnnotationPolicy(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, draftSpecPath, draftSpec)
+	if _, err := AssignIdentities(root, "draft", false); err != nil {
+		t.Fatal(err)
+	}
+	withIDs := strings.TrimPrefix(readTestFile(t, root, draftSpecPath), annotationCanonical+"\n")
+	writeFixture(t, root, draftSpecPath, withIDs)
+
+	code, stdout, stderr := runIdentities(t, "--root", root, "--change", "draft", "--check")
+	if code != 0 || !strings.Contains(stdout, "MISSING "+draftSpecPath) {
+		t.Fatalf("check under warn = %d, %q, %q", code, stdout, stderr)
+	}
+	writeFixture(t, root, "stele.config.json", `{"unannotatedSpecs":"error"}`)
+	code, stdout, stderr = runIdentities(t, "--root", root, "--change", "draft", "--check", "--json")
+	if code != 1 || !strings.Contains(stdout, `"state": "missing"`) {
+		t.Fatalf("check under error = %d, %q, %q", code, stdout, stderr)
+	}
+	if readTestFile(t, root, draftSpecPath) != withIDs {
+		t.Fatal("check wrote the file")
+	}
+}
+
+func TestIdsLeaveBrokenAnnotationsUnchanged(t *testing.T) {
+	root := fixtureRoot(t)
+	for _, head := range []string{"<!-- stele: spec -->\n", "<!-- stele: spec v2 -->\n"} {
+		writeFixture(t, root, draftSpecPath, head+draftSpec)
+		for _, check := range []bool{false, true} {
+			result, err := AssignIdentities(root, "draft", check)
+			if err != nil || result.Verdict != "fail" || len(result.Insertions) != 0 {
+				t.Fatalf("ids with %q = %#v, %v", head, result, err)
+			}
+		}
+		if readTestFile(t, root, draftSpecPath) != head+draftSpec {
+			t.Fatalf("ids changed a file with %q", head)
+		}
+	}
+
+	misplaced := "# Tasks\n" + annotationCanonical + "\n" + draftSpec
+	writeFixture(t, root, draftSpecPath, misplaced)
+	result, err := AssignIdentities(root, "draft", false)
+	if err != nil || result.Verdict != "pass" || len(result.Insertions) != 3 ||
+		result.Annotations[0].State != annotationMisplaced || result.Annotations[0].Changed {
+		t.Fatalf("ids with a misplaced annotation = %#v, %v", result, err)
+	}
+	if !strings.HasPrefix(readTestFile(t, root, draftSpecPath), "# Tasks\n"+annotationCanonical+"\n") {
+		t.Fatal("ids moved or added an annotation")
+	}
+	if !identityAnnotationsPass(result.Annotations, unannotatedWarn) ||
+		identityAnnotationsPass(result.Annotations, unannotatedError) {
+		t.Fatal("a misplaced annotation does not follow the policy")
+	}
 }

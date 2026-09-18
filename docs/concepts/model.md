@@ -4,7 +4,7 @@ Stele describes a codebase in plain English and keeps that description connected
 
 | Concept | What it is | Where it lives |
 |---|---|---|
-| Behavior specification | Requirements and their concrete scenarios, in plain English | The specification backend |
+| Behavior specification | Requirements and their concrete scenarios, in plain English, in files that start with the [`<!-- stele: spec v1 -->` annotation](/concepts/spec-format) | The specification backend |
 | Verification-ID | A stable identity for each requirement (`req.…`) and scenario (`scn.…`) | Below each heading in the specification |
 | Evidence plan | Per scenario, the approved levels of evidence, why each is enough, and who approved them | `linkage-plan.json` beside the change |
 | Anchors | `@implements` and `@verifies` comments that link code and tests to identities and evidence IDs | Next to the code and tests, wherever the project places them |
@@ -30,6 +30,7 @@ Stele currently builds on OpenSpec (MIT, Fission AI). Stele reaches it through a
 | Change | `openspec/changes/<change>/` |
 | Behavior specification of a change | `openspec/changes/<change>/specs/**/*.md` (delta specs) |
 | Current behavior specification | `openspec/specs/**/*.md` |
+| Specification annotation | The first line of each specification file, `<!-- stele: spec v1 -->` |
 | Evidence plan | `openspec/changes/<change>/linkage-plan.json`, archived with the change |
 | Planning step | The `verification` artifact of the `stele` workflow schema in `openspec/schemas/stele/` |
 | Specification validation | `openspec validate --strict`, run with the bundled OpenSpec CLI |

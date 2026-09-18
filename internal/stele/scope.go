@@ -19,6 +19,8 @@ type verificationScope struct {
 	changeID     string
 	currentSpecs bool
 	backend      specificationBackend
+	// unannotated is the unannotatedSpecs policy; empty means the default.
+	unannotated string
 }
 
 func changeScope(changeID string) verificationScope {
@@ -39,9 +41,9 @@ func (scope verificationScope) spec() specificationBackend {
 // @implements req.verificationscope.bee89d6750ed
 func resolveScope(parsed options) verificationScope {
 	if parsed.specs {
-		return verificationScope{currentSpecs: true, backend: parsed.backend}
+		return verificationScope{currentSpecs: true, backend: parsed.backend, unannotated: parsed.unannotated}
 	}
-	return verificationScope{changeID: parsed.changeID, backend: parsed.backend}
+	return verificationScope{changeID: parsed.changeID, backend: parsed.backend, unannotated: parsed.unannotated}
 }
 
 // requireScopeSpecs rejects a scope without specification files, so a gate

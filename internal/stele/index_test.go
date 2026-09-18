@@ -80,7 +80,7 @@ func TestIndexListsLinksForAChange(t *testing.T) {
 	if scenario.Requirement != requirement.ID ||
 		scenario.Text != "- **WHEN** a value is stored\n- **THEN** it is returned" ||
 		len(scenario.Steps) != 2 || scenario.Steps[1] != (ScenarioStep{Keyword: "THEN", Text: "it is returned"}) ||
-		scenario.Source.Line != 8 {
+		scenario.Source.Line != 9 {
 		t.Fatalf("scenario = %#v", scenario)
 	}
 	if len(scenario.Evidence) != 2 {
@@ -366,4 +366,67 @@ type failingDeclarations struct {
 
 func (failingDeclarations) DeclaredIdentities(string) (map[string]bool, error) {
 	return nil, errors.New("declarations failed")
+}
+
+// @verifies scn.specannotation.4432e2c478c1.unit
+func TestIndexRecordsAnnotations(t *testing.T) {
+	root := evidenceFixture(t)
+	writeFixture(t, root, "openspec/changes/example/specs/other/spec.md", `## ADDED Requirements
+### Requirement: Other
+Verification-ID: req.other.111111111111
+#### Scenario: Other works
+Verification-ID: scn.other.222222222222
+`)
+	writeFixture(t, root, "openspec/specs/demo/spec.md", annotationCanonical+`
+### Requirement: Current
+Verification-ID: req.demo.333333333333
+#### Scenario: Current works
+Verification-ID: scn.demo.444444444444
+`)
+	index := runIndex(t, "--root", root, "--change", "example")
+	v1 := "v1"
+	want := []IndexSpecFile{
+		{Scope: "example", Path: "openspec/changes/example/specs/demo/spec.md", Annotation: "annotated", Version: &v1},
+		{Scope: "example", Path: "openspec/changes/example/specs/other/spec.md", Annotation: "missing"},
+		{Scope: "specs", Path: "openspec/specs/demo/spec.md", Annotation: "annotated", Version: &v1},
+	}
+	if len(index.SpecFiles) != len(want) {
+		t.Fatalf("spec files = %#v", index.SpecFiles)
+	}
+	for position, file := range index.SpecFiles {
+		if file.Scope != want[position].Scope || file.Path != want[position].Path ||
+			file.Annotation != want[position].Annotation ||
+			pointerValue(file.Version) != pointerValue(want[position].Version) {
+			t.Fatalf("spec file %d = %#v", position, file)
+		}
+	}
+	versions := map[string]string{
+		"req.demo.aaaaaaaaaaaa": "v1", "scn.demo.bbbbbbbbbbbb": "v1", "scn.demo.cccccccccccc": "v1",
+		"req.other.111111111111": "", "scn.other.222222222222": "",
+		"req.demo.333333333333": "v1", "scn.demo.444444444444": "v1",
+	}
+	for _, requirement := range index.Requirements {
+		if pointerValue(requirement.SpecVersion) != versions[requirement.ID] {
+			t.Fatalf("requirement %s has specVersion %v", requirement.ID, requirement.SpecVersion)
+		}
+	}
+	for _, scenario := range index.Scenarios {
+		if pointerValue(scenario.SpecVersion) != versions[scenario.ID] {
+			t.Fatalf("scenario %s has specVersion %v", scenario.ID, scenario.SpecVersion)
+		}
+	}
+	_, stdout, _ := runCommand(t, "index", "--root", root, "--change", "example")
+	if !strings.Contains(stdout, `"specVersion": null`) || !strings.Contains(stdout, `"version": null`) {
+		t.Fatalf("missing versions are not null: %s", stdout)
+	}
+
+	// A backend that reports no annotations lists its files as missing.
+	built := BuildIndex(IndexInput{Scopes: []IndexScopeInput{{
+		Scope:  IndexScope{ID: "memory", Kind: "change"},
+		Parsed: ParsedSpecs{Files: []string{"memory/demo"}},
+	}}})
+	if len(built.SpecFiles) != 1 || built.SpecFiles[0].Annotation != annotationMissing ||
+		built.SpecFiles[0].Version != nil {
+		t.Fatalf("spec files without annotations = %#v", built.SpecFiles)
+	}
 }

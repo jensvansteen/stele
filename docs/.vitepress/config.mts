@@ -37,6 +37,7 @@ export default defineConfig({
         items: [
           { text: "Product intent", link: "/intent/vision" },
           { text: "The Stele model", link: "/concepts/model" },
+          { text: "Specification format", link: "/concepts/spec-format" },
           { text: "OpenSpec and Stele", link: "/concepts/openspec-and-stele" },
           { text: "IDs and anchors", link: "/concepts/ids-and-anchors" },
           { text: "Verification evidence", link: "/concepts/verification-evidence" },

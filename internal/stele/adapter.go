@@ -85,7 +85,7 @@ func readConfig(root string) (Config, error) {
 	if err := json.Unmarshal(content, &config); err != nil {
 		return config, fmt.Errorf("invalid stele.config.json: %w", err)
 	}
-	return config, nil
+	return config, validateAnnotationPolicy(config.UnannotatedSpecs)
 }
 
 // configuredBackend resolves the backend from an existing configuration file,
@@ -118,7 +118,7 @@ func (backend openSpecBackend) SpecFiles(root string, scope verificationScope) [
 }
 
 func (backend openSpecBackend) ParseSpecs(root string, scope verificationScope) (ParsedSpecs, error) {
-	return parseSpecFiles(root, backend.SpecFiles(root, scope))
+	return parseSpecFiles(root, backend.SpecFiles(root, scope), annotationFix(scope))
 }
 
 func (openSpecBackend) DeclaredIdentities(root string) (map[string]bool, error) {

@@ -1,0 +1,376 @@
+{
+  "schemaVersion": 2,
+  "changeId": "spec-annotation",
+  "scenarios": {
+    "scn.specannotation.0d7c07caa518": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.0d7c07caa518.unit",
+          "level": "unit",
+          "rationale": "Risk: an editor-reformatted line (tabs, CRLF, BOM) is rejected or read differently from what editors accept. Pure parser over byte fixtures.",
+          "placement": "internal/stele/annotation_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:fa689ee15405f967005623fd452e68d82256152e1447ba4017a4625fcfa4d550",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.0de8bd2cbe54": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.0de8bd2cbe54.unit",
+          "level": "unit",
+          "rationale": "Risk: the canonical line is not recognized, so every annotated file reads as unannotated. Parsing one line is pure.",
+          "placement": "internal/stele/annotation_test.go, beside a new annotation.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:cd760704074e54f2558f69298834e7e56d7ed4b83ac84201450c2cdd7c4f3434",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.0f1fab2a02b8": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.0f1fab2a02b8.unit",
+          "level": "unit",
+          "rationale": "Risk: the transition breaks existing projects' gates, or skips their requirements. Run validate in process with the test runner and OpenSpec validation stubbed, checking the warning, the verified requirements, and exit code 0.",
+          "placement": "internal/stele/cli_test.go, beside the validate command tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:7b1503ee5eb29a288fcbee09b4f368ac143f960b00a9b114575907a2760007c8",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.10178af5c550": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.10178af5c550.unit",
+          "level": "unit",
+          "rationale": "Risk: a mistyped marker is silently treated as missing or as valid. Pure.",
+          "placement": "internal/stele/annotation_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:4b355c59f2b62f5508439816a1f3da40cf9c2fb0eae1d44ec33fcf99e8dd0239",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.23d533778e10": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.23d533778e10.integration",
+          "level": "integration",
+          "rationale": "Risk: the merged guidance lacks the step, or the merge stops being idempotent. The merge runs openspec-extend.mjs with OpenSpec's yaml package, as the existing merge tests do.",
+          "placement": "internal/stele/workflowschema_test.go, beside TestMergeKeepsUserConfiguration",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:99d2ec870e26711215536cd39b1edd23b435a0a0e67e6b43a5398964d0d5d1ac",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.2681b7fc2880": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.2681b7fc2880.unit",
+          "level": "unit",
+          "rationale": "Risk: a marker a person wrote below the heading looks valid to them but editors ignore it. Pure scan over fixture lines.",
+          "placement": "internal/stele/annotation_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:c82a9041fb8aeb9f22d94ba72be5c05fa2e3518c41b79f7cbdaff04db6ef026c",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.3baa32066f7a": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.3baa32066f7a.unit",
+          "level": "unit",
+          "rationale": "Risk: the skill omits the repair step or runs it after validation. The skill template is embedded text, checked in process like the existing lifecycle skill tests.",
+          "placement": "internal/stele/init_test.go, beside TestArchiveSkillGatesOnValidation",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:81c253d4353f8736fa09944cbd4f42d8c3598f85d82d989348662eafe0aaf717",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.3c8b5da99a7e": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.3c8b5da99a7e.unit",
+          "level": "unit",
+          "rationale": "Risk: the error policy is not applied, so the cut-off never takes effect. Run verify in process with a fixture config.",
+          "placement": "internal/stele/cli_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:1ef66a116f6e4e71afc06b0b7c8be36e9785ef571277271f232c9e0f802e2c86",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.4432e2c478c1": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.4432e2c478c1.unit",
+          "level": "unit",
+          "rationale": "Risk: editors get the wrong state or version for a file or item. BuildIndex is pure over parsed fixtures; the existing index e2e already covers the shipped binary's JSON output.",
+          "placement": "internal/stele/index_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:43af5410bc4ee8e6b228e62b5cd1857c43e96160e60ee389b75ace767cb5734b",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.6434ff2d493c": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.6434ff2d493c.unit",
+          "level": "unit",
+          "rationale": "Risk: the future targets field breaks v1 readers, or unknown fields change verification. Pure parser plus diagnostics over a fixture file.",
+          "placement": "internal/stele/annotation_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:88d3cf53adb8d86ee8a5772c66f2beb08ac154c8eeea56f46d2d036cd3e5a6c4",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.6bd9c9356646": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.6bd9c9356646.unit",
+          "level": "unit",
+          "rationale": "Risk: a repeated run duplicates the marker. Two in-process runs over one temporary project.",
+          "placement": "internal/stele/annotation_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:3fb963f9bf522bce3a8379620ebac15de2f521cc72abd6f01ddc70e6cb753945",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.7a12f1bf3cf0": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.7a12f1bf3cf0.unit",
+          "level": "unit",
+          "rationale": "Risk: reported ID line numbers are off by one after the annotation line, or the marker is added twice. Extends the ids fixtures in process.",
+          "placement": "internal/stele/ids_test.go, beside TestIdsInsertsMissingIdentities",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:85dc4488bd74ec3b5126552ee93b42d50545e2843baa6788133164f54e866f41",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.83d1cca317e3": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.83d1cca317e3.integration",
+          "level": "integration",
+          "rationale": "Risk: the template patch does not reach what OpenSpec shows agents. Needs the real bundled OpenSpec fork and instructions output, as the existing schema tests do.",
+          "placement": "internal/stele/workflowschema_test.go, beside TestVerificationInstructionsReachOpenSpec",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:2f5c0a359395d44eb71b405ecc441e24ac5f1f843367cb14504888b607647126",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.a518efc1ddd8": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.a518efc1ddd8.unit",
+          "level": "unit",
+          "rationale": "Risk: check mode writes, or the JSON states and exit code are wrong. Run in process over a temporary project.",
+          "placement": "internal/stele/cli_test.go, beside the ids check tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:bb46e854fefe1d81734387d6c809e136137cfc5c7d30d2dc211b434a2fd8e96e",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        },
+        {
+          "id": "scn.specannotation.a518efc1ddd8.e2e",
+          "level": "e2e",
+          "rationale": "Distinct risk: CI and the stele-archive skill call the shipped binary, whose flags, JSON, and exit code together decide the gate; only the installed executable shows that.",
+          "placement": "tests/cli.test.mts, next to 'inserts and checks verification IDs'",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:53a37101c9432ea9904e04a65e19c15a7901fe5fa0253b479a7b845428089f4a",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.b7e05fe76741": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.b7e05fe76741.integration",
+          "level": "integration",
+          "rationale": "Risk: OpenSpec's archive output differs from what annotate expects (new file without the marker, merged file keeping it), leaving no marker or two. Only the real bundled openspec archive shows its output; annotate itself runs in process.",
+          "placement": "internal/stele/annotation_test.go, using the openSpec helper from the schema tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:78b736bd1596f6bdd534fa3a04186583d85dd9d55c1f05b7f41d66e63cb32061",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.c1a89d2bc235": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.c1a89d2bc235.unit",
+          "level": "unit",
+          "rationale": "Risk: a newer format is read as v1 and verifies with the wrong meaning. Spec parsing and the diagnostic summary are pure over fixture files.",
+          "placement": "internal/stele/annotation_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:9c36eee7eb77d72130acf7a501233ab9afe6359cf460e0220c863bf62096bb17",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.c1e6a83408c6": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.c1e6a83408c6.unit",
+          "level": "unit",
+          "rationale": "Risk: the insertion rewrites line endings or other bytes of a person's spec. Byte comparison over temporary fixture files.",
+          "placement": "internal/stele/annotation_test.go, beside the ids byte-preservation fixtures",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:e395173136219eb16688335bac22de0c5a887a132004eb5a09d84a0b7234ca0b",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.db2f08beff7a": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.db2f08beff7a.unit",
+          "level": "unit",
+          "rationale": "Risk: a broken marker gets a second marker added, or one bad file stops the others from being annotated. In process over fixtures.",
+          "placement": "internal/stele/annotation_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:846919e18e96d851aa06dcd869d3a16b524b0acc582d41cd64c76a313670b654",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.dfe775967c44": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.dfe775967c44.unit",
+          "level": "unit",
+          "rationale": "Risk: init edits archived history or re-edits files on every run. Initialize in process with the OpenSpec setup stubbed, over a fixture with specs, an active change, and an archive.",
+          "placement": "internal/stele/init_test.go, beside TestInitializeIsIdempotent",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:c5e5328298b8a83d858fe47c1540d943cba857f8a7154e851854164b8fc9d339",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.ee994e1a42b9": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.ee994e1a42b9.unit",
+          "level": "unit",
+          "rationale": "Risk: a typo in the policy silently falls back to warn. Configuration loading in process.",
+          "placement": "internal/stele/cli_test.go, beside configuration handling",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:b63a5070cd5fc582244e1f2b00b87b53a048f44209b98ad87b4bc59e567c1620",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.f0d8e6fbaa2d": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.f0d8e6fbaa2d.unit",
+          "level": "unit",
+          "rationale": "Risk: the transition breaks existing ids --check gates, or the error policy is not enforced. In process with both policies.",
+          "placement": "internal/stele/ids_test.go, beside TestIdsCheckWritesNothing",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:2f03039255d6d7130c74d091ef800c370c7d583381e2b00879d3a6bf1d19c269",
+            "via": "agent-confirmed",
+            "revision": "8f2773c9869fa22d569e650cee0c8e6eb3b6fe45"
+          }
+        }
+      ]
+    }
+  }
+}

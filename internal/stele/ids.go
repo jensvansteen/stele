@@ -51,9 +51,10 @@ type identityRegistry struct {
 }
 
 type plannedSpecFile struct {
-	path    string
-	content []byte
-	changed bool
+	path       string
+	content    []byte
+	changed    bool
+	annotation AnnotationFile
 }
 
 // AssignIdentities inserts a Verification-ID below every requirement and scenario
@@ -72,6 +73,7 @@ func assignScopeIdentities(root string, scope verificationScope, check bool) (Id
 		Mode:          choose(check, "check", "write"),
 		Verdict:       "pass",
 		Insertions:    []IdentityInsertion{},
+		Annotations:   []AnnotationFile{},
 	}
 	if err := requireScopeSpecs(root, scope); err != nil {
 		return result, err
@@ -94,12 +96,15 @@ func assignScopeIdentities(root string, scope verificationScope, check bool) (Id
 		}
 		planned = append(planned, plan)
 		result.Insertions = append(result.Insertions, insertions...)
+		result.Annotations = append(result.Annotations, plan.annotation)
 	}
 
+	passed := identityAnnotationsPass(result.Annotations, scope.unannotated)
 	if check {
-		result.Verdict = choose(len(result.Insertions) == 0, "pass", "fail")
+		result.Verdict = choose(passed && len(result.Insertions) == 0, "pass", "fail")
 		return result, nil
 	}
+	result.Verdict = choose(passed, "pass", "fail")
 	for _, plan := range planned {
 		if !plan.changed {
 			continue
@@ -162,6 +167,16 @@ func planSpecFile(
 	if err != nil {
 		return plannedSpecFile{}, nil, err
 	}
+	annotation := annotationEntry("", classifyAnnotation(relative, string(content)).result())
+	if annotation.State == annotationMalformed || annotation.State == annotationUnsupported {
+		// A broken or newer annotation may mean other identity rules: leave the file alone.
+		return plannedSpecFile{path: file, content: content, annotation: annotation}, nil, nil
+	}
+	annotate := annotation.State == annotationMissing && !check
+	shift := 0
+	if annotate {
+		shift = 1
+	}
 	capability := scope.spec().Capability(scope, relative)
 	document := parseSpecDocument(string(content))
 	namespace := document.namespace
@@ -187,7 +202,7 @@ func planSpecFile(
 		insertAfter[slot.line] = identity
 		line := slot.line + 1
 		if !check {
-			line += len(insertions) + 1
+			line += len(insertions) + 1 + shift
 		}
 		insertions = append(insertions, IdentityInsertion{
 			ID:     identity,
@@ -198,10 +213,15 @@ func planSpecFile(
 			Origin: origin,
 		})
 	}
-	plan := plannedSpecFile{path: file, content: content, changed: len(insertAfter) > 0}
-	if plan.changed {
+	plan := plannedSpecFile{path: file, content: content, changed: len(insertAfter) > 0 || annotate}
+	if len(insertAfter) > 0 {
 		plan.content = []byte(insertIdentityLines(document.lines, insertAfter))
 	}
+	if annotate {
+		plan.content = []byte(insertAnnotation(string(plan.content)))
+		annotation.Changed = true
+	}
+	plan.annotation = annotation
 	return plan, insertions, nil
 }
 
@@ -451,4 +471,23 @@ func (base baseIdentities) reuse(
 		return "", "generated"
 	}
 	return identity, "base"
+}
+
+// identityAnnotationsPass applies the annotation rules of stele ids: a
+// malformed or unsupported annotation always fails, and a missing or
+// misplaced one fails only under the error policy.
+//
+// @implements req.specannotation.809d0513cbaa
+func identityAnnotationsPass(annotations []AnnotationFile, policy string) bool {
+	for _, annotation := range annotations {
+		switch annotation.State {
+		case annotationMalformed, annotationUnsupported:
+			return false
+		case annotationMissing, annotationMisplaced:
+			if !annotation.Changed && annotationSeverity(policy) == "error" {
+				return false
+			}
+		}
+	}
+	return true
 }

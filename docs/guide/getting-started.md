@@ -35,8 +35,11 @@ npx stele init
    - It forks OpenSpec's `spec-driven` schema into a project schema named `stele`, which adds a `verification` planning step before `tasks`, and selects it for new changes.
    - It merges Stele's apply and archive guidance into `openspec/config.yaml`, keeping your own settings.
    - It writes `stele.config.json`, installs the `stele-propose`, `stele-apply`, `stele-archive`, `stele-plan`, and `stele-verify` skills, and creates `artifacts/`.
+   - It adds the [Stele annotation](/concepts/spec-format) to the first line of every current specification and every delta spec of an active change that lacks it. Archived changes are left alone.
 
 An existing OpenSpec setup is left alone apart from these additions. Running `init` again is safe: existing files are preserved.
+
+Upgrading a project that already uses Stele? Run `npx stele init` again, or `npx stele annotate --all`, to annotate its specifications. Until then, verification warns with `SPEC_ANNOTATION_MISSING`; from Stele 0.2.0 that is an error by default.
 
 Use `npx stele` so local development and CI execute the pinned version. Contributors testing an unreleased Stele checkout can follow [Use a local package](/guide/local-package); the workflow after installation is identical.
 
@@ -77,7 +80,12 @@ Each OpenSpec requirement needs one `req` identity and each scenario one `scn` i
 npx stele ids --change todo-basics
 ```
 
+`stele ids` also starts each delta spec with the annotation that marks it as a Stele specification, if it lacks one:
+
 ```markdown
+<!-- stele: spec v1 -->
+## ADDED Requirements
+
 ### Requirement: Add a todo
 Verification-ID: req.todo.22b616c90f42
 

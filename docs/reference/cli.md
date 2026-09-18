@@ -7,6 +7,7 @@ The npm package exposes the compiled Go executable directly as the `stele` comma
 ```text
 stele init [--change ID] [--tools TOOLS] [--refresh-schema] [--strict-versions] [--root PATH]
 stele ids [--change ID] [--check] [--root PATH] [--json]
+stele annotate [--change ID | --specs | --all] [--check] [--root PATH] [--json]
 stele verify [--stage proposal|implementation] [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--json] [--strict-versions]
 stele test [targets...] [--change ID | --specs | --all] [--root PATH] [--evidence-file PATH] [--json]
 stele validate [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--evidence-file PATH] [--json] [--strict-versions]
@@ -25,7 +26,10 @@ Prepares a project for Stele. Existing files are preserved.
 2. Forks OpenSpec's `spec-driven` schema into `openspec/schemas/stele`, unless that schema exists. The fork adds a `verification` artifact that generates `linkage-plan.json`, requires it before `tasks` and apply, and extends the apply instruction.
 3. Selects `stele` as the default schema when `openspec/config.yaml` selects `spec-driven`, and merges Stele guidance into `operations.apply.guidance`, `operations.archive.guidance`, and `rules.verification`. Existing values and comments are kept; the file is not rewritten when nothing is missing. Existing changes keep their schema.
 4. Writes `stele.config.json`, installs the `stele-propose`, `stele-apply`, `stele-archive`, `stele-plan`, and `stele-verify` skills in `.agents/skills/`, and ensures `artifacts/` exists.
-5. Prints the default workflow and the Stele commands to run around OpenSpec's own skills.
+5. Adds the [Stele annotation](/concepts/spec-format) to every current specification and every delta spec of an active change that lacks one, following the rules of [`stele annotate`](#stele-annotate), and lists each annotated file. Archived changes are not touched. A file with a misplaced, malformed, or unsupported annotation is left unchanged with a warning; it does not fail `init`.
+6. Prints the default workflow and the Stele commands to run around OpenSpec's own skills.
+
+When `init` forks or refreshes the `stele` schema, the schema's specification template starts with the annotation, so new delta specs start annotated.
 
 | Option | Meaning |
 |---|---|
@@ -43,7 +47,37 @@ Inserts a `Verification-ID` line below every requirement and scenario heading of
 |---|---|
 | `--change ID` | Override the configured change |
 | `--check` | Write nothing; exit with code `1` while an ID is missing |
-| `--json` | Print the inserted or missing IDs with their kind, title, file, and line |
+| `--json` | Print the inserted or missing IDs with their kind, title, file, and line, and each delta spec's annotation in `annotations` |
+
+`stele ids` also adds the annotation to every delta spec that lacks one, in the same write, and reports ID line numbers as they are in the written file. A delta spec with a malformed or unsupported annotation is left unchanged, is reported, and makes the command exit with code `1`, because a newer format may have other ID rules. With `--check`, a missing annotation is listed next to missing IDs and fails the check only when `unannotatedSpecs` is `error`. Each `annotations` entry has `path`, `state`, `version`, and `changed`, as in [`stele annotate`](#stele-annotate).
+
+## `stele annotate`
+
+Adds `<!-- stele: spec v1 -->` as the first line of every specification file in the scope that lacks a valid [annotation](/concepts/spec-format). Without a scope option it uses the configured change, and exits with code `2` when there is none. `--all` covers the current specifications and the delta specs of every active change, never archived changes.
+
+- The annotation goes at byte 0, or after a byte order mark. It ends with the file's first line ending, or with a line feed when the file has none. Every other byte is preserved.
+- A file that already starts with a valid annotation is not changed, so a second run changes nothing.
+- A file with a misplaced, malformed, or unsupported annotation is never edited. It is named in the output and the command exits with code `1`, but the other files are still annotated.
+- Every file of the scope is read before any file is written.
+
+| Option | Meaning |
+|---|---|
+| `--change ID`, `--specs`, `--all` | The scope to annotate |
+| `--check` | Write nothing; exit with code `1` while any file lacks a valid annotation |
+| `--json` | Print the files of the scope with their state |
+
+```json
+{
+  "schemaVersion": 1,
+  "mode": "check",
+  "verdict": "fail",
+  "files": [
+    { "scope": "specs", "path": "openspec/specs/todo/spec.md", "state": "missing", "version": null, "changed": false }
+  ]
+}
+```
+
+`state` is the state Stele found: `annotated`, `missing`, `misplaced`, `malformed`, or `unsupported`. `version` is the declared version of an annotated or unsupported file, and `changed` is `true` for a file the command annotated. Files follow scope order, then path.
 
 ## `stele verify`
 
@@ -224,6 +258,8 @@ A scope must contain specifications. When the selected change has no delta specs
 `--root PATH` sets the consumer repository root for all filesystem resolution. CLI options override `stele.config.json`; omitted values fall back to configuration.
 
 `stele.config.json` selects the specification backend with `adapter`. `openspec` is the only supported adapter and the default when the field or file is missing; any other value makes every command exit with code `2`.
+
+`unannotatedSpecs` sets the severity of `SPEC_ANNOTATION_MISSING` and `SPEC_ANNOTATION_MISPLACED`: `warn` or `error`. Without it, Stele 0.1.x warns; **from 0.2.0 the default is `error`**. Any other value makes every command exit with code `2`. See [Specification format](/concepts/spec-format#the-unannotatedspecs-policy).
 
 `init`, `verify`, and `validate` warn on standard error when the project's OpenSpec skills or `stele` schema were generated by another OpenSpec version, and `init` also when the `openspec` on `PATH` reports another version. `--strict-versions` turns these warnings into errors with exit code `1`. See [Versions](/reference/versions).
 

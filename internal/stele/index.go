@@ -17,6 +17,7 @@ const indexSchemaVersion = 1
 type Index struct {
 	SchemaVersion int                `json:"schemaVersion"`
 	Scopes        []IndexScope       `json:"scopes"`
+	SpecFiles     []IndexSpecFile    `json:"specFiles"`
 	Requirements  []IndexRequirement `json:"requirements"`
 	Scenarios     []IndexScenario    `json:"scenarios"`
 	Anchors       []IndexAnchor      `json:"anchors"`
@@ -26,6 +27,15 @@ type Index struct {
 type IndexScope struct {
 	ID   string `json:"id"`
 	Kind string `json:"kind"`
+}
+
+// IndexSpecFile is one specification file of one scope with its annotation
+// state and declared version, or null when it declares none.
+type IndexSpecFile struct {
+	Scope      string  `json:"scope"`
+	Path       string  `json:"path"`
+	Annotation string  `json:"annotation"`
+	Version    *string `json:"version"`
 }
 
 // IndexLocation is a code or test declaration linked to an identity.
@@ -42,6 +52,7 @@ type IndexRequirement struct {
 	Title           string          `json:"title"`
 	Text            string          `json:"text"`
 	Source          Source          `json:"source"`
+	SpecVersion     *string         `json:"specVersion"`
 	Scenarios       []string        `json:"scenarios"`
 	Implementations []IndexLocation `json:"implementations"`
 }
@@ -55,6 +66,7 @@ type IndexScenario struct {
 	Text        string          `json:"text"`
 	Steps       []ScenarioStep  `json:"steps"`
 	Source      Source          `json:"source"`
+	SpecVersion *string         `json:"specVersion"`
 	Evidence    []IndexEvidence `json:"evidence"`
 }
 
@@ -113,6 +125,7 @@ func BuildIndex(input IndexInput) Index {
 	index := Index{
 		SchemaVersion: indexSchemaVersion,
 		Scopes:        []IndexScope{},
+		SpecFiles:     []IndexSpecFile{},
 		Requirements:  []IndexRequirement{},
 		Scenarios:     []IndexScenario{},
 		Anchors:       []IndexAnchor{},
@@ -120,6 +133,7 @@ func BuildIndex(input IndexInput) Index {
 	executions := indexExecutions(input.Evidence)
 	for _, scope := range input.Scopes {
 		index.Scopes = append(index.Scopes, scope.Scope)
+		versions := indexSpecFiles(&index, scope)
 		for _, requirement := range scope.Parsed.Requirements {
 			entry := IndexRequirement{
 				ID:              requirement.ID,
@@ -127,6 +141,7 @@ func BuildIndex(input IndexInput) Index {
 				Title:           requirement.Title,
 				Text:            requirement.Text,
 				Source:          requirement.Source,
+				SpecVersion:     versions[requirement.Source.Path],
 				Scenarios:       []string{},
 				Implementations: indexLocations(anchorsFor(input.Anchors, requirement.ID, "code")),
 			}
@@ -140,6 +155,7 @@ func BuildIndex(input IndexInput) Index {
 					Text:        scenario.Body,
 					Steps:       append([]ScenarioStep{}, scenario.Steps...),
 					Source:      scenario.Source,
+					SpecVersion: versions[scenario.Source.Path],
 					Evidence:    indexEvidence(scope.Plan, scenario, input.Anchors, executions, input.InputDigest),
 				})
 			}
@@ -148,6 +164,38 @@ func BuildIndex(input IndexInput) Index {
 	}
 	index.Anchors = indexAnchors(input)
 	return index
+}
+
+// indexSpecFiles lists a scope's specification files in the index, sorted by
+// path, and returns the format version of each annotated file. A file without
+// a known annotation is listed as missing.
+//
+// @implements req.specannotation.a6d30cbac541
+func indexSpecFiles(index *Index, scope IndexScopeInput) map[string]*string {
+	annotations := make(map[string]SpecAnnotation, len(scope.Parsed.Annotations))
+	for _, annotation := range scope.Parsed.Annotations {
+		annotations[annotation.Path] = annotation
+	}
+	paths := append([]string{}, scope.Parsed.Files...)
+	sort.Strings(paths)
+	versions := make(map[string]*string)
+	for _, path := range paths {
+		annotation, known := annotations[path]
+		if !known {
+			annotation = SpecAnnotation{Path: path, State: annotationMissing}
+		}
+		entry := annotationEntry(scope.Scope.ID, annotation)
+		index.SpecFiles = append(index.SpecFiles, IndexSpecFile{
+			Scope:      scope.Scope.ID,
+			Path:       path,
+			Annotation: annotation.State,
+			Version:    entry.Version,
+		})
+		if annotation.State == annotationAnnotated {
+			versions[path] = entry.Version
+		}
+	}
+	return versions
 }
 
 func indexLocations(anchors []Anchor) []IndexLocation {

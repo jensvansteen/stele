@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Added the Stele specification annotation, `<!-- stele: spec v1 -->` on the first line of a specification file, so Stele and editors can recognize Stele specifications and their format version. Whitespace, CRLF, and a byte order mark are tolerated, and `; key: value` fields are ignored with a warning in version 1. See the new [Specification format](https://jensvansteen.github.io/stele/concepts/spec-format) page.
+- Verification reports `SPEC_ANNOTATION_MISSING`, `SPEC_ANNOTATION_MISPLACED`, `SPEC_ANNOTATION_MALFORMED`, `SPEC_ANNOTATION_UNSUPPORTED`, and `SPEC_ANNOTATION_FIELD_IGNORED`. Unannotated files are still read and verified.
+- Added `unannotatedSpecs` to `stele.config.json`: `warn` (the default in 0.1.x) or `error`. **In 0.2.0 the default becomes `error`**; `warn` stays accepted as an explicit choice. Any other value exits with code `2`.
+- Added `stele annotate [--change ID | --specs | --all] [--check] [--json]`, which adds the annotation to every file of a scope that lacks one, preserves every other byte, and never edits a misplaced, malformed, or unsupported annotation.
+- `stele ids` adds the annotation to delta specs together with missing IDs, and `stele init` annotates the current specifications and the delta specs of active changes. The `stele` schema's specification template starts with the annotation.
+- The `stele-archive` skill runs `stele annotate --specs` after archiving and before `stele validate --specs`, because OpenSpec drops the annotation when it creates a new current specification. The archive guidance that `stele init` merges into `openspec/config.yaml` names the same step and replaces the earlier entry.
+- Additive JSON: `stele ids --json` gains `annotations`, and the link index gains `specFiles` and a `specVersion` on requirements and scenarios, within schema version 1.
+- **Migration:** after upgrading, run `npx stele init` or `npx stele annotate --all`, then set `"unannotatedSpecs": "error"` to adopt the 0.2.0 behavior early.
+
 ## 0.1.0-rc.3 — Release candidate
 
 - **Breaking:** the report's top-level `verdict` is now the overall verdict, and reports have schema version `2.1` with `verdicts: {linkage, execution, overall}`. `overall` is `pass` only when linkage passes and the current evidence passed; missing or stale evidence makes it `incomplete`, and a failed test makes it `fail`. In the proposal stage it equals `linkage`. Read `verdicts.linkage` for the old meaning of `verdict`. `stele verify` still exits according to linkage, and its human output adds execution and overall lines. `stele validate --json` adds the same `verdicts`.

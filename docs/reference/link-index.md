@@ -19,13 +19,23 @@ The document is deterministic: identical inputs give identical bytes, with no ti
     { "id": "todo-basics", "kind": "change" },
     { "id": "specs", "kind": "specs" }
   ],
+  "specFiles": [
+    {
+      "scope": "todo-basics",
+      "path": "openspec/changes/todo-basics/specs/todo/spec.md",
+      "annotation": "annotated",
+      "version": "v1"
+    },
+    { "scope": "specs", "path": "openspec/specs/todo/spec.md", "annotation": "missing", "version": null }
+  ],
   "requirements": [
     {
       "id": "req.todo.22b616c90f42",
       "scope": "todo-basics",
       "title": "Add a todo",
       "text": "The system SHALL add a todo with the entered title.",
-      "source": { "path": "openspec/changes/todo-basics/specs/todo/spec.md", "line": 3 },
+      "source": { "path": "openspec/changes/todo-basics/specs/todo/spec.md", "line": 4 },
+      "specVersion": "v1",
       "scenarios": ["scn.todo.20d9cd2785a4"],
       "implementations": [{ "path": "src/todo.mts", "line": 7, "selector": "addTodo" }]
     }
@@ -41,7 +51,8 @@ The document is deterministic: identical inputs give identical bytes, with no ti
         { "keyword": "WHEN", "text": "the user enters a non-empty title" },
         { "keyword": "THEN", "text": "a todo with that title is added" }
       ],
-      "source": { "path": "openspec/changes/todo-basics/specs/todo/spec.md", "line": 8 },
+      "source": { "path": "openspec/changes/todo-basics/specs/todo/spec.md", "line": 9 },
+      "specVersion": "v1",
       "evidence": [
         {
           "id": "scn.todo.20d9cd2785a4.unit",
@@ -85,6 +96,12 @@ The document is deterministic: identical inputs give identical bytes, with no ti
 
 `scopes` lists the scopes in order: with `--change`, the change and then the current specifications when there are any; with `--specs`, only `specs`; with `--all`, `specs` and then every active change in directory order. Every requirement, scenario, and anchor carries the `scope` it belongs to. A requirement that a change modifies appears once per scope with the same ID, so an editor can show the current and the proposed text side by side.
 
+## Specification files
+
+`specFiles` lists each specification file once per scope, in scope order and then by path, with its [annotation](/concepts/spec-format) state: `annotated`, `missing`, `misplaced`, `malformed`, or `unsupported`. `version` is the declared version of an annotated or unsupported file, and otherwise `null`. Field values are not listed.
+
+`specFiles` and `specVersion` were added within schema version 1; readers that do not know them can ignore them.
+
 ## Requirements and scenarios
 
 Requirements and scenarios follow spec order within a scope. Lines are 1-based.
@@ -92,6 +109,7 @@ Requirements and scenarios follow spec order within a scope. Lines are 1-based.
 - A requirement's `text` is the Markdown under its heading, without the `Verification-ID` line and without its scenarios.
 - A scenario's `text` is its raw Markdown below the heading, without the `Verification-ID` line. `steps` has one entry per `- **KEYWORD** …` bullet, with the keyword in upper case (`GIVEN`, `WHEN`, `THEN`, `AND`, …). A bullet that continues on following lines is one step with the lines joined by spaces. A bullet without a bold keyword is a step with an empty `keyword`, and a scenario without text has an empty `text` and no steps.
 - `implementations` lists the requirement's `@implements` anchors.
+- `specVersion` is the format version of the item's file, such as `v1`, or `null` unless the file is annotated with a supported version.
 
 ## Evidence
 

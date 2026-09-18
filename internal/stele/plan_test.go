@@ -12,7 +12,8 @@ import (
 
 const evidenceScenarioID = "scn.demo.bbbbbbbbbbbb"
 
-const evidenceSpec = `## ADDED Requirements
+const evidenceSpec = `<!-- stele: spec v1 -->
+## ADDED Requirements
 
 ### Requirement: Return value
 Verification-ID: req.demo.aaaaaaaaaaaa

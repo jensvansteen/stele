@@ -26,10 +26,12 @@ const APPLY_GUIDANCE = [
   "Stele: add @implements and @verifies anchors while writing code and tests, as the stele-verify skill describes.",
   "Stele: run `stele validate --change <change>` and fix failures before reporting the change done.",
 ];
-const ARCHIVE_GUIDANCE = [
-  "Stele: `stele validate --change <change>` must pass before archiving.",
-  "Stele: after archiving, run `stele validate --specs`.",
-];
+const ARCHIVE_REPAIR = "Stele: after archiving, run `stele annotate --specs`, then `stele validate --specs`.";
+const ARCHIVE_GUIDANCE = ["Stele: `stele validate --change <change>` must pass before archiving.", ARCHIVE_REPAIR];
+// Guidance entries of earlier Stele versions and the entries that replace them.
+const REPLACED_ARCHIVE_GUIDANCE = new Map([["Stele: after archiving, run `stele validate --specs`.", ARCHIVE_REPAIR]]);
+const SPEC_ANNOTATION = "<!-- stele: spec v1 -->";
+const SPEC_ANNOTATION_TRIGGER = /^\uFEFF?[ \t]*<!--[ \t]*stele:/u;
 const VERIFICATION_RULES = [
   "Stele: follow the stele-plan skill for levels, rationale, advisory placement, and the plan format.",
 ];
@@ -77,6 +79,46 @@ function appendMissing(doc, keyPath, entries) {
   return changed;
 }
 
+// replaceEntries replaces older entries of the sequence at keyPath in place,
+// or removes them when their replacement is already present, and reports
+// whether anything changed.
+function replaceEntries(doc, keyPath, replacements) {
+  const seq = doc.getIn(keyPath, true);
+  if (!YAML.isSeq(seq)) {
+    return false;
+  }
+  let changed = false;
+  for (const [older, newer] of replacements) {
+    const index = scalarValues(seq).indexOf(older);
+    if (index < 0) {
+      continue;
+    }
+    if (scalarValues(seq).includes(newer)) {
+      seq.items.splice(index, 1);
+    } else {
+      seq.items[index] = doc.createNode(newer);
+    }
+    changed = true;
+  }
+  return changed;
+}
+
+// annotateSpecTemplate starts the schema's specification template with the
+// Stele annotation, unless it already starts with one.
+function annotateSpecTemplate(schemaDir) {
+  const file = path.join(schemaDir, "templates", "spec.md");
+  let content;
+  try {
+    content = readFileSync(file, "utf8");
+  } catch {
+    notes.push("The stele schema has no templates/spec.md; Stele did not annotate the specification template.");
+    return;
+  }
+  if (!SPEC_ANNOTATION_TRIGGER.test(content)) {
+    writes.push([file, `${SPEC_ANNOTATION}\n${content}`]);
+  }
+}
+
 function patchSchema(schemaDir) {
   const file = path.join(schemaDir, "schema.yaml");
   const doc = parse(file);
@@ -113,6 +155,7 @@ function patchSchema(schemaDir) {
   }
   writes.push([file, doc.toString()]);
   writes.push([path.join(schemaDir, "templates", "linkage-plan.json"), PLAN_TEMPLATE]);
+  annotateSpecTemplate(schemaDir);
 }
 
 function mergeConfig(file) {
@@ -128,6 +171,7 @@ function mergeConfig(file) {
     );
   }
   changed = appendMissing(doc, ["operations", "apply", "guidance"], APPLY_GUIDANCE) || changed;
+  changed = replaceEntries(doc, ["operations", "archive", "guidance"], REPLACED_ARCHIVE_GUIDANCE) || changed;
   changed = appendMissing(doc, ["operations", "archive", "guidance"], ARCHIVE_GUIDANCE) || changed;
   changed = appendMissing(doc, ["rules", "verification"], VERIFICATION_RULES) || changed;
   if (changed) {

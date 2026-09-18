@@ -7,4 +7,5 @@ description: Archives a finished change the Stele way, only after its verificati
 
 1. Run `stele validate --change <change>`. If it fails, stop and report the failures.
 2. Use the `openspec-archive-change` skill to archive the change.
-3. Run `stele validate --specs` and report the result.
+3. Run `stele annotate --specs` to restore the Stele annotation on the current specifications the archive created.
+4. Run `stele validate --specs` and report the result.
