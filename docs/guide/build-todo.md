@@ -182,7 +182,7 @@ void test("rejects blank todo text", (): void => {
 });
 ```
 
-Each anchor names the approved evidence ID: the scenario ID plus its level. The `void` prefix satisfies typed lint rules for floating promises, and Stele still selects the test. Stele runs each linked scenario independently, so a broad test-file pass cannot hide a missing scenario.
+Each anchor names the approved evidence ID: the scenario ID plus its level. The `void` prefix satisfies typed lint rules for floating promises, and Stele still selects the test. Stele runs each linked test by its exact name and records its own result, so a broad test-file pass cannot hide a missing scenario.
 
 ## 8. Run the complete deterministic gate
 

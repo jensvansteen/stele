@@ -44,6 +44,8 @@ type humanReportInput struct {
 	passed   bool
 	// notes are verdict remarks that do not fail the run.
 	notes []string
+	// incomplete are the test batches whose process did not complete.
+	incomplete []batchEvent
 }
 
 // humanReport is the rendered content of the report, sorted when it is built.
@@ -54,6 +56,7 @@ type humanReport struct {
 	groups       []problemGroup
 	failed       []testLine
 	stale        []testLine
+	incomplete   []batchEvent
 	verdict      string
 	passed       bool
 }
@@ -120,6 +123,7 @@ func buildHumanReport(input humanReportInput) humanReport {
 	result.checks = checkLines(input, tests, diagnostics)
 	result.groups = problemGroups(index, diagnostics, scopeFlag(input.scope, name))
 	result.failed, result.stale = tests.failedLines(index), tests.staleLines(index)
+	result.incomplete = input.incomplete
 	if !tests.ran && input.report != nil {
 		result.failed = failedScenarios(*input.report)
 	}
@@ -699,6 +703,7 @@ func renderHumanReport(writer io.Writer, report humanReport, style reportStyle) 
 	renderGroups(&out, "Warnings", "warning", report.groups, style)
 	renderTests(&out, "Failed tests", markFail, report.failed, style)
 	renderTests(&out, "Stale tests", markWarn, report.stale, style)
+	renderIncomplete(&out, report.incomplete, style)
 	out.WriteString("\n" + verdictLineText(report, style) + "\n")
 	_, _ = io.WriteString(writer, out.String())
 }
@@ -770,6 +775,22 @@ func renderTests(out *strings.Builder, title, mark string, lines []testLine, sty
 		fmt.Fprintf(out, "  %s %s  %s\n      %s\n", style.paint(mark), style.dim(line.location), line.name, line.detail)
 	}
 	writeMore(out, len(lines)-shown, "  ")
+}
+
+// renderIncomplete names each test batch that did not complete, its exit
+// status, and its last output lines.
+func renderIncomplete(out *strings.Builder, batches []batchEvent, style reportStyle) {
+	if len(batches) == 0 {
+		return
+	}
+	out.WriteString("\nIncomplete test processes\n")
+	for _, batch := range batches {
+		fmt.Fprintf(out, "  %s %s  %s, %s without a result\n", style.paint(markFail), batch.label, batch.status,
+			plural(batch.unreported, "test"))
+		for _, line := range batch.tail {
+			out.WriteString(strings.TrimRight("      "+style.dim(line), " ") + "\n")
+		}
+	}
 }
 
 // limited returns how many of count items to show.

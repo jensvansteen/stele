@@ -30,8 +30,10 @@ var (
 // worker slot let a concurrent runner report several tests at once; the
 // sequential runner uses group "default" and slot 0.
 type progressEvent struct {
-	group       string
-	slot        int
+	group string
+	slot  int
+	// batch names the test process the test runs in: its package or file.
+	batch       string
 	path        string
 	selector    string
 	evidenceIDs []string
@@ -54,6 +56,17 @@ type testObserver interface {
 	planned(total int, files map[string]int)
 	started(event progressEvent)
 	finished(event progressEvent)
+}
+
+// batchObserver is an observer that also shows the end of each batch's
+// process, and names a batch that did not complete.
+type batchObserver interface {
+	batchEnded(event batchEvent)
+}
+
+// incompleteText names a batch that did not complete and its exit status.
+func incompleteText(event batchEvent) string {
+	return fmt.Sprintf("%s did not complete (%s)", event.label, event.status)
 }
 
 // progressReporter shows stages and tests while a command runs.
@@ -202,6 +215,16 @@ func (progress *terminalProgress) finished(event progressEvent) {
 	progress.redraw()
 }
 
+func (progress *terminalProgress) batchEnded(event batchEvent) {
+	if event.completed {
+		return
+	}
+	progress.state.mutex.Lock()
+	defer progress.state.mutex.Unlock()
+	progress.state.write(clearLine + progress.state.style.paint(markFail) + " " + incompleteText(event) + "\n")
+	progress.redraw()
+}
+
 func (progress *terminalProgress) done() {
 	progress.state.mutex.Lock()
 	defer progress.state.mutex.Unlock()
@@ -218,7 +241,10 @@ func (progress *terminalProgress) redraw() {
 	head, middle, tail := frame+" "+state.prefix+state.stageName+"…", "", ""
 	if state.total > 0 {
 		head = fmt.Sprintf("%s %stests %d/%d", frame, state.prefix, state.finished, state.total)
-		if state.latest.path != "" {
+		switch {
+		case len(state.running) > 1:
+			middle = " · " + choose(state.latest.batch != "", state.latest.batch, state.latest.path)
+		case state.latest.path != "":
 			middle = " · " + state.latest.title
 			if state.latest.level != "" {
 				middle += " (" + state.latest.level + ")"
@@ -301,6 +327,15 @@ func (progress *lineProgress) finished(event progressEvent) {
 			formatDuration(now().Sub(state.testStart)))
 	}
 	state.write(lines)
+}
+
+func (progress *lineProgress) batchEnded(event batchEvent) {
+	if event.completed {
+		return
+	}
+	progress.state.mutex.Lock()
+	defer progress.state.mutex.Unlock()
+	progress.state.write(fmt.Sprintf("%s  INCOMPLETE %s\n", progress.state.prefix, incompleteText(event)))
 }
 
 func (progress *lineProgress) done() {}

@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 2,
+  "changeId": "fast-runs",
+  "scenarios": {
+    "scn.execution.0aa78cf92f34": {
+      "evidence": [
+        {
+          "id": "scn.execution.0aa78cf92f34.unit",
+          "level": "unit",
+          "rationale": "Tests needing different build tags could share one command and silently not compile or not run. The batch key and arguments are pure planning; real tag handling is covered by scn.gosupport.4a0637d44b7a.",
+          "placement": "internal/stele/batch_test.go, beside the new batch planner",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:ed5f992225d3335557057b24f4bf2d0fe56c327d711624bc1d70b9892863f208",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.execution.500afe3889f6": {
+      "evidence": [
+        {
+          "id": "scn.execution.500afe3889f6.integration",
+          "level": "integration",
+          "rationale": "Per-test outcomes could be lost or misattributed when four Go names share one go test -json process. Needs real go test events.",
+          "placement": "internal/stele/gorunner_test.go, beside the existing Go execution tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:005929a671a80b9bdac7f4737dce4c78d1006fe397c84ecb18a3e087a021645c",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.execution.8371d74b5134": {
+      "evidence": [
+        {
+          "id": "scn.execution.8371d74b5134.integration",
+          "level": "integration",
+          "rationale": "A completed batch could report a missing Node name as passed or crashed instead of test-not-executed. Needs real node --test TAP output.",
+          "placement": "internal/stele/runner_test.go (existing test, re-pointed to the batch runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:a6238e30d73cd0cd7c529de8b2cb00efe12740712cf19b55fade85505ab1d22c",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.execution.8653331d296a": {
+      "evidence": [
+        {
+          "id": "scn.execution.8653331d296a.integration",
+          "level": "integration",
+          "rationale": "Per-test outcomes, including the new # SKIP mapping, could be misread from one node --test TAP stream. Needs the real Node runner.",
+          "placement": "internal/stele/runner_test.go, beside the existing Node execution tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:d5195eeb86471ffb3ad0401a0cad3146e53b5a9b31e00c2439492bade0a3b0cd",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.execution.93ab1bbe751c": {
+      "evidence": [
+        {
+          "id": "scn.execution.93ab1bbe751c.unit",
+          "level": "unit",
+          "rationale": "Batching could delay every result until the process ends, hiding failures for the whole batch. A fake batch output stream and the plain reporter run in process.",
+          "placement": "internal/stele/progress_test.go or batch_test.go, beside the observer tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:0a01a2e681a6ad77d7c5364224d501176e30596d34622d2f51543a51cec18758",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.execution.a9dde959cf57": {
+      "evidence": [
+        {
+          "id": "scn.execution.a9dde959cf57.unit",
+          "level": "unit",
+          "rationale": "Batch planning could drop or misroute a file without a runner. Pure planning, in process.",
+          "placement": "internal/stele/runner_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:6e4e7fa43659895a64e515240ec38682479f13087b9a25930131a57bc981d640",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.execution.aba48bf93edd": {
+      "evidence": [
+        {
+          "id": "scn.execution.aba48bf93edd.integration",
+          "level": "integration",
+          "rationale": "A crashed batch could leave unreported tests as test-not-executed or passed. The completion markers exist only in real go test and node --test output after os.Exit and process.exit.",
+          "placement": "internal/stele/batch_test.go, with Go and Node fixtures in a temporary directory",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:f5e865f29b34b510facfb24f0e0248039fe0e9008812ac7249f3b8e771bcf12b",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.execution.bce9246e1444": {
+      "evidence": [
+        {
+          "id": "scn.execution.bce9246e1444.integration",
+          "level": "integration",
+          "rationale": "A single selected Node test could run other tests of its file once it goes through the batch path. Needs the real node --test runner.",
+          "placement": "internal/stele/runner_test.go (existing test, re-pointed to the batch runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:ead1ec39172600d7d68699d7d6254b9b2a4a3e80b608ed4b23459342e32b143f",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.execution.e49b224babb8": {
+      "evidence": [
+        {
+          "id": "scn.execution.e49b224babb8.integration",
+          "level": "integration",
+          "rationale": "Batching could change outcomes, reasons, evidence, or JSON compared with one process per test. Only real Go and Node runs show the equivalence.",
+          "placement": "internal/stele/batch_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:dc33539c9b9db95f48dbd1d3075bd5c7fa414fa9bbeec00c5a6b362e795da7c0",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.203331e4d990": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.203331e4d990.integration",
+          "level": "integration",
+          "rationale": "A missing Go name in a completed batch could be reported as crashed. Needs the real PASS or FAIL summary line.",
+          "placement": "internal/stele/gorunner_test.go (existing test, re-pointed to the batch runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:b632ef79d9d6aa36545dc4a106e3475207aca42ac0734ec9eabd4044e8976992",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.208b6a95ea3f": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.208b6a95ea3f.integration",
+          "level": "integration",
+          "rationale": "A failing Go test in a batch could be reported as crashed or passed. Needs real go test events.",
+          "placement": "internal/stele/gorunner_test.go (existing test, re-pointed to the batch runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:4ece65c86bd28374f801eaace758e7dd48c378f41c2f702e31dd6add4cf86420",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.2c88ed381429": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.2c88ed381429.e2e",
+          "level": "e2e",
+          "rationale": "The shipped binary could fail to run Go and Node batches together. Only the built CLI proves the mixed run end to end.",
+          "placement": "tests/cli.test.mts (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:c3a4c3f053e7051435ef6c39c350629653ae69dbbf09756c6d29ca36d6c1d056",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.4a0637d44b7a": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.4a0637d44b7a.integration",
+          "level": "integration",
+          "rationale": "A tagged file's test could be compiled without its tag in a batch. Needs real go test with build constraints.",
+          "placement": "internal/stele/gorunner_test.go (existing test, re-pointed to the batch runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:fbe3851ebaa03eaa2e6b43361a13c8aa5cd78ea8a59bb0eb9ac6f4b61f2e4740",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.75d202e0ed36": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.75d202e0ed36.integration",
+          "level": "integration",
+          "rationale": "A skipped Go test could be reported as passed or not executed. Needs real go test events.",
+          "placement": "internal/stele/gorunner_test.go (existing test, re-pointed to the batch runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:0e5ea5410ed7b8f498b6ebe81664bb8cbbb37262b5c0d434e55fa77a2656390a",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.d195095fc292": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.d195095fc292.integration",
+          "level": "integration",
+          "rationale": "A one-test Go batch could run other tests of the package. Needs real go test.",
+          "placement": "internal/stele/gorunner_test.go (existing test, re-pointed to the batch runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:3ac25cfb2af6d771b63a7f36e6f9f8655a268fd71a39606b49b8cedef410a02b",
+            "via": "cli",
+            "revision": "192d8c75b45c0e14ea56fe8e9fb1de0fffa556f5"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,16 +1,12 @@
 package stele
 
 import (
-	"bufio"
-	"bytes"
-	"encoding/json"
 	"errors"
 	"go/build"
 	"go/build/constraint"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"slices"
 	"sort"
@@ -38,64 +34,50 @@ var (
 type goTestEvent struct {
 	Action string `json:"Action"`
 	Test   string `json:"Test"`
+	Output string `json:"Output"`
 }
 
-// executeGoTest runs exactly one top-level Go test in its package, without
-// cached results and with the build tags its file requires.
-//
-// @implements req.gosupport.d8c058038daa
-func executeGoTest(root, path, selector string) (bool, bool, error) {
+// planGoTest returns the batch of a Go test: its package, with the build tags
+// its file requires. A test whose constraint does not hold on this platform
+// did not run, without a process.
+func planGoTest(root, path string) (testBatch, exactResult, bool) {
 	absolute := filepath.Join(root, filepath.FromSlash(path))
 	content, err := os.ReadFile(absolute)
 	if err != nil {
-		return false, false, err
+		return testBatch{}, exactResult{err: err}, false
 	}
 	tags, satisfied := goBuildTags(content)
 	if !satisfied {
-		return false, false, nil
+		return testBatch{}, exactResult{}, false
 	}
 	moduleRoot := nearestGoModule(root, filepath.Dir(absolute))
 	packagePath, err := relativePath(moduleRoot, filepath.Dir(absolute))
 	if err != nil {
-		return false, false, err
+		return testBatch{}, exactResult{err: err}, false
 	}
-	arguments := []string{"test", "-json", "-count=1", "-run", "^" + regexp.QuoteMeta(selector) + "$"}
-	if len(tags) > 0 {
-		arguments = append(arguments, "-tags="+strings.Join(tags, ","))
-	}
-	arguments = append(arguments, "./"+filepath.ToSlash(packagePath))
-	command := exec.Command("go", arguments...)
-	command.Dir = moduleRoot
-	command.Env = append(os.Environ(), "STELE_CHILD_TEST=1")
-	output, runErr := command.Output()
-	switch goTestAction(output, selector) {
-	case "pass":
-		return runErr == nil, true, runErr
-	case "skip":
-		return false, true, errTestSkipped
-	case "":
-		return false, false, runErr
-	default:
-		return false, true, runErr
-	}
+	return testBatch{
+		runner:    "go",
+		path:      filepath.ToSlash(filepath.Dir(filepath.FromSlash(path))),
+		tags:      tags,
+		directory: moduleRoot,
+		target:    "./" + filepath.ToSlash(packagePath),
+	}, exactResult{}, true
 }
 
-// goTestAction returns the final pass, fail, or skip action reported for the
-// top-level test, or "" when that test never ran.
-func goTestAction(output []byte, selector string) string {
-	action := ""
-	scanner := bufio.NewScanner(bytes.NewReader(output))
-	for scanner.Scan() {
-		var event goTestEvent
-		if json.Unmarshal(scanner.Bytes(), &event) != nil || event.Test != selector {
-			continue
-		}
-		switch event.Action {
-		case "pass", "fail", "skip":
-			action = event.Action
-		}
+// goBatchCommand runs the selected top-level tests of one Go package in one
+// process, without cached results and with the build tags of their files.
+//
+// @implements req.gosupport.d8c058038daa
+func goBatchCommand(batch testBatch) *exec.Cmd {
+	arguments := []string{"test", "-json", "-count=1", "-run", namePattern(batch.names())}
+	if len(batch.tags) > 0 {
+		arguments = append(arguments, "-tags="+strings.Join(batch.tags, ","))
 	}
-	return action
+	arguments = append(arguments, batch.target)
+	command := exec.Command("go", arguments...)
+	command.Dir = batch.directory
+	command.Env = append(os.Environ(), "STELE_CHILD_TEST=1")
+	return command
 }
 
 func nearestGoModule(root, directory string) string {

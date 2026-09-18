@@ -1,15 +1,12 @@
 package stele
 
 import (
-	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -95,8 +92,10 @@ type testRun struct {
 	evidence Evidence
 	selected []TestExecution
 	targeted bool
-	// parsed holds the scope's specifications, for the human report.
-	parsed ParsedSpecs
+	// parsed holds the scope's specifications, and incomplete the batches
+	// that did not complete, for the human report.
+	parsed     ParsedSpecs
+	incomplete []batchEvent
 }
 
 // @implements req.execution.f9056cdc6fe6
@@ -138,8 +137,8 @@ func runScopeTests(request testRequest) (testRun, error) {
 	if observer == nil {
 		observer = silentProgress{}
 	}
-	executions := executeTestGroups(root, selectedGroups, inputDigest, observer, parsed)
-	run.parsed = parsed
+	executions, incomplete := executeTestGroups(root, selectedGroups, inputDigest, observer, parsed)
+	run.parsed, run.incomplete = parsed, incomplete
 	if run.targeted {
 		run.selected = executions
 	}
@@ -399,19 +398,25 @@ func groupScenarioTests(anchors []Anchor) []testGroup {
 	return groups
 }
 
-// executeTestGroups runs the groups one at a time and reports each test to
-// the observer as it starts and finishes.
+// runTestGroups runs the selected groups and returns their executions and the
+// batches that did not complete. It runs batches; tests replace it with
+// executeGroupsOneByOne, the per-test oracle.
+var runTestGroups = executeGroupsInBatches
+
+// executeTestGroups runs the groups and reports each test to the observer as
+// it starts and finishes. Executions follow the order of the groups, so the
+// order the tests ran in never reaches evidence.
 func executeTestGroups(
 	root string,
 	groups []testGroup,
 	inputDigest string,
 	observer testObserver,
 	parsed ParsedSpecs,
-) []TestExecution {
-	titles := make(map[string]string)
+) ([]TestExecution, []batchEvent) {
+	reporter := groupReporter{observer: observer, titles: make(map[string]string)}
 	for _, requirement := range parsed.Requirements {
 		for _, scenario := range requirement.Scenarios {
-			titles[scenario.ID] = scenario.Title
+			reporter.titles[scenario.ID] = scenario.Title
 		}
 	}
 	files := make(map[string]int)
@@ -419,28 +424,79 @@ func executeTestGroups(
 		files[group.Key.Path]++
 	}
 	observer.planned(len(groups), files)
+	byKey, incomplete := runTestGroups(root, groups, reporter)
 	executions := make([]TestExecution, 0, len(groups))
 	for _, group := range groups {
-		event := progressEvent{
-			group:       "default",
-			path:        group.Key.Path,
-			selector:    group.Key.Selector,
-			evidenceIDs: group.EvidenceIDs,
-			scenarioIDs: group.IDs,
-			title:       titles[firstOf(group.IDs, "")],
-			level:       levelOf(firstOf(group.EvidenceIDs, "")),
-		}
-		observer.started(event)
-		execution := executeTestGroup(root, group)
+		execution := byKey[group.Key]
 		execution.InputDigest = inputDigest
 		executions = append(executions, execution)
-		event.outcome, event.reason = execution.Outcome, pointerValue(execution.Reason)
-		observer.finished(event)
 	}
-	return executions
+	return executions, incomplete
+}
+
+// groupReporter turns test groups into progress events.
+type groupReporter struct {
+	observer testObserver
+	titles   map[string]string
+}
+
+func (reporter groupReporter) event(group testGroup, batch string) progressEvent {
+	return progressEvent{
+		group:       "default",
+		batch:       batch,
+		path:        group.Key.Path,
+		selector:    group.Key.Selector,
+		evidenceIDs: group.EvidenceIDs,
+		scenarioIDs: group.IDs,
+		title:       reporter.titles[firstOf(group.IDs, "")],
+		level:       levelOf(firstOf(group.EvidenceIDs, "")),
+	}
+}
+
+func (reporter groupReporter) started(group testGroup, batch string) {
+	reporter.observer.started(reporter.event(group, batch))
+}
+
+func (reporter groupReporter) finished(group testGroup, batch string, execution TestExecution) {
+	event := reporter.event(group, batch)
+	event.outcome, event.reason = execution.Outcome, pointerValue(execution.Reason)
+	reporter.observer.finished(event)
+}
+
+// batchEnded passes the end of a batch to observers that show it.
+func (reporter groupReporter) batchEnded(event batchEvent) {
+	if observer, shows := reporter.observer.(batchObserver); shows {
+		observer.batchEnded(event)
+	}
+}
+
+// executeGroupsOneByOne is the per-test oracle: one process per test, one at
+// a time, through the same result readers as the batches.
+func executeGroupsOneByOne(
+	root string,
+	groups []testGroup,
+	reporter groupReporter,
+) (map[testGroupKey]TestExecution, []batchEvent) {
+	executions := make(map[testGroupKey]TestExecution, len(groups))
+	for _, group := range groups {
+		reporter.started(group, group.Key.Path)
+		execution := executeTestGroup(root, group)
+		executions[group.Key] = execution
+		reporter.finished(group, group.Key.Path, execution)
+	}
+	return executions, nil
 }
 
 func executeTestGroup(root string, group testGroup) TestExecution {
+	if group.Selector == nil {
+		return groupExecution(group, exactResult{})
+	}
+	passed, executed, err := runExactTest(root, group.Key.Path, group.Key.Selector)
+	return groupExecution(group, exactResult{passed: passed, executed: executed, err: err})
+}
+
+// groupExecution records a test's result for every scenario of its group.
+func groupExecution(group testGroup, result exactResult) TestExecution {
 	execution := TestExecution{
 		Path:        group.Key.Path,
 		Selector:    group.Selector,
@@ -448,22 +504,18 @@ func executeTestGroup(root string, group testGroup) TestExecution {
 		EvidenceIDs: group.EvidenceIDs,
 		Outcome:     "failed",
 	}
-	if group.Selector == nil {
-		execution.Reason = stringPointer("target-not-resolved")
-		return execution
-	}
-
-	passed, executed, err := runExactTest(root, group.Key.Path, group.Key.Selector)
 	switch {
-	case errors.Is(err, errUnsupportedTestExtension):
+	case group.Selector == nil:
+		execution.Reason = stringPointer("target-not-resolved")
+	case errors.Is(result.err, errUnsupportedTestExtension):
 		execution.Reason = stringPointer("unsupported-test-extension")
-	case errors.Is(err, errTestSkipped):
+	case errors.Is(result.err, errTestSkipped):
 		execution.Reason = stringPointer("test-skipped")
-	case err != nil:
+	case result.err != nil:
 		execution.Reason = stringPointer("test-process-failed")
-	case !executed:
+	case !result.executed:
 		execution.Reason = stringPointer("test-not-executed")
-	case passed:
+	case result.passed:
 		execution.Outcome = "passed"
 	default:
 		execution.Reason = stringPointer("test-process-failed")
@@ -568,47 +620,40 @@ func aggregateScenarioOutcome(scenarios []ScenarioOutcome) string {
 	return "passed"
 }
 
+// executeExactTest runs one test alone in its own process, as a batch of one.
+// It is the per-test oracle that batched runs are compared with.
 func executeExactTest(root, path, selector string) (bool, bool, error) {
-	switch filepath.Ext(path) {
-	case ".mts", ".ts":
-		return executeNodeTest(root, path, selector)
-	case ".go":
-		if strings.HasSuffix(path, "_test.go") {
-			return executeGoTest(root, path, selector)
-		}
-		fallthrough
-	default:
-		return false, false, fmt.Errorf(
-			"%w %q; supported extensions: .mts, .ts, _test.go",
-			errUnsupportedTestExtension,
-			filepath.Ext(path),
-		)
+	group := testGroup{Key: testGroupKey{Path: path, Selector: selector}, Selector: &selector}
+	plan := planTestBatches(root, []testGroup{group})
+	result := exactResult{}
+	if len(plan.batches) == 0 {
+		result = plan.settled[0].result
+	} else {
+		result = runTestBatch(plan.batches[0], func(string, exactResult) {}).resultOf(selector)
 	}
+	return result.passed, result.executed, result.err
 }
 
-func executeNodeTest(root, path, selector string) (bool, bool, error) {
-	pattern := "^" + regexp.QuoteMeta(selector) + "$"
+func unsupportedExtension(path string) error {
+	return fmt.Errorf(
+		"%w %q; supported extensions: .mts, .ts, _test.go",
+		errUnsupportedTestExtension,
+		filepath.Ext(path),
+	)
+}
+
+// nodeBatchCommand runs the selected tests of one Node test file.
+func nodeBatchCommand(batch testBatch) *exec.Cmd {
 	command := exec.Command(
 		"node",
 		"--test",
 		"--test-reporter=tap",
-		"--test-name-pattern="+pattern,
-		filepath.ToSlash(path),
+		"--test-name-pattern="+namePattern(batch.names()),
+		batch.target,
 	)
-	command.Dir = root
+	command.Dir = batch.directory
 	command.Env = nodeTestEnvironment()
-	output, err := command.CombinedOutput()
-	executed := false
-	passPattern := regexp.MustCompile(`^ok \d+ - ` + regexp.QuoteMeta(selector) + `$`)
-	scanner := bufio.NewScanner(bytes.NewReader(output))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if passPattern.MatchString(line) {
-			executed = true
-			break
-		}
-	}
-	return err == nil && executed, executed, err
+	return command
 }
 
 // nodeTestEnvironment returns the environment for a linked Node test. Node sets

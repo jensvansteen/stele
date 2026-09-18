@@ -595,7 +595,7 @@ func testCommand(parsed options, stdout, stderr io.Writer) int {
 	input := humanReportInput{
 		command: "test", scope: scope, specs: run.parsed.Requirements,
 		executions: executions, currentDigest: run.evidence.InputDigest, testsRelevant: true,
-		duration: &duration, passed: passed,
+		duration: &duration, passed: passed, incomplete: run.incomplete,
 	}
 	if run.targeted {
 		input.notes = []string{fmt.Sprintf("scope evidence: %d/%d scenarios passed",
@@ -683,7 +683,7 @@ func validateCommand(parsed options, stdout, stderr io.Writer) int {
 	input := humanReportInput{
 		command: "validate", scope: scope, report: &report,
 		executions: evidence.Executions, currentDigest: evidence.InputDigest, testsRelevant: true,
-		openSpec: &openSpecPassed, duration: &duration, passed: passed,
+		openSpec: &openSpecPassed, duration: &duration, passed: passed, incomplete: run.incomplete,
 	}
 	if parsed.json {
 		writeMachineJSON(stdout, newValidationResult(evidence, report, openSpecPassed, passed))

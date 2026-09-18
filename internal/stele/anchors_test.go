@@ -372,6 +372,7 @@ Verification-ID: scn.demo.cccccccccccc
 
 	original := runExactTest
 	t.Cleanup(func() { runExactTest = original })
+	runOneByOne(t)
 	ran := make([]string, 0)
 	runExactTest = func(_, _, selector string) (bool, bool, error) {
 		ran = append(ran, selector)

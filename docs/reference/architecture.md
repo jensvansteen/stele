@@ -41,7 +41,7 @@ This specification adapter is separate from language and test-runner adapters. I
 - recognizes a nearby declaration to capture a code symbol or exact test selector;
 - normalizes paths and sorts the result before verification.
 
-TypeScript files go through a small comment-aware lexer and line-based declaration patterns. Go files are parsed with the standard library `go/parser` (`internal/stele/goanchors.go`), and `internal/stele/gorunner.go` runs each linked Go test with `go test -json -count=1`, deriving build tags from the file's `//go:build` line.
+TypeScript files go through a small comment-aware lexer and line-based declaration patterns. Go files are parsed with the standard library `go/parser` (`internal/stele/goanchors.go`), and `internal/stele/gorunner.go` builds the `go test -json -count=1` command of a batch, deriving build tags from the file's `//go:build` line. `internal/stele/batch.go` groups the selected tests into one batch per Go package and tag set or per Node file, and reads each test's result and the batch's completion from the streamed output.
 
 The scanners prove that an explicit anchor resolves to a nearby declaration. It does not parse a complete abstract syntax tree, discover every exported symbol or route, infer behavior from source code, or prove that an unanchored implementation has a specification. Those broader checks and support for other consumer languages belong to planned language adapters.
 
