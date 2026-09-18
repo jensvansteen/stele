@@ -62,3 +62,7 @@ Development setup and repository architecture live in [Contributing](CONTRIBUTIN
 ## Current scope
 
 Version 0.1 provides the Go verifier, OpenSpec adapter, native CLI, project initializer, repository-local skills, deterministic reports, and exact test selection for TypeScript and Go consumers.
+
+## License
+
+Stele is released under the [MIT License](LICENSE). It builds on [OpenSpec](https://github.com/Fission-AI/OpenSpec), which is also MIT-licensed.

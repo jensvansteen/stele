@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Stele is now released under the MIT License: the repository has a `LICENSE` file, and the npm package declares `"license": "MIT"` and ships the license text.
 - Added the Stele specification annotation, `<!-- stele: spec v1 -->` on the first line of a specification file, so Stele and editors can recognize Stele specifications and their format version. Whitespace, CRLF, and a byte order mark are tolerated, and `; key: value` fields are ignored with a warning in version 1. See the new [Specification format](https://jensvansteen.github.io/stele/concepts/spec-format) page.
 - Verification reports `SPEC_ANNOTATION_MISSING`, `SPEC_ANNOTATION_MISPLACED`, `SPEC_ANNOTATION_MALFORMED`, `SPEC_ANNOTATION_UNSUPPORTED`, and `SPEC_ANNOTATION_FIELD_IGNORED`. Unannotated files are still read and verified.
 - Added `unannotatedSpecs` to `stele.config.json`: `warn` (the default in 0.1.x) or `error`. **In 0.2.0 the default becomes `error`**; `warn` stays accepted as an explicit choice. Any other value exits with code `2`.
