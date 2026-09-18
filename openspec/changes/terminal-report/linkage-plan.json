@@ -296,6 +296,16 @@
         }
       ]
     },
+    "scn.verificationscope.101e06b07f39": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.101e06b07f39.unit",
+          "level": "unit",
+          "rationale": "ANCHOR_DANGLING could be replaced or lost by the new rule. Fixture anchor without any declaration, in process.",
+          "placement": "internal/stele/scope_test.go (existing test)"
+        }
+      ]
+    },
     "scn.verificationscope.1c6a44335f91": {
       "evidence": [
         {
@@ -346,6 +356,26 @@
         }
       ]
     },
+    "scn.verificationscope.9c3ef2025b56": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.9c3ef2025b56.unit",
+          "level": "unit",
+          "rationale": "After archiving, anchors to removed behavior would pass silently, because archived deltas still declare the IDs. Fixture archive with a removal, verified with --specs in process.",
+          "placement": "internal/stele/scope_test.go, beside the anchor scoping tests"
+        }
+      ]
+    },
+    "scn.verificationscope.ee5d7b261d62": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.ee5d7b261d62.unit",
+          "level": "unit",
+          "rationale": "Anchors of another active change could start failing a scope once archive-only identities are checked. Fixture with two changes, in process.",
+          "placement": "internal/stele/scope_test.go (existing test)"
+        }
+      ]
+    },
     "scn.verificationscope.f8ab6e2e1812": {
       "evidence": [
         {
@@ -353,6 +383,86 @@
           "level": "integration",
           "rationale": "The real OpenSpec CLI must run for --specs; it needs the bundled OpenSpec, one real outside tool.",
           "placement": "internal/stele/scope_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.verify.42bc49e1f29f": {
+      "evidence": [
+        {
+          "id": "scn.verify.42bc49e1f29f.unit",
+          "level": "unit",
+          "rationale": "Plan entries for removed scenarios could be reported only as PLAN_UNKNOWN_ID, or twice. Plan checks over a fixture plan are pure.",
+          "placement": "internal/stele/plan_test.go, beside the evidence plan checks"
+        }
+      ]
+    },
+    "scn.verify.5172c64aec19": {
+      "evidence": [
+        {
+          "id": "scn.verify.5172c64aec19.unit",
+          "level": "unit",
+          "rationale": "Code or tests of removed behavior could stay anchored unnoticed, including evidence-suffixed IDs. Resolution against a fixture current spec and anchor matching run in process.",
+          "placement": "internal/stele/verify_test.go, beside report building (or a new removed_test.go beside removed.go)"
+        }
+      ]
+    },
+    "scn.verify.6c22483ab3c3": {
+      "evidence": [
+        {
+          "id": "scn.verify.6c22483ab3c3.unit",
+          "level": "unit",
+          "rationale": "Requirement and scenario relationships could break when the parser learns delta sections. Parsing fixture files is pure.",
+          "placement": "internal/stele/specs_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.verify.70eaaa57724a": {
+      "evidence": [
+        {
+          "id": "scn.verify.70eaaa57724a.unit",
+          "level": "unit",
+          "rationale": "A misspelled REMOVED name could silently check nothing. Name resolution against a fixture current spec is pure.",
+          "placement": "internal/stele/verify_test.go"
+        }
+      ]
+    },
+    "scn.verify.9fb98ac252a0": {
+      "evidence": [
+        {
+          "id": "scn.verify.9fb98ac252a0.unit",
+          "level": "unit",
+          "rationale": "A REMOVED block in either form could be parsed as an active requirement, the bug found while planning. Parsing fixture files is pure.",
+          "placement": "internal/stele/specs_test.go, beside the identity parsing tests"
+        }
+      ]
+    },
+    "scn.verify.c03b05c1c11e": {
+      "evidence": [
+        {
+          "id": "scn.verify.c03b05c1c11e.unit",
+          "level": "unit",
+          "rationale": "The check could report removed behavior that is already gone. Same in-process fixture without anchors.",
+          "placement": "internal/stele/verify_test.go"
+        }
+      ]
+    },
+    "scn.verify.c5fd3656da59": {
+      "evidence": [
+        {
+          "id": "scn.verify.c5fd3656da59.unit",
+          "level": "unit",
+          "rationale": "Identity shape errors could stop being reported outside REMOVED sections. Parsing fixture files is pure.",
+          "placement": "internal/stele/specs_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.verify.ec83e3f24b0a": {
+      "evidence": [
+        {
+          "id": "scn.verify.ec83e3f24b0a.unit",
+          "level": "unit",
+          "rationale": "Behavior that moves to a renamed requirement, as this change's own init delta does, could be reported as removed. Fixture with REMOVED plus ADDED sharing IDs, in process.",
+          "placement": "internal/stele/verify_test.go"
         }
       ]
     }

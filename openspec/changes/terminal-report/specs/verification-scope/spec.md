@@ -1,5 +1,28 @@
 ## MODIFIED Requirements
 
+### Requirement: Scope anchors to declared identities
+Verification-ID: req.verificationscope.9c81618619df
+
+An anchor SHALL be reported as `ANCHOR_DANGLING` only when no specification under `openspec/`, whether an active change, an archived change, or a current specification, declares its identity. Anchors for identities declared outside the selected scope SHALL NOT affect its verdict, with one exception: when the current specifications are verified, an anchor whose identity, or the scenario of whose evidence ID, only archived changes declare names removed behavior and SHALL be reported as a `LINK_REMOVED_BEHAVIOR_ANCHORED` error with its path and line.
+
+#### Scenario: Ignore anchors of another active change
+Verification-ID: scn.verificationscope.ee5d7b261d62
+
+- **WHEN** change `a` is verified and an anchor names an identity declared only by change `b`
+- **THEN** the report for `a` has no diagnostic for that anchor
+
+#### Scenario: Report an anchor that no specification declares
+Verification-ID: scn.verificationscope.101e06b07f39
+
+- **WHEN** an anchor names an identity that appears in no specification under `openspec/`
+- **THEN** verification fails with `ANCHOR_DANGLING`
+
+#### Scenario: Report anchors to behavior removed by an archived change
+Verification-ID: scn.verificationscope.9c3ef2025b56
+
+- **WHEN** `stele verify --specs` runs after a change that removed a requirement was archived, and a test still has `@verifies` for an evidence ID of one of its scenarios, which only archived changes declare
+- **THEN** verification reports a `LINK_REMOVED_BEHAVIOR_ANCHORED` error with the test's path and line, and fails
+
 ### Requirement: Verify the current specifications
 Verification-ID: req.verificationscope.bee89d6750ed
 

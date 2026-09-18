@@ -26,7 +26,8 @@ See proposal.md for the problem. The current state that shapes the approach:
 - Running tests in parallel. That would shorten the minute, but it changes execution semantics and needs its own change.
 - A full-screen or interactive user interface.
 - Localizing messages, or a machine-readable diagnostic catalogue (`stele explain CODE`). The catalogue could support it later.
-- Fence-aware annotation detection (see the decision below).
+- Fence-aware annotation detection. By the user's decision it becomes a separate follow-up change (see Decision 13).
+- Lifecycle skills ending with `stele check`. By the user's decision that is a later change.
 
 ## Decisions
 
@@ -50,9 +51,9 @@ A new `diagnostics.go` holds one entry per code: its stage, a one-line meaning, 
 
 | Stage (check line) | Codes |
 |---|---|
-| Specifications | `ID_*`, `SCENARIO_MISSING`, `SPEC_ANNOTATION_*` (after rebase) |
-| Plan approval | `PLAN_*`, including the new `PLAN_ARCHIVE_ORDER_AMBIGUOUS` |
-| Linkage (anchors) | `LINK_*`, `ANCHOR_*` |
+| Specifications | `ID_*`, `SCENARIO_MISSING`, `SPEC_ANNOTATION_*` (after rebase), and the new `SPEC_REMOVED_UNMATCHED` |
+| Plan approval | `PLAN_*`, including the new `PLAN_ARCHIVE_ORDER_AMBIGUOUS` and `PLAN_REMOVED_BEHAVIOR_PLANNED` |
+| Linkage (anchors) | `LINK_*`, `ANCHOR_*`, including the new `LINK_REMOVED_BEHAVIOR_ANCHORED` |
 
 Examples:
 
@@ -61,6 +62,9 @@ Examples:
 - `PLAN_V1_DEPRECATED` means "version 1 plan, supported until 0.2.0". Its fix is `stele plan migrate --specs`, then review and approve.
 - `LINK_EVIDENCE_MISSING` means "no test has `@verifies <evidence-id>`". Its fix is to add the anchor above the test named in the plan's placement.
 - `LINK_CODE_MISSING` means "no code has `@implements <req-id>`". Its fix is to add the anchor above the implementing declaration.
+- `LINK_REMOVED_BEHAVIOR_ANCHORED` means "code or a test is still anchored to behavior this change removes (or, with `--specs`, that an archived change removed)". Its fix is to delete the code or test, or, if it now serves other behavior, remove the anchor and anchor it to that behavior's ID.
+- `PLAN_REMOVED_BEHAVIOR_PLANNED` means "the plan still lists evidence for removed behavior". Its fix is to delete the entry from `linkage-plan.json` (`openspec-update-change`), then run the proposal check again.
+- `SPEC_REMOVED_UNMATCHED` means "a REMOVED requirement name matches no requirement in the current specification, so nothing is checked". Its fix is to copy the exact name from `openspec/specs/<capability>/spec.md` or remove the entry.
 
 The existing `verdicts.linkage` keeps its meaning in JSON (any error). Only the human check lines are split by stage.
 
@@ -235,19 +239,48 @@ A MODIFIED requirement cannot rename a scenario in OpenSpec 1.13, so the init de
 
 Stele IDs are explicit lines, so identity is kept. The title change makes the scenario's existing approval stale, and this plan lists it again.
 
-**Finding:** the header form of REMOVED (`### Requirement: …`, the form OpenSpec's own template shows) is parsed by Stele as a requirement. Stele then reports `ID_REQUIREMENT_MISSING` and `SCENARIO_MISSING` for it (reproduced during this planning), while `stele ids` already skips REMOVED sections. The bullet form avoids the problem here. The parser fix is proposed as a follow-up (see Open Questions).
+The bullet form is kept, although Decision 14 makes the header form work too: both forms are valid OpenSpec, and the bullet form lets this change pass its proposal check with the released binary before Decision 14 is implemented.
 
-### 13. Fence-aware annotation detection: not in this change
+### 13. Fence-aware annotation detection: a separate follow-up
 
-The misplaced-annotation rule belongs to the `spec-annotation` capability, which is still an active change. A delta here would MODIFY a requirement that is not in `openspec/specs` until `spec-annotation` is archived: `openspec validate` skips that check, but archiving `terminal-report` first would fail.
+The user decided on 2026-09-18 that fence-aware annotation detection becomes its own follow-up change. It stays out of this change and out of `spec-annotation`. Until then, an annotation line inside a fenced code block is reported as misplaced, and the specification format page documents that (task 7.4).
 
-The detection itself is small: track CommonMark fences (three or more backticks or tildes, closed by the same character with at least the same length) and skip lines inside them, the same masking OpenSpec does. The recommendation is to fold it into `feat/spec-annotation` before it merges: one sentence in the requirement, one scenario, and a unit test. If that branch is not reopened, task 7.4 documents the limitation in the specification format page.
+### 14. REMOVED requirements: parse them correctly, then check that removed behavior is gone
+
+**Parsing.** While planning this change, Stele's spec parser (`specs.go`) read `### Requirement:` under `## REMOVED Requirements` as an active requirement. It then reported `ID_REQUIREMENT_MISSING` and `SCENARIO_MISSING`, although `stele ids` already skips REMOVED sections. The parser will track the delta section the same way `ids.go` does (`deltaSectionPattern`) and skip requirement headers and their bodies inside REMOVED. The bullet form was never parsed as a heading, and it now also feeds the list of removed names.
+
+**Resolution.** For a change scope, each REMOVED name is resolved against `openspec/specs/<capability>/spec.md`, where the capability is the delta's directory, using exact matching after trimming, as OpenSpec's `normalizeRequirementName` does:
+
+- The removed identities are the living requirement's ID and its scenarios' IDs, minus every identity that the change declares again. The change's own init delta (Decision 12) is exactly that case: its IDs move to "Initialize a project" and must not be flagged.
+- A living requirement without a Verification-ID contributes nothing. `--specs` verification already reports that ID as missing.
+
+**Diagnostics:**
+
+| Code | Stage | Severity | When |
+|---|---|---|---|
+| `LINK_REMOVED_BEHAVIOR_ANCHORED` | Linkage | error | Implementation stage: an `@implements` or `@verifies` anchor names a removed identity. The evidence ID `<scenario>.<level>[.<n>]` is reduced to its scenario first. The finding shows the anchor's `path:line`. |
+| `PLAN_REMOVED_BEHAVIOR_PLANNED` | Plan approval | error | Both stages: the change's plan lists a removed scenario (v2) or a removed requirement or scenario (v1). It replaces `PLAN_UNKNOWN_ID` for that ID, so each problem is reported once. |
+| `SPEC_REMOVED_UNMATCHED` | Specifications | error | Both stages: a REMOVED name matches nothing, so nothing would be checked. OpenSpec also rejects this at archive time; Stele reports it earlier, in its own report. |
+
+Anchors are checked only in the implementation stage. While a change is being proposed, the code of the removed behavior legitimately still exists.
+
+**After archiving.** The request assumed that `ANCHOR_DANGLING` would cover leftovers once the change is archived. It does not. `declaredIdentities` counts archived changes, and the archived delta that once added the requirement still declares its IDs, so a leftover anchor is neither dangling nor in scope, and passes silently. The `verification-scope` delta therefore modifies "Scope anchors to declared identities":
+
+- In `--specs` verification, an anchor whose identity (or evidence ID's scenario) only archived changes declare is behavior removed by an archived change. It is reported as `LINK_REMOVED_BEHAVIOR_ANCHORED`.
+- An identity that no specification declares stays `ANCHOR_DANGLING`, as before.
+- Identities of active changes stay out of the `--specs` verdict.
+
+This keeps the check continuous: `--change` catches leftovers while the change is open, and `--specs` catches them after it is archived.
+
+**RENAMED** requirements keep their Verification-IDs, because the ID line moves with the heading. They need no removed-behavior check, and the requirement says so explicitly.
+
+*Alternative:* a warning instead of an error for leftover anchors. It was rejected because a test anchored to removed behavior is evidence for a claim the specification no longer makes, which is exactly what Stele exists to prevent.
 
 ### Verification strategy
 
 **Status: proposed, awaiting approval.** No entry is approved.
 
-Placement follows AGENTS.md: co-located Go tests in `internal/stele`, CLI contract tests in `tests/cli.test.mts`, and packed-package tests in `tests/package_install_test.go`. Placement is advisory. Unit tests call `Run` or the renderer in process, with the seams from Decision 6 (clock, terminal, environment) and the existing command stubs. e2e is used only where the shipped binary adds a risk of its own: real terminal detection on real file descriptors, the process-level determinism of files, the version wired in by the build script, and the installed CI gate.
+Placement follows AGENTS.md: co-located Go tests in `internal/stele`, CLI contract tests in `tests/cli.test.mts`, and packed-package tests in `tests/package_install_test.go`. Placement is advisory. Unit tests call `Run` or the renderer in process, with the seams from Decision 6 (clock, terminal, environment) and the existing command stubs. No e2e is planned for the removed-behavior checks: name resolution, anchor matching, and plan checks run the same code in process as in the binary, so the shipped binary adds no distinct risk. e2e is used only where the shipped binary adds a risk of its own: real terminal detection on real file descriptors, the process-level determinism of files, the version wired in by the build script, and the installed CI gate.
 
 | Scenario | Level | Evidence ID | Advisory placement (reason) | Risk and why this level is the lowest convincing one |
 |---|---|---|---|---|
@@ -282,6 +315,17 @@ Placement follows AGENTS.md: co-located Go tests in `internal/stele`, CLI contra
 | `scn.verificationscope.1c6a44335f91` Warn when the archive order cannot be decided | unit | `….1c6a44335f91.unit` | `scope_test.go` | Risk: an undecidable order passes silently. Fixture, pure. |
 | `scn.verificationscope.f8ab6e2e1812` Run OpenSpec validation for the current specifications (unchanged) | integration | `….f8ab6e2e1812.integration` (existing) | `scope_test.go` (existing) | Risk: the real OpenSpec CLI is not invoked for `--specs`. It needs the bundled OpenSpec. |
 | `scn.verificationscope.79a83cf82aba` Reject a conflicting selection (unchanged) | unit | `….79a83cf82aba.unit` (existing) | `scope_test.go` (existing) | Risk: option conflicts are accepted. Parsing in process. |
+| `scn.verificationscope.ee5d7b261d62` Ignore anchors of another active change (unchanged) | unit | `….ee5d7b261d62.unit` (existing) | `scope_test.go` (existing) | Risk: the new archive-only rule starts failing scopes on active changes' anchors. Fixture with two changes. |
+| `scn.verificationscope.101e06b07f39` Report an anchor that no specification declares (unchanged) | unit | `….101e06b07f39.unit` (existing) | `scope_test.go` (existing) | Risk: `ANCHOR_DANGLING` is lost to the new code. Pure fixture. |
+| `scn.verificationscope.9c3ef2025b56` Report anchors to behavior removed by an archived change | unit | `….9c3ef2025b56.unit` | `scope_test.go`, beside the anchor scoping tests | Risk: leftovers pass silently after archiving, because archived deltas still declare the IDs. Fixture archive with a removal, `--specs` in process. |
+| `scn.verify.6c22483ab3c3` Preserve requirement and scenario relationships (unchanged) | unit | `….6c22483ab3c3.unit` (existing) | `internal/stele/specs_test.go` (existing) | Risk: section tracking breaks ordinary parsing. Pure fixture. |
+| `scn.verify.c5fd3656da59` Report identity shape errors (unchanged) | unit | `….c5fd3656da59.unit` (existing) | `specs_test.go` (existing) | Risk: shape errors stop being reported outside REMOVED. Pure fixture. |
+| `scn.verify.9fb98ac252a0` Ignore removed requirements in both forms | unit | `….9fb98ac252a0.unit` | `specs_test.go`, beside identity parsing | Risk: the header or bullet form is parsed as an active requirement (the bug found while planning). Pure parsing. |
+| `scn.verify.5172c64aec19` Report code and tests still anchored to removed behavior | unit | `….5172c64aec19.unit` | `internal/stele/verify_test.go` (or `removed_test.go` beside a new `removed.go`) | Risk: leftover code or tests, including evidence-suffixed IDs, go unnoticed. Fixture current spec, change, and anchors, in process. |
+| `scn.verify.c03b05c1c11e` Pass when removed behavior has no anchors left | unit | `….c03b05c1c11e.unit` | same file | Risk: false positives once cleanup is done. Same fixture without anchors. |
+| `scn.verify.42bc49e1f29f` Report plan entries for removed behavior | unit | `….42bc49e1f29f.unit` | `internal/stele/plan_test.go` | Risk: the finding is reported only as `PLAN_UNKNOWN_ID`, or twice. Pure plan checks. |
+| `scn.verify.70eaaa57724a` Reject a removed name that matches nothing | unit | `….70eaaa57724a.unit` | `verify_test.go` | Risk: a misspelled name silently checks nothing. Pure resolution. |
+| `scn.verify.ec83e3f24b0a` Accept behavior that moves to a new requirement | unit | `….ec83e3f24b0a.unit` | `verify_test.go` | Risk: moved behavior, like this change's init delta, is flagged as removed. Fixture with REMOVED plus ADDED sharing IDs. |
 | `scn.init.cbf5781012fa` Create configuration, skills, and artifacts directory (moved) | unit | `….cbf5781012fa.unit` (existing) | `cli_test.go` (existing) | Risk: init misses a file. Temporary directory in process. |
 | | e2e | `….cbf5781012fa.e2e` (existing) | `tests/package_install_test.go` (existing) | Distinct risk: templates embedded in the shipped binary. |
 | `scn.init.e841b29256e0` Preserve existing files on a repeated run (moved) | unit | `….e841b29256e0.unit` (existing) | `init_test.go` (existing) | Risk: a second run overwrites user files. |
@@ -299,6 +343,9 @@ Requirements are anchored with `@implements` during implementation. The expected
 - `req.terminalreport.2cda6fd7e60c`: `runEveryScope`'s summary.
 - `req.terminalreport.e78c864148cd`: `version.go`.
 - `req.validate.70d1435b3ff3`: `check.go`.
+- `req.verify.9dbf2146c01f`: the spec parser (existing anchor).
+- `req.verify.511302d1be0b`: a new `removed.go`, the removed-behavior resolution and checks.
+- `req.verificationscope.9c81618619df`: the anchor scoping (existing anchor).
 - `req.verificationscope.bee89d6750ed`: `loadArchivedPlans`.
 - `req.init.eed35c447821`: `initCommand` (existing anchor).
 
@@ -307,6 +354,7 @@ Requirements are anchored with `@implements` during implementation. The expected
 - **[Human output changes completely, and scripts may parse it.]** The CLI reference already says not to. The changelog names the change, and `--json` is unchanged.
 - **[The pseudo-terminal e2e test depends on `script`, whose arguments differ on macOS and Linux.]** The test chooses the arguments by platform and skips with a visible message when `script` is missing. Unit tests still cover the rendering.
 - **[Content matching for archived plans parses every archived delta on each `--specs` run.]** The cost is milliseconds for tens of archives. If it grows, the digests can be cached in memory per run.
+- **[`LINK_REMOVED_BEHAVIOR_ANCHORED` under `--specs` can fail repositories that archived removals and kept tests.]** Those tests prove behavior the specification no longer claims. The changelog names the new error and its fix.
 - **[`PLAN_ARCHIVE_ORDER_AMBIGUOUS` could appear in existing repositories.]** It is a warning and never fails a run, and the report gives a fix: approve the intended entries with `stele approve --specs`.
 - **[Stage reordering in `validate` runs verification twice.]** Both runs are pure and fast, and only the second, with evidence, is written.
 - **[The rebase touches `cli.go`, `README`/docs, and the CHANGELOG, which `feat/spec-annotation` also edits.]** The work is planned after both branches merge, and task 0.3 rebases before implementation starts.
@@ -317,8 +365,17 @@ Requirements are anchored with `@implements` during implementation. The expected
 - After rc.4 is published, bump `stele-published` and switch `verify:self` to `stele check --specs`.
 - Rollback: human output is presentation only, so reverting the release restores the old output without any data migration.
 
+## Decided questions
+
+Decided by the user in chat review on 2026-09-18. The verification levels are not yet approved.
+
+- **Fence-aware annotation detection:** a separate follow-up change, not this one and not `spec-annotation`. Until then, task 7.4 documents the limitation.
+- **REMOVED parsing:** fixed in this change, in both the header and the bullet form (Decision 14).
+- **Removed behavior:** verified as gone in this change, with `LINK_REMOVED_BEHAVIOR_ANCHORED`, `PLAN_REMOVED_BEHAVIOR_PLANNED`, and `SPEC_REMOVED_UNMATCHED` (Decision 14).
+- **Lifecycle skills ending with `stele check`:** a later change.
+- **The `verify:self` switch to `stele check`:** after rc.4 is published (task 8.2).
+- **The `script`-based pseudo-terminal e2e test:** it may skip with a message when `script` is unavailable.
+
 ## Open Questions
 
-- **Fence-aware annotations:** fold them into `feat/spec-annotation` before it merges (recommended), or document the limitation (task 7.4)?
-- **REMOVED header parsing:** Stele reads `### Requirement:` under `## REMOVED Requirements` as a requirement. Fix it in this change as a small `verify` requirement, or in a follow-up? This change avoids the problem with the bullet form.
-- **Lifecycle skills:** should `stele-apply` and `stele-archive` also finish with `stele check` instead of `stele validate`? That needs a `lifecycle` delta, so it is left out here.
+- **Leftover anchors after archiving:** the request expected `ANCHOR_DANGLING` to cover them, but archived deltas still declare the IDs. This plan adds the `--specs` archive-only rule to `verification-scope` (Decision 14). Confirm it, or drop that scenario and document the gap instead.

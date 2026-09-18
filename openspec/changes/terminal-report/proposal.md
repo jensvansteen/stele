@@ -33,9 +33,17 @@
 - **Fixes from the rc.3 self-verification:**
   - `stele --version`, help, and reports name the npm package version, set at build time from `package.json`.
   - Combining archived plans for `--specs` prefers the archived change whose specification text matches the current specification, and falls back to archive date and name, with a warning when that fallback decides between differing plans.
+  - Stele stops reading requirements under `## REMOVED Requirements` as active requirements, in both OpenSpec forms; the header form reported `ID_REQUIREMENT_MISSING` and `SCENARIO_MISSING`.
   - The living scenario `scn.init.754fd262e114` gets a title that matches its text, "Initialize without a default change". OpenSpec cannot rename a scenario inside a MODIFIED requirement, so the requirement is removed and added again under a new name, keeping every Verification-ID.
 
-Out of scope: fence-aware detection of misplaced annotations. It belongs to the `spec-annotation` capability; design.md recommends folding it into that change before it merges, or documenting the limitation.
+- **Verify that removed behavior is gone.** For a change, each REMOVED requirement is resolved to its IDs in the current specification. Stele reports:
+  - anchors that still name them (`LINK_REMOVED_BEHAVIOR_ANCHORED`);
+  - plan entries that still list them (`PLAN_REMOVED_BEHAVIOR_PLANNED`);
+  - removed names that match nothing (`SPEC_REMOVED_UNMATCHED`).
+
+  After archiving, `--specs` verification reports anchors to identities that only archived changes declare.
+
+Out of scope, by the user's decision: fence-aware annotation detection (a separate follow-up change) and lifecycle skills ending with `stele check` (a later change).
 
 ## Capabilities
 
@@ -46,12 +54,13 @@ Out of scope: fence-aware detection of misplaced annotations. It belongs to the 
 ### Modified Capabilities
 
 - `validate`: adds `stele check`, the combined CI gate.
-- `verification-scope`: combining archived plans uses the specification text, then archive date and name, instead of path order alone.
+- `verification-scope`: combining archived plans uses the specification text, then archive date and name, instead of path order alone; `--specs` reports anchors to behavior that only archived changes declare.
+- `verify`: identity parsing ignores REMOVED requirements, and a new requirement verifies that removed behavior is gone.
 - `init`: the requirement "Initialize a consumer project" is replaced by "Initialize a project" so that scenario `scn.init.754fd262e114` can be renamed; its behavior and IDs are unchanged.
 
 ## Impact
 
-- `internal/stele`: a report model and renderer separated from the commands, a diagnostic catalogue (stage, meaning, fix), a progress reporter with injected clock and terminal, a `check` command, the version variable, and archive-aware plan combination.
+- `internal/stele`: a report model and renderer separated from the commands, a diagnostic catalogue (stage, meaning, fix), a progress reporter with injected clock and terminal, a `check` command, the version variable, archive-aware plan combination, REMOVED-aware spec parsing, and removed-behavior checks.
 - `scripts/build-go.mts` passes the package version to the Go linker.
 - Human output changes completely. The CLI reference has always said not to parse it; JSON stays the machine interface.
 - The documentation covers the CLI reference (output format, flags, CI behavior, `stele check`), Getting started, and the changelog, and the `stele-verify` skill template recommends `stele check`.

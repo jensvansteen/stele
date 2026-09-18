@@ -3,7 +3,7 @@
 - [ ] 0.1 Get the reviewer's explicit approval of the verification levels in design.md (proposed, awaiting approval), the decisions, and the open questions; only then run `stele approve --change terminal-report --confirmed-in-chat`, mark the design table approved, and verify `stele verify --stage proposal --change terminal-report` reports no `PLAN_UNAPPROVED`. Start no task in sections 1-8 before this.
 - [ ] 0.2 Confirm `chore/self-verify-rc3` and `feat/spec-annotation` are merged on main; verify with `git log origin/main` and that `stele annotate --check` exists in a local build
 - [ ] 0.3 Rebase this branch on main, re-run `stele ids --change terminal-report` and `npx openspec validate --all --strict`, and verify the init and verification-scope deltas still copy the current requirement text exactly (re-approve any entry that `stele verify --stage proposal` reports as `PLAN_APPROVAL_STALE`)
-- [ ] 0.4 Resolve the open question on fence-aware annotations with the owner of `spec-annotation`; record the outcome in design.md
+- [ ] 0.4 Confirm the open question on leftover anchors after archiving (the `--specs` archive-only rule) and record the answer in design.md; if it is dropped, remove scenario `scn.verificationscope.9c3ef2025b56` with `openspec-update-change` and re-run the proposal check
 
 ## 1. Version
 
@@ -32,6 +32,13 @@
 
 - [ ] 5.1 Combine archived plans by current-text match, then date prefix and name, and report `PLAN_ARCHIVE_ORDER_AMBIGUOUS` for undecidable same-day conflicts; verify the new and existing `scope_test.go` ordering tests pass and `stele verify --specs` on this repository reports no new errors
 
+## 5b. Removed requirements
+
+- [ ] 5b.1 Track delta sections in the spec parser and skip requirements under `## REMOVED Requirements` in header and bullet form, collecting their names; verify `TestParseSpecsIgnoresRemovedRequirements` and the existing parser tests pass
+- [ ] 5b.2 Resolve removed names against the current specification of the same capability, excluding identities the change declares again, and report `SPEC_REMOVED_UNMATCHED`, `PLAN_REMOVED_BEHAVIOR_PLANNED` (instead of `PLAN_UNKNOWN_ID`), and, in the implementation stage, `LINK_REMOVED_BEHAVIOR_ANCHORED` with evidence IDs reduced to their scenario; verify the removed-behavior tests in `verify_test.go` and `plan_test.go` pass, and `stele verify --change terminal-report` reports no removed-behavior finding for the moved init IDs
+- [ ] 5b.3 In `--specs` verification, report anchors whose identity only archived changes declare as `LINK_REMOVED_BEHAVIOR_ANCHORED`, keeping `ANCHOR_DANGLING` for undeclared identities; verify the anchor scoping tests in `scope_test.go` pass and `stele verify --specs` on this repository reports no new errors
+- [ ] 5b.4 Add the three codes to the diagnostic catalogue (Specifications, Plan approval, Linkage); verify the catalogue test passes
+
 ## 6. `stele check`
 
 - [ ] 6.1 Add `stele check [--change | --specs | --all]` running the ID check (including current specifications), the annotation check, and validation, with every step run, a combined summary, worst exit code, and a JSON document; verify the `check_test.go` tests pass
@@ -39,10 +46,10 @@
 
 ## 7. Documentation and skills
 
-- [ ] 7.1 Update `docs/reference/cli.md`: the report layout, check lines and stages, the diagnostic catalogue (a table generated from or checked against `diagnostics.go`), progress on standard error, `--details`, `--quiet`, `--color`, `NO_COLOR`, CI behavior, and `stele check`; verify `npm run docs:build` passes
+- [ ] 7.1 Update `docs/reference/cli.md`: removed-requirement checks (the three codes, the continuity from `--change` to `--specs`, and that RENAMED keeps IDs), the report layout, check lines and stages, the diagnostic catalogue (a table generated from or checked against `diagnostics.go`), progress on standard error, `--details`, `--quiet`, `--color`, `NO_COLOR`, CI behavior, and `stele check`; verify `npm run docs:build` passes
 - [ ] 7.2 Update `docs/guide/getting-started.md` with an example report and `stele check`, and the `stele-verify` skill template and `.agents/skills/stele-verify/SKILL.md` to recommend `stele check`; verify the init skill tests pass
-- [ ] 7.3 Add the 0.1.0-rc.4 changelog entry (new human output, flags, progress, `stele check`, version fix, archive ordering and its warning, renamed init requirement and scenario); verify `npm run docs:build` passes
-- [ ] 7.4 If fence-aware detection is not folded into `spec-annotation`, document that an annotation line inside a fenced code block is reported as misplaced in `docs/concepts/spec-format.md`; verify `npm run docs:build` passes
+- [ ] 7.3 Add the 0.1.0-rc.4 changelog entry (new human output, flags, progress, `stele check`, version fix, archive ordering and its warning, REMOVED parsing fix, removed-behavior checks and their codes, renamed init requirement and scenario); verify `npm run docs:build` passes
+- [ ] 7.4 Document, until the fence-aware follow-up change lands, that an annotation line inside a fenced code block is reported as misplaced in `docs/concepts/spec-format.md`; verify `npm run docs:build` passes
 
 ## 8. Gate
 
