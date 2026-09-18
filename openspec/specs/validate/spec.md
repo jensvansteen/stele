@@ -26,7 +26,7 @@ Verification-ID: scn.validate.10388560c2dc
 ### Requirement: Check a project with one command
 Verification-ID: req.validate.70d1435b3ff3
 
-The `stele check [--change <id> | --specs | --all]` command SHALL, for the selected scope, check that every requirement and scenario has a Verification-ID as `stele ids --check` does, check specification annotations as `stele annotate --check` does, and run `stele validate`. `--all` SHALL cover the current specifications and every active change in each step, and the output file, strict version, detail, quiet, and color options SHALL pass through to validation. It SHALL run every step even when an earlier step fails, print one summary line per step followed by the validation report, and exit with the worst exit code of its steps: `2` over `1` over `0`. With `--json` it SHALL print one deterministic document listing each step with its scope, exit code, and machine-readable result.
+The `stele check [--change <id> | --specs | --all]` command SHALL, for the selected scope, check that every requirement and scenario has a Verification-ID as `stele ids --check` does, check specification annotations as `stele annotate --check` does, and run `stele validate`. `--all` SHALL cover the current specifications and every active change in each step, and the output file, strict version, detail, quiet, color, and annotation options SHALL pass through to validation. It SHALL run every step even when an earlier step fails, print one summary line per step followed by the validation report, and exit with the worst exit code of its steps: `2` over `1` over `0`. With `--json` it SHALL print one deterministic document listing each step with its scope, exit code, and machine-readable result. When it writes GitHub Actions annotations, it SHALL also annotate each missing Verification-ID with the file and line of its heading, and each specification file without a valid Stele annotation with its file.
 
 #### Scenario: Run every step and report each one
 Verification-ID: scn.validate.ed99aac59b49
@@ -49,5 +49,11 @@ Verification-ID: scn.validate.704b1662c309
 #### Scenario: Gate CI with the installed command
 Verification-ID: scn.validate.ddff25a243df
 
-- **WHEN** CI runs `stele check --all` from the installed package, without a terminal, in a project where one change has an unapproved plan
-- **THEN** standard output ends with the combined summary and the verdict line, standard error has only plain progress lines, and the exit code is `1`
+- **WHEN** GitHub Actions (`GITHUB_ACTIONS=true`) runs `stele check --all` from the installed package, without a terminal, in a project where one change has an unapproved plan
+- **THEN** standard output ends with the combined summary and the verdict line, standard error has only plain progress lines and `::error` annotations titled `PLAN_UNAPPROVED`, neither stream has ANSI escape sequences, and the exit code is `1`
+
+#### Scenario: Annotate a missing Verification-ID in GitHub Actions
+Verification-ID: scn.validate.0c6103aa40e7
+
+- **WHEN** `stele check --change example` runs with `GITHUB_ACTIONS=true` and the scenario heading at line 18 of `openspec/changes/example/specs/todo/spec.md` has no Verification-ID
+- **THEN** standard error contains a line starting with `::error file=openspec/changes/example/specs/todo/spec.md,line=18,` that names the missing Verification-ID and the scenario title

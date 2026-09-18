@@ -44,7 +44,7 @@ Verification-ID: scn.gosupport.8954a51cba0f
 ### Requirement: Execute exact Go scenario tests
 Verification-ID: req.gosupport.d8c058038daa
 
-The `stele test` and `stele validate` commands SHALL run each Go test that a scenario anchor resolves to on its own, in its package, without cached results and with the build constraints of its file satisfied, and SHALL count the scenario as passed only when that exact test ran and passed.
+The `stele test` and `stele validate` commands SHALL run each Go test that a scenario anchor resolves to, and no Go test that no selected anchor resolves to, in its package, without cached results and with the build constraints of its file satisfied, and SHALL count the scenario as passed only when that exact test ran and passed. A Go test SHALL share its `go test` process only with selected tests of the same package and build tags.
 
 #### Scenario: Pass a scenario whose Go test passes
 Verification-ID: scn.gosupport.d195095fc292
