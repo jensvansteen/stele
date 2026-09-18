@@ -21,4 +21,4 @@
 ## 4. Gate
 
 - [x] 4.1 Add anchors for this change's planned targets and run `npm run verify`; verify it passes with exactly 100% core coverage, `npm run stele -- validate --change specification-adapter` passes with the local build, and `npm run verify:self` still passes
-- [ ] 4.2 After a release that contains this change, archive it and verify `npm run verify:self` passes
+- [x] 4.2 After a release that contains this change, archive it and verify `npm run verify:self` passes

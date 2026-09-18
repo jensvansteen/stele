@@ -42,19 +42,25 @@ Verification-ID: scn.verify.0d43596abe4a
 ### Requirement: Verify proposal and implementation stages
 Verification-ID: req.verify.1d6031f2d3dd
 
-The `stele verify` command SHALL, in the proposal stage, require a planned target for every identity, and in the implementation stage, require every identity to resolve to an anchor that matches its planned target.
+The `stele verify` command SHALL apply the rules of the plan's schema version. For a v1 plan, the proposal stage requires a planned target for every identity, and the implementation stage requires every identity to resolve to an anchor that matches its planned target. For a v2 plan, the proposal stage requires complete, valid, and approved evidence entries, and the implementation stage requires anchors for every approved evidence entry and every requirement, as defined by the `verification-strategy` capability.
 
 #### Scenario: Accept planned targets in the proposal stage
 Verification-ID: scn.verify.14c6b4fe39bc
 
-- **WHEN** every requirement and scenario has a planned target that does not exist yet
+- **WHEN** a v1 plan gives every requirement and scenario a planned target that does not exist yet
 - **THEN** proposal verification passes and marks the linkage as planned
 
 #### Scenario: Reject a mismatched implementation target
 Verification-ID: scn.verify.c4db6a432869
 
-- **WHEN** an anchor resolves to a declaration other than the planned target
+- **WHEN** a v1 plan applies and an anchor resolves to a declaration other than the planned target
 - **THEN** implementation verification fails with `LINK_TARGET_MISMATCH`
+
+#### Scenario: Apply v2 rules without targets
+Verification-ID: scn.verify.1d0f8685d8c6
+
+- **WHEN** a v2 plan applies and an anchored test lives in a different file than the design suggested
+- **THEN** verification passes and reports no diagnostic about the location
 
 ### Requirement: Expose verification through the command line
 Verification-ID: req.verify.999a5d082295
@@ -89,3 +95,37 @@ Verification-ID: scn.verify.3a70c9d1ef24
 
 - **WHEN** a verification report is produced
 - **THEN** it contains no `generatedAt` field and its execution stage contains no `recordedAt` field
+
+### Requirement: Report linkage and execution verdicts separately
+Verification-ID: req.verify.27a52b8cfbd6
+
+Verification reports SHALL contain a `verdicts` object with a `linkage` verdict from the diagnostics, an `execution` verdict from the current evidence, and an `overall` verdict that passes only when both pass in the implementation stage. The top-level `verdict` field SHALL equal the overall verdict. Human output SHALL name both results.
+
+#### Scenario: Separate a failed execution from passing linkage
+Verification-ID: scn.verify.140b21cbc3f0
+
+- **WHEN** an implementation report has no linkage errors and its current evidence records a failed scenario
+- **THEN** the report has linkage `pass`, execution `failed`, and overall and `verdict` `fail`, and the human summary names the execution failure
+
+#### Scenario: Treat missing evidence as an incomplete overall verdict
+Verification-ID: scn.verify.a7ae8afade0a
+
+- **WHEN** an implementation report has no linkage errors and no current evidence
+- **THEN** the report has linkage `pass`, execution `not-run`, and overall and `verdict` `incomplete`
+
+### Requirement: Name output files explicitly
+Verification-ID: req.verify.3624e3449f6a
+
+`stele test` and `stele validate` SHALL accept `--evidence-file PATH` for the evidence file, and `stele verify` and `stele validate` SHALL accept `--report-file PATH` for the report file. Until the 0.2.0 release, `--evidence PATH` and `--report PATH` SHALL keep working as aliases and print a deprecation warning that names the new flag, without changing the exit code.
+
+#### Scenario: Write output files with the new flags
+Verification-ID: scn.verify.06f2be2af1e7
+
+- **WHEN** `stele validate --evidence-file out/evidence.json --report-file out/report.json` runs
+- **THEN** the evidence and the report are written to those paths
+
+#### Scenario: Accept the deprecated file flags with a warning
+Verification-ID: scn.verify.70e950bf161c
+
+- **WHEN** `stele verify --report out/report.json` runs
+- **THEN** the report is written to that path, standard error warns that `--report` is deprecated in favor of `--report-file` until 0.2.0, and the exit code is unchanged

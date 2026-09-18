@@ -16,4 +16,4 @@
 
 - [x] 3.1 Document the empty-scope exit code in the CLI reference and add changelog entries; verify `npm run docs:build` passes
 - [x] 3.2 Add `@implements` and `@verifies` comments for this change's planned targets; verify `npm run stele -- validate --change harden-verification-runs` passes with the local build
-- [ ] 3.3 Archive the change once it is released, and verify `npm run verify:self` passes
+- [x] 3.3 Archive the change once it is released, and verify `npm run verify:self` passes

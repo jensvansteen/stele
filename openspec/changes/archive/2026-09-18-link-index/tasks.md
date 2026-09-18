@@ -28,4 +28,4 @@
 
 - [x] 4.1 Document `stele index`, its schema for editor authors, positional test targets, `--all`, the new and deprecated file flags, evidence schema 3, and report verdicts in the CLI reference and changelog; verify `npm run docs:build` passes
 - [x] 4.2 Add anchors for this change's planned targets and run `npm run verify`; verify it passes with exactly 100% core coverage and `npm run stele -- validate --change link-index` passes with the local build
-- [ ] 4.3 After a release that contains this change, archive it and verify `npm run verify:self` passes
+- [x] 4.3 After a release that contains this change, archive it and verify `npm run verify:self` passes

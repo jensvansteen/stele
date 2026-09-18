@@ -81,7 +81,7 @@
   "devDependencies": {
     "@types/node": "26.5.1",
     "eslint": "10.10.0",
-    "stele-published": "npm:stele-spec@0.1.0-rc.2",
+    "stele-published": "npm:stele-spec@0.1.0-rc.3",
     "type-coverage": "2.30.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.0",

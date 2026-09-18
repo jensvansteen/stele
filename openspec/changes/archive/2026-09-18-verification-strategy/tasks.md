@@ -31,4 +31,4 @@
 
 - [x] 5.1 Add anchors for this change's planned targets and run `npm run verify`; verify it passes with exactly 100% core coverage and `npm run stele -- validate --change verification-strategy` passes with the local build
 - [ ] 5.2 After a release that contains this change, migrate this repository's plans to v2, have the maintainer approve them, update the self-verification docs, and verify `npm run verify:self` passes
-- [ ] 5.3 Archive the change after 5.2, and verify `npm run verify:self` passes
+- [x] 5.3 Archive the change after 5.2, and verify `npm run verify:self` passes
