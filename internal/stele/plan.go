@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -79,7 +78,12 @@ func parseLinkagePlan(content []byte) (LinkagePlan, error) {
 
 // readLinkagePlan reads and parses a plan file.
 func readLinkagePlan(path string) (LinkagePlan, error) {
-	content, err := os.ReadFile(path)
+	return readLinkagePlanFrom(diskFiles{}, path)
+}
+
+// readLinkagePlanFrom reads and parses a plan through the repository files.
+func readLinkagePlanFrom(repo repoFiles, path string) (LinkagePlan, error) {
+	content, err := repo.readFile(path)
 	if err != nil {
 		return LinkagePlan{}, err
 	}

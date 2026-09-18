@@ -33,6 +33,7 @@ Usage:
   stele approve [--change ID | --specs] [--evidence ID]... [--scenario ID]... [--all --yes | --confirmed-in-chat]
                 [--by NAME] [--root PATH]
   stele plan migrate [--change ID | --specs] [--root PATH]
+  stele lsp
 
 OUTPUT is [--details] [--quiet] [--color auto|always|never] [--annotations auto|github|never]: --details
 lists every finding, --quiet prints only the verdict line, --color auto colors terminals unless NO_COLOR
@@ -40,6 +41,7 @@ is set, and --annotations auto writes GitHub Actions annotations when GITHUB_ACT
 annotations go to standard error; --json output on standard output is unchanged.
 stele check runs stele ids --check, stele annotate --check, and stele validate, and exits with the worst code.
 Test targets are requirement, scenario, or evidence IDs, or spec.md files under openspec/.
+stele lsp runs the language server for editors over standard input and output.
 --report and --evidence are deprecated aliases of --report-file and --evidence-file until 0.2.0.
 
 Exit codes:
@@ -146,6 +148,8 @@ func Run(arguments []string, stdout, stderr io.Writer) int {
 	case "version", "--version", "-v":
 		_, _ = fmt.Fprintln(stdout, Version)
 		return 0
+	case "lsp":
+		return languageServerCommand(rest, stdout, stderr)
 	case "plan":
 		if len(rest) == 0 || rest[0] != "migrate" {
 			return writeCommandError(stderr, errUnknownPlanCommand)

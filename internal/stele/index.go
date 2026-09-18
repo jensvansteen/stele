@@ -391,8 +391,8 @@ func indexScopes(parsed options) ([]verificationScope, error) {
 	return scopes, nil
 }
 
-// LoadIndex reads the specifications, plans, anchors, and stored evidence of
-// the scopes and builds their index.
+// loadIndex reads the specifications, plans, anchors, and stored evidence of
+// the scopes through their repository files and builds their index.
 func loadIndex(root string, scopes []verificationScope) (Index, error) {
 	input := IndexInput{Scopes: make([]IndexScopeInput, 0, len(scopes))}
 	for _, scope := range scopes {
@@ -408,18 +408,19 @@ func loadIndex(root string, scopes []verificationScope) (Index, error) {
 			Plan:   plan,
 		})
 	}
+	files := scopes[0].files()
 	var err error
-	if input.Anchors, err = ScanAnchors(root); err != nil {
+	if input.Anchors, err = scanAnchors(files, root); err != nil {
 		return Index{}, err
 	}
 	if input.Declared, _, err = scopes[0].spec().DeclaredIdentities(root); err != nil {
 		return Index{}, err
 	}
-	if input.InputDigest, err = ComputeInputDigest(root); err != nil {
+	if input.InputDigest, err = computeInputDigest(files, root); err != nil {
 		return Index{}, err
 	}
 	var evidence Evidence
-	if readJSON(filepath.Join(root, defaultEvidencePath), &evidence) {
+	if readJSONFrom(files, filepath.Join(root, defaultEvidencePath), &evidence) {
 		input.Evidence = &evidence
 	}
 	return BuildIndex(input), nil

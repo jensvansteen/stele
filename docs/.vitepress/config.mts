@@ -31,6 +31,7 @@ export default defineConfig({
           { text: "Continuous integration", link: "/guide/continuous-integration" },
           { text: "Use Stele with OpenSpec", link: "/guide/openspec" },
           { text: "Use a local package", link: "/guide/local-package" },
+          { text: "Editor integration", link: "/guide/editors" },
         ],
       },
       {

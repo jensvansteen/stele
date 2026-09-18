@@ -7,6 +7,9 @@ const (
 	stageSpecifications = "Specifications"
 	stagePlan           = "Plan approval"
 	stageLinkage        = "Linkage (anchors)"
+	// stageExecution holds the execution codes, which only the language
+	// server reports; the CLI reports execution in its verdicts.
+	stageExecution = "Test execution"
 )
 
 // diagnosticGuide explains one diagnostic code: the stage it fails, a
@@ -148,6 +151,14 @@ var diagnosticGuides = map[string]diagnosticGuide{
 	"ANCHOR_TARGET_MISSING": {
 		stageLinkage, "An anchor is not directly above a declaration or named test.",
 		"unattached anchor{s}", "put the anchor comment directly above the declaration or test with an exact name",
+	},
+	"EXECUTION_FAILED": {
+		stageExecution, "The last run of an evidence entry's tests failed.", "failed test{s}",
+		"fix the code or the test, then run `stele test <evidence-id> {scope}`",
+	},
+	"EXECUTION_STALE": {
+		stageExecution, "The stored outcome was recorded before the verified inputs changed.", "stale result{s}",
+		"run `stele test <evidence-id> {scope}` to record a current outcome",
 	},
 	"ANCHOR_EVIDENCE_UNPLANNED": {
 		stageLinkage, "A test verifies evidence the plan does not list.",

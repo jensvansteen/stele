@@ -2,7 +2,6 @@ package stele
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -34,12 +33,12 @@ const declarationSearchLines = 6
 var anchorScanRoots = []string{"bin", "cmd", "internal", "pkg", "src", "public", "tools", "scripts", "tests"}
 
 // rootGoFiles lists Go files directly in the repository root, without recursing.
-func rootGoFiles(root string) []string {
-	entries, _ := os.ReadDir(root)
+func rootGoFiles(repo repoFiles, root string) []string {
+	names, _ := repo.children(root)
 	files := make([]string, 0)
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".go") {
-			files = append(files, filepath.Join(root, entry.Name()))
+	for _, name := range names {
+		if strings.HasSuffix(name, ".go") {
+			files = append(files, filepath.Join(root, name))
 		}
 	}
 	return files
@@ -67,15 +66,34 @@ type anchorFile struct {
 	kind string
 }
 
+// anchorCache is repository files that keep each file's anchors until the
+// file changes, so a rescan reads only changed files.
+type anchorCache interface {
+	cachedAnchors(file anchorFile, scan func() ([]Anchor, error)) ([]Anchor, error)
+}
+
 // ScanAnchors finds explicit Stele annotations in TypeScript and Go files and binds
 // them to nearby implementation or test declarations. Unsupported file types
 // are ignored; the scanner does not infer behavior from code.
 // @implements req.verify.43d1d0d9f883
 func ScanAnchors(root string) ([]Anchor, error) {
-	files := discoverAnchorFiles(root)
+	return scanAnchors(diskFiles{}, root)
+}
+
+// scanAnchors finds the anchors of the repository files that repo gives.
+func scanAnchors(repo repoFiles, root string) ([]Anchor, error) {
+	files := discoverAnchorFiles(repo, root)
 	anchors := make([]Anchor, 0)
+	cache, cached := repo.(anchorCache)
 	for _, file := range files {
-		found, err := scanAnchorFile(root, file)
+		scan := func() ([]Anchor, error) { return scanAnchorFile(repo, root, file) }
+		var found []Anchor
+		var err error
+		if cached {
+			found, err = cache.cachedAnchors(file, scan)
+		} else {
+			found, err = scan()
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -88,11 +106,11 @@ func ScanAnchors(root string) ([]Anchor, error) {
 	return anchors, nil
 }
 
-func discoverAnchorFiles(root string) []anchorFile {
+func discoverAnchorFiles(repo repoFiles, root string) []anchorFile {
 	codeSet := make(map[string]struct{})
 	testSet := make(map[string]struct{})
 	for _, directory := range anchorScanRoots {
-		for _, file := range walkFiles(filepath.Join(root, directory), supportedSource) {
+		for _, file := range repo.walk(filepath.Join(root, directory), supportedSource) {
 			if isTestFile(file) {
 				testSet[file] = struct{}{}
 				continue
@@ -102,7 +120,7 @@ func discoverAnchorFiles(root string) []anchorFile {
 			}
 		}
 	}
-	for _, file := range rootGoFiles(root) {
+	for _, file := range rootGoFiles(repo, root) {
 		if isTestFile(file) {
 			testSet[file] = struct{}{}
 		} else {
@@ -111,7 +129,7 @@ func discoverAnchorFiles(root string) []anchorFile {
 	}
 	for _, name := range []string{"server.ts", "server.tsx", "server.mts"} {
 		file := filepath.Join(root, name)
-		if fileExists(file) {
+		if repo.isFile(file) {
 			codeSet[file] = struct{}{}
 		}
 	}
@@ -134,8 +152,8 @@ func discoverAnchorFiles(root string) []anchorFile {
 	return files
 }
 
-func scanAnchorFile(root string, file anchorFile) ([]Anchor, error) {
-	content, err := os.ReadFile(file.path)
+func scanAnchorFile(repo repoFiles, root string, file anchorFile) ([]Anchor, error) {
+	content, err := repo.readFile(file.path)
 	if err != nil {
 		return nil, err
 	}

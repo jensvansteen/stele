@@ -36,6 +36,47 @@ var digestRootFiles = []string{
 	"artifacts/linkage-plan.json",
 }
 
+// repoFiles is how the verification read path reaches repository files. The
+// CLI reads the disk; the language server reads its snapshot of the saved
+// files, with the text of open documents on top. Paths are absolute.
+type repoFiles interface {
+	readFile(path string) ([]byte, error)
+	// walk lists the accepted files below a directory like walkFiles.
+	walk(directory string, accept func(string) bool) []string
+	isFile(path string) bool
+	// children lists the names of a directory's files and subdirectories.
+	children(directory string) (files, directories []string)
+}
+
+// diskFiles reads the repository from disk.
+type diskFiles struct{}
+
+func (diskFiles) readFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
+
+func (diskFiles) walk(directory string, accept func(string) bool) []string {
+	return walkFiles(directory, accept)
+}
+
+func (diskFiles) isFile(path string) bool {
+	return fileExists(path)
+}
+
+func (diskFiles) children(directory string) ([]string, []string) {
+	entries, _ := os.ReadDir(directory)
+	files := make([]string, 0)
+	directories := make([]string, 0)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			directories = append(directories, entry.Name())
+		} else {
+			files = append(files, entry.Name())
+		}
+	}
+	return files, directories
+}
+
 func walkFiles(root string, accept func(string) bool) []string {
 	files := make([]string, 0)
 	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
@@ -80,15 +121,15 @@ func digestSource(path string) bool {
 	}
 }
 
-func inputFiles(root string) []string {
+func inputFiles(repo repoFiles, root string) []string {
 	files := make([]string, 0)
 	for _, directory := range digestScanRoots {
-		files = append(files, walkFiles(filepath.Join(root, directory), digestSource)...)
+		files = append(files, repo.walk(filepath.Join(root, directory), digestSource)...)
 	}
-	files = append(files, rootGoFiles(root)...)
+	files = append(files, rootGoFiles(repo, root)...)
 	for _, name := range digestRootFiles {
 		path := filepath.Join(root, name)
-		if fileExists(path) {
+		if repo.isFile(path) {
 			files = append(files, path)
 		}
 	}
@@ -98,13 +139,19 @@ func inputFiles(root string) []string {
 
 // @implements req.execution.7e4755bd8f60
 func ComputeInputDigest(root string) (string, error) {
+	return computeInputDigest(diskFiles{}, root)
+}
+
+// computeInputDigest fingerprints the verified inputs as the repository
+// files give them.
+func computeInputDigest(repo repoFiles, root string) (string, error) {
 	hash := sha256.New()
-	for _, file := range inputFiles(root) {
+	for _, file := range inputFiles(repo, root) {
 		relative, err := relativePath(root, file)
 		if err != nil {
 			return "", err
 		}
-		content, err := os.ReadFile(file)
+		content, err := repo.readFile(file)
 		if err != nil {
 			return "", err
 		}

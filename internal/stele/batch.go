@@ -3,6 +3,7 @@ package stele
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,6 +13,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"syscall"
+	"time"
 )
 
 // errBatchIncomplete marks a test without a result in a batch whose process
@@ -287,6 +290,8 @@ func (reader *nodeBatchReader) completed() bool {
 type batchProcess struct {
 	output io.Reader
 	wait   func() error
+	// pid is the process ID, and 0 for a process that is not a real one.
+	pid int
 }
 
 // startBatchProcess starts a batch's command, with standard error going to
@@ -302,7 +307,7 @@ func startCommand(command *exec.Cmd, stderr io.Writer) (batchProcess, error) {
 	if err := command.Start(); err != nil {
 		return batchProcess{}, err
 	}
-	return batchProcess{output: output, wait: command.Wait}, nil
+	return batchProcess{output: output, wait: command.Wait, pid: command.Process.Pid}, nil
 }
 
 // runTestBatch runs one batch and reports each test's result as soon as the
@@ -310,12 +315,30 @@ func startCommand(command *exec.Cmd, stderr io.Writer) (batchProcess, error) {
 //
 // @implements req.execution.5aa38806b077
 func runTestBatch(batch testBatch, onResult func(name string, result exactResult)) batchOutcome {
+	return runCancellableBatch(notCancellable, batch, onResult)
+}
+
+// runCancellableBatch runs one batch like runTestBatch. With a cancel
+// context, the batch's process starts in its own process group, which is
+// stopped when the context is cancelled.
+func runCancellableBatch(
+	cancel context.Context,
+	batch testBatch,
+	onResult func(name string, result exactResult),
+) batchOutcome {
 	outcome := batchOutcome{results: map[string]exactResult{}}
 	var stderr bytes.Buffer
-	process, err := startBatchProcess(batch.command(), &stderr)
+	command := batch.command()
+	if cancel != nil {
+		command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	}
+	process, err := startBatchProcess(command, &stderr)
 	if err != nil {
 		outcome.status = err.Error()
 		return outcome
+	}
+	if cancel != nil {
+		defer stopOnCancel(cancel, process.pid)()
 	}
 	reader := newBatchReader(batch)
 	tail := make([]string, 0, batchTailLines)
@@ -388,6 +411,9 @@ func executeGroupsInBatches(
 	}
 	incomplete := make([]batchEvent, 0)
 	for _, batch := range plan.batches {
+		if reporter.cancelled() {
+			break
+		}
 		if event := executeBatch(batch, executions, reporter); !event.completed {
 			incomplete = append(incomplete, event)
 		}
@@ -407,7 +433,7 @@ func executeBatch(batch testBatch, executions map[testGroupKey]TestExecution, re
 	for _, group := range batch.groups {
 		reporter.started(group, label)
 	}
-	outcome := runTestBatch(batch, func(name string, result exactResult) {
+	outcome := runCancellableBatch(reporter.cancel, batch, func(name string, result exactResult) {
 		for _, group := range batch.groups {
 			if group.Key.Selector == name {
 				record(group, result)
@@ -429,4 +455,48 @@ func executeBatch(batch testBatch, executions map[testGroupKey]TestExecution, re
 		record(group, outcome.resultOf(group.Key.Selector))
 	}
 	return event
+}
+
+// batchCancelGrace is how long a cancelled batch's process group has to end
+// after SIGTERM before it gets SIGKILL.
+var batchCancelGrace = 2 * time.Second
+
+// signalProcessGroup sends a signal to a process group; tests replace it.
+var signalProcessGroup = func(pid int, signal syscall.Signal) error {
+	return syscall.Kill(-pid, signal)
+}
+
+// stopOnCancel watches a cancel context while a batch runs. On cancellation
+// it sends SIGTERM to the batch's process group and, when the group still
+// exists after the grace period, SIGKILL. The returned function ends the
+// watch once the batch's process has ended.
+//
+// @implements req.languageserver.e3ab377dc59f
+func stopOnCancel(cancel context.Context, pid int) func() {
+	ended := make(chan struct{})
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		select {
+		case <-ended:
+			return
+		case <-cancel.Done():
+		}
+		if pid <= 0 || signalProcessGroup(pid, syscall.SIGTERM) != nil {
+			return
+		}
+		deadline := time.After(batchCancelGrace)
+		for signalProcessGroup(pid, 0) == nil {
+			select {
+			case <-deadline:
+				_ = signalProcessGroup(pid, syscall.SIGKILL)
+				return
+			case <-time.After(20 * time.Millisecond):
+			}
+		}
+	}()
+	return func() {
+		close(ended)
+		<-finished
+	}
 }

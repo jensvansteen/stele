@@ -2,6 +2,7 @@ package stele
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,7 +17,12 @@ var marshalJSON = json.MarshalIndent
 const reportSchemaVersion = "2.1"
 
 func readJSON(path string, target any) bool {
-	content, err := os.ReadFile(path)
+	return readJSONFrom(diskFiles{}, path, target)
+}
+
+// readJSONFrom reads a JSON file through the repository files.
+func readJSONFrom(repo repoFiles, path string, target any) bool {
+	content, err := repo.readFile(path)
 	if err != nil {
 		return false
 	}
@@ -71,6 +77,9 @@ type reportBuildInput struct {
 	Plan        LinkagePlan
 	Diagnostics []Diagnostic
 	Evidence    *Evidence
+	// Revision and Dirty describe the repository state the report covers.
+	Revision string
+	Dirty    bool
 }
 
 type reportContribution struct {
@@ -99,22 +108,100 @@ func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
 }
 
 func verifyScope(request verifyRequest) (Report, error) {
-	root, scope, mode, reportPath := request.root, request.scope, request.mode, request.reportPath
-	if err := requireScopeSpecs(root, scope); err != nil {
-		return Report{}, err
-	}
-	parsed, err := parseScopeSpecs(root, scope)
+	input, err := loadVerifyInput(request)
 	if err != nil {
 		return Report{}, err
 	}
-	anchors, err := ScanAnchors(root)
+	report := verifyLoaded(input)
+	if request.reportPath != "" {
+		absolute := resolveWithin(request.root, request.reportPath)
+		if err := writeJSON(absolute, report); err != nil {
+			return Report{}, err
+		}
+	}
+	return report, nil
+}
+
+// verifyInput is everything one scope's verification reads, loaded from the
+// repository files, so the check itself does no I/O.
+type verifyInput struct {
+	linkage     linkageValidationInput
+	root        string
+	changeID    string
+	inputDigest string
+	evidence    *Evidence
+	revision    string
+	dirty       bool
+}
+
+// sharedVerifyInput is the part of a verification input that every scope of
+// a repository shares.
+type sharedVerifyInput struct {
+	anchors     []Anchor
+	declared    map[string]bool
+	retired     map[string]bool
+	inputDigest string
+	evidence    *Evidence
+}
+
+// loadVerifyInput reads what verifyLoaded checks for one scope: the scope's
+// specifications and plan, the anchors, the declared identities, the input
+// digest, the stored evidence unless the request carries evidence, and the
+// repository revision.
+func loadVerifyInput(request verifyRequest) (verifyInput, error) {
+	if err := requireScopeSpecs(request.root, request.scope); err != nil {
+		return verifyInput{}, err
+	}
+	shared, err := loadSharedVerifyInput(request.root, request.scope, request.scope.files())
 	if err != nil {
-		return Report{}, err
+		return verifyInput{}, err
+	}
+	if request.evidence != nil {
+		shared.evidence = request.evidence
+	}
+	input, err := scopeVerifyInput(request.root, request.scope, request.mode, shared)
+	if err != nil {
+		return verifyInput{}, err
+	}
+	input.revision, input.dirty = gitState(request.root)
+	return input, nil
+}
+
+// loadSharedVerifyInput reads the anchors, declared identities, and stored
+// evidence through the scope's repository files, and the input digest through
+// saved, the files tests run against.
+func loadSharedVerifyInput(root string, scope verificationScope, saved repoFiles) (sharedVerifyInput, error) {
+	files := scope.files()
+	anchors, err := scanAnchors(files, root)
+	if err != nil {
+		return sharedVerifyInput{}, err
 	}
 	declared, retired, err := scope.spec().DeclaredIdentities(root)
 	if err != nil {
-		return Report{}, err
+		return sharedVerifyInput{}, err
 	}
+	inputDigest, err := computeInputDigest(saved, root)
+	if err != nil {
+		return sharedVerifyInput{}, err
+	}
+	shared := sharedVerifyInput{anchors: anchors, declared: declared, retired: retired, inputDigest: inputDigest}
+	var evidence Evidence
+	if readJSONFrom(files, filepath.Join(root, defaultEvidencePath), &evidence) {
+		shared.evidence = &evidence
+	}
+	return shared, nil
+}
+
+// scopeVerifyInput reads one scope's specifications, removed behavior, and
+// plan, and combines them with the shared input.
+func scopeVerifyInput(root string, scope verificationScope, mode string, shared sharedVerifyInput) (verifyInput,
+	error,
+) {
+	parsed, err := parseScopeSpecs(root, scope)
+	if err != nil {
+		return verifyInput{}, err
+	}
+	retired := shared.retired
 	if !scope.currentSpecs {
 		retired = nil
 	}
@@ -122,32 +209,39 @@ func verifyScope(request verifyRequest) (Report, error) {
 	parsed.Diagnostics = append(parsed.Diagnostics, removedDiagnostics...)
 	plan, planDiagnostics := loadScopePlan(root, scope)
 	parsed.Diagnostics = append(parsed.Diagnostics, planDiagnostics...)
-	diagnostics := validateLinkage(linkageValidationInput{
-		Mode:     mode,
-		Parsed:   parsed,
-		Anchors:  anchors,
-		Plan:     plan,
-		Declared: declared,
-		Removed:  removed,
-		Retired:  retired,
+	return verifyInput{
+		linkage: linkageValidationInput{
+			Mode:     mode,
+			Parsed:   parsed,
+			Anchors:  shared.anchors,
+			Plan:     plan,
+			Declared: shared.declared,
+			Removed:  removed,
+			Retired:  retired,
+		},
+		root:        root,
+		changeID:    scope.changeID,
+		inputDigest: shared.inputDigest,
+		evidence:    shared.evidence,
+	}, nil
+}
+
+// verifyLoaded checks a loaded scope and builds its report. It does no I/O.
+func verifyLoaded(input verifyInput) Report {
+	diagnostics := validateLinkage(input.linkage)
+	return buildReport(reportBuildInput{
+		Root:        input.root,
+		ChangeID:    input.changeID,
+		Mode:        input.linkage.Mode,
+		InputDigest: input.inputDigest,
+		Parsed:      input.linkage.Parsed,
+		Anchors:     input.linkage.Anchors,
+		Plan:        input.linkage.Plan,
+		Diagnostics: diagnostics,
+		Evidence:    input.evidence,
+		Revision:    input.revision,
+		Dirty:       input.dirty,
 	})
-	inputDigest, err := ComputeInputDigest(root)
-	if err != nil {
-		return Report{}, err
-	}
-	evidence := request.evidence
-	var loaded Evidence
-	if evidence == nil && readJSON(filepath.Join(root, defaultEvidencePath), &loaded) {
-		evidence = &loaded
-	}
-	report := BuildReport(root, scope.changeID, mode, inputDigest, parsed, anchors, plan, diagnostics, evidence)
-	if reportPath != "" {
-		absolute := resolveWithin(root, reportPath)
-		if err := writeJSON(absolute, report); err != nil {
-			return Report{}, err
-		}
-	}
-	return report, nil
 }
 
 func validateLinkage(input linkageValidationInput) []Diagnostic {
@@ -352,6 +446,7 @@ func BuildReport(
 	diagnostics []Diagnostic,
 	evidence *Evidence,
 ) Report {
+	revision, dirty := gitState(root)
 	return buildReport(reportBuildInput{
 		Root:        root,
 		ChangeID:    changeID,
@@ -362,13 +457,14 @@ func BuildReport(
 		Plan:        plan,
 		Diagnostics: diagnostics,
 		Evidence:    evidence,
+		Revision:    revision,
+		Dirty:       dirty,
 	})
 }
 
 func buildReport(input reportBuildInput) Report {
-	revision, dirty := gitState(input.Root)
 	outcomes := evidenceOutcomes(input.Evidence, input.InputDigest)
-	report := initialReport(input, revision, dirty)
+	report := initialReport(input, input.Revision, input.Dirty)
 	report.Summary.Errors, report.Summary.Warnings, report.Verdict = diagnosticSummary(input.Diagnostics)
 	report.Stages.Proposal.Status, report.Stages.Linkage.Status = stageSummary(
 		input.Parsed.Diagnostics,
@@ -632,6 +728,9 @@ func resolveWithin(root, value string) string {
 	return filepath.Join(root, value)
 }
 
+// writeJSON writes a value's deterministic JSON atomically: to a temporary
+// file in the same directory, then renamed over the target, so a reader such
+// as the language server never sees a partly written file.
 func writeJSON(path string, value any) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -640,7 +739,32 @@ func writeJSON(path string, value any) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, content, 0o644)
+	return writeFileAtomic(path, content)
+}
+
+var (
+	createTemporaryFile = os.CreateTemp
+	renameFile          = os.Rename
+)
+
+// writeFileAtomic replaces a file's content in one rename. On any failure the
+// previous file stays intact and the temporary file is removed.
+func writeFileAtomic(path string, content []byte) error {
+	temporary, err := createTemporaryFile(filepath.Dir(path), "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	name := temporary.Name()
+	_, writeErr := temporary.Write(content)
+	closeErr := temporary.Close()
+	err = errors.Join(writeErr, closeErr, os.Chmod(name, 0o644))
+	if err == nil {
+		err = renameFile(name, path)
+	}
+	if err != nil {
+		_ = os.Remove(name)
+	}
+	return err
 }
 
 // @implements req.verify.aa9f017c4cb4

@@ -498,3 +498,39 @@ func TestReportMarksMissingEvidenceIncomplete(t *testing.T) {
 		t.Fatalf("passing evidence = %#v", passing.Verdicts)
 	}
 }
+
+func TestWriteJSONIsAtomic(t *testing.T) {
+	root := fixtureRoot(t)
+	path := filepath.Join(root, "artifacts", "test-results.json")
+	if err := writeJSON(path, map[string]int{"run": 1}); err != nil {
+		t.Fatal(err)
+	}
+	previous, _ := os.ReadFile(path)
+	originalRename, originalCreate := renameFile, createTemporaryFile
+	t.Cleanup(func() { renameFile, createTemporaryFile = originalRename, originalCreate })
+	renameFile = func(string, string) error { return errors.New("interrupted") }
+	if err := writeJSON(path, map[string]int{"run": 2}); err == nil {
+		t.Fatal("an interrupted write succeeded")
+	}
+	if content, _ := os.ReadFile(path); string(content) != string(previous) {
+		t.Fatalf("an interrupted write changed the file: %s", content)
+	}
+	if entries, _ := os.ReadDir(filepath.Dir(path)); len(entries) != 1 {
+		t.Fatalf("an interrupted write left files: %v", entries)
+	}
+	renameFile = originalRename
+	createTemporaryFile = func(string, string) (*os.File, error) { return nil, errors.New("no space") }
+	if err := writeJSON(path, map[string]int{"run": 3}); err == nil {
+		t.Fatal("a failed temporary file succeeded")
+	}
+	createTemporaryFile = originalCreate
+	if err := writeJSON(path, map[string]int{"run": 4}); err != nil {
+		t.Fatal(err)
+	}
+	if content, _ := os.ReadFile(path); string(content) != "{\n  \"run\": 4\n}\n" {
+		t.Fatalf("content = %q", content)
+	}
+	if info, _ := os.Stat(path); info.Mode().Perm() != 0o644 {
+		t.Fatalf("mode = %v", info.Mode())
+	}
+}
