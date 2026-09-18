@@ -47,7 +47,7 @@ func TestBackendDefaultsToOpenSpec(t *testing.T) {
 	}
 	withoutOpenSpecOnPath(t)
 	code, stdout, stderr := runCommand(t, "verify", "--root", root, "--change", "example")
-	if code != 0 || !strings.Contains(stdout, "implementation verification pass") || stderr != "" {
+	if code != 0 || !strings.Contains(stdout, "✓ Linkage (anchors)") || stderr != "" {
 		t.Fatalf("verify without a configuration = %d, %q, %q", code, stdout, stderr)
 	}
 	writeFixture(t, root, "stele.config.json", `{"schemaVersion":1,"adapter":"","change":"example"}`)
@@ -127,9 +127,9 @@ func (backend memoryBackend) ParseSpecs(string, verificationScope) (ParsedSpecs,
 	}, nil
 }
 
-func (backend memoryBackend) DeclaredIdentities(string) (map[string]bool, error) {
+func (backend memoryBackend) DeclaredIdentities(string) (map[string]bool, map[string]bool, error) {
 	backend.record("DeclaredIdentities")
-	return map[string]bool{"req.demo.aaaaaaaaaaaa": true, "scn.demo.bbbbbbbbbbbb": true}, nil
+	return map[string]bool{"req.demo.aaaaaaaaaaaa": true, "scn.demo.bbbbbbbbbbbb": true}, map[string]bool{}, nil
 }
 
 func (backend memoryBackend) IdentityFiles(root string) []string {
@@ -155,6 +155,11 @@ func (backend memoryBackend) Changes(string) []string {
 func (backend memoryBackend) PlanPaths(root string, _ verificationScope) []string {
 	backend.record("PlanPaths")
 	return []string{filepath.Join(root, "memory", "plan.json")}
+}
+
+func (backend memoryBackend) ArchivedSpecFiles(string, string) []string {
+	backend.record("ArchivedSpecFiles")
+	return nil
 }
 
 func (backend memoryBackend) Validate(string, verificationScope) (bool, error) {
@@ -207,10 +212,10 @@ func TestCommandsUseSelectedBackend(t *testing.T) {
 		{
 			[]string{"verify"},
 			[]string{"SpecFiles", "ParseSpecs", "DeclaredIdentities", "PlanPaths", "VersionDrift"},
-			"implementation verification pass",
+			"✓ Linkage (anchors)",
 		},
 		{[]string{"test"}, []string{"SpecFiles", "ParseSpecs"}, "1/1 passed"},
-		{[]string{"validate"}, []string{"Validate", "VersionDrift"}, "deterministic validation passed"},
+		{[]string{"validate"}, []string{"Validate", "VersionDrift"}, "✓ PASSED"},
 	}
 	for _, expectation := range expectations {
 		calls = calls[:0]
@@ -270,7 +275,7 @@ func TestDriftWarnsForOtherSkillVersions(t *testing.T) {
 	root := driftFixture(t)
 	withoutOpenSpecOnPath(t)
 	code, stdout, stderr := runCommand(t, "verify", "--root", root, "--change", "example")
-	if code != 0 || !strings.Contains(stdout, "verification pass") {
+	if code != 0 || !strings.Contains(stdout, "✓ PASSED") {
 		t.Fatalf("verify = %d, %q, %q", code, stdout, stderr)
 	}
 	lines := strings.Split(strings.TrimSpace(stderr), "\n")

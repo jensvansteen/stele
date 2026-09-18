@@ -294,7 +294,7 @@ This keeps the check continuous: `--change` catches leftovers while the change i
 
 ### Verification strategy
 
-**Status: proposed, awaiting approval.** No entry is approved.
+**Status: approved by jensvansteen on 2026-09-18, before implementation started (via: cli).** The user recorded all 48 entries with `stele approve` and also approved the `--specs` rule for leftover anchors after archiving.
 
 Placement follows AGENTS.md: co-located Go tests in `internal/stele`, CLI contract tests in `tests/cli.test.mts`, and packed-package tests in `tests/package_install_test.go`. Placement is advisory. Unit tests call `Run` or the renderer in process, with the seams from Decision 6 (clock, terminal, environment) and the existing command stubs. No e2e is planned for the removed-behavior checks: name resolution, anchor matching, and plan checks run the same code in process as in the binary, so the shipped binary adds no distinct risk. e2e is used only where the shipped binary adds a risk of its own: real terminal detection on real file descriptors, the process-level determinism of files, the version wired in by the build script, and the installed CI gate.
 
@@ -394,4 +394,5 @@ Decided by the user in chat review on 2026-09-18. The verification levels are no
 
 ## Open Questions
 
-- **Leftover anchors after archiving:** the request expected `ANCHOR_DANGLING` to cover them, but archived deltas still declare the IDs. This plan adds the `--specs` archive-only rule to `verification-scope` (Decision 14). Confirm it, or drop that scenario and document the gap instead.
+- **Leftover anchors after archiving:** approved by the user on 2026-09-18. The `--specs` archive-only rule is implemented (Decision 14).
+- **Missing plan entry found during implementation:** `scn.verificationscope.8b577e9712e7` also has an existing e2e test, `tests/cli.test.mts#verifies current specifications after archiving` (`@verifies scn.verificationscope.8b577e9712e7.e2e`), which the living plan lists but this change's plan omits. `stele verify --change terminal-report` therefore reports `ANCHOR_EVIDENCE_UNPLANNED` for it. Adding `scn.verificationscope.8b577e9712e7.e2e` (level e2e, the existing archived-behavior rationale) to the plan changes the approved plan, so it is left for the user to add and approve.

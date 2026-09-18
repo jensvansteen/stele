@@ -8,7 +8,14 @@
           "id": "scn.init.754fd262e114.unit",
           "level": "unit",
           "rationale": "Init could demand a change again, or a bare verify pass. Run in process with the OpenSpec setup stubbed.",
-          "placement": "internal/stele/cli_test.go (existing test)"
+          "placement": "internal/stele/cli_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:dd4e36db265fe12f2088646cd9947e2764f30565de119bba4441583bc4dc5406",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -18,7 +25,14 @@
           "id": "scn.init.c8813c799047.unit",
           "level": "unit",
           "rationale": "The printed workflow could drift from the skills. The output is checked in process.",
-          "placement": "internal/stele/cli_test.go (existing test)"
+          "placement": "internal/stele/cli_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:9b6a6205a1ce7a5ac4a4714aad82e80ed90715b6938e55cbee36631bf3f96539",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -28,13 +42,27 @@
           "id": "scn.init.cbf5781012fa.unit",
           "level": "unit",
           "rationale": "Init could miss a configuration, skill, or directory. A temporary directory in process shows it.",
-          "placement": "internal/stele/cli_test.go (existing test)"
+          "placement": "internal/stele/cli_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:cefe782831a14b90bab184757ab3ae86e4bad815453169fa7f7c86c2748dc543",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         },
         {
           "id": "scn.init.cbf5781012fa.e2e",
           "level": "e2e",
           "rationale": "Distinct risk: the skill templates embedded in the shipped binary, which only the installed package exercises.",
-          "placement": "tests/package_install_test.go (existing test)"
+          "placement": "tests/package_install_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:1de2a6a7347bef178ea86579d35f41f5117ccd7afbe0df05bfba2480aaf96854",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -44,13 +72,27 @@
           "id": "scn.init.e841b29256e0.unit",
           "level": "unit",
           "rationale": "A repeated init could overwrite user files. A temporary directory in process shows it.",
-          "placement": "internal/stele/init_test.go (existing test)"
+          "placement": "internal/stele/init_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:acae99fb0f2b881f1cc70914ce2e62f53bbf1d3d65f2a034b9678a6e015a1ae9",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         },
         {
           "id": "scn.init.e841b29256e0.unit.2",
           "level": "unit",
           "rationale": "Distinct risk: the CLI path and its already-initialized message, separate from the file-level check.",
-          "placement": "internal/stele/cli_test.go (existing test)"
+          "placement": "internal/stele/cli_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:8a7bd8b4c6995a22e07a518173d3b6576919322312ab98c4a7e5d45b5699663a",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -60,7 +102,14 @@
           "id": "scn.terminalreport.00fe379ba4b4.unit",
           "level": "unit",
           "rationale": "Plan problems must not read as implementation failures, the reported bug. Stage mapping and rendering are pure over a built report, so no process or tool is needed.",
-          "placement": "internal/stele/report_test.go, beside the new report.go"
+          "placement": "internal/stele/report_test.go, beside the new report.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:90ef0dc59429de3b97b1f49cde6f516fff375c2b822c084eae337dd85bb89396",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -70,7 +119,14 @@
           "id": "scn.terminalreport.026c6192674a.unit",
           "level": "unit",
           "rationale": "One output could keep a separate constant. Setting Version in process and checking help, --version, the header, and verifier.version covers every use.",
-          "placement": "internal/stele/cli_test.go, extending the existing help and version test"
+          "placement": "internal/stele/cli_test.go, extending the existing help and version test",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:63486fff0132a4e56cb5481806bc360b332db143ea69facc9d907c870ece152f",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -80,7 +136,14 @@
           "id": "scn.terminalreport.14b3f3d729fb.unit",
           "level": "unit",
           "rationale": "A typo in --color could be silently accepted. Option parsing runs in process.",
-          "placement": "internal/stele/cli_test.go, beside option parsing"
+          "placement": "internal/stele/cli_test.go, beside option parsing",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:4949b9a1c2152b1b5edf52f9930b6e956650cb4dde54d116362e52bedd1d026f",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -90,7 +153,14 @@
           "id": "scn.terminalreport.23e3fa620ea0.unit",
           "level": "unit",
           "rationale": "Map or collection order could make the human report nondeterministic. Rendering the same model from shuffled inputs is pure.",
-          "placement": "internal/stele/report_test.go"
+          "placement": "internal/stele/report_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:9c716983486d55176b87e6bec8f9a0d1da0de217054688698f41d8ef8b5da7d0",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -100,7 +170,14 @@
           "id": "scn.terminalreport.334afe00983b.e2e",
           "level": "e2e",
           "rationale": "Durations or progress could leak into JSON or files. Only separate real processes with a real clock show it, as for the existing determinism tests.",
-          "placement": "tests/cli.test.mts, next to the existing determinism tests"
+          "placement": "tests/cli.test.mts, next to the existing determinism tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:e78f440fa96f2ae38a143eeb63605ae44a67a195f86c5fa17839dee8f6d78ec1",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -110,7 +187,14 @@
           "id": "scn.terminalreport.37651d67c39c.unit",
           "level": "unit",
           "rationale": "Groups could split, the more-count be off by one, or evidence IDs lack titles. Pure rendering over 123 synthetic findings.",
-          "placement": "internal/stele/report_test.go"
+          "placement": "internal/stele/report_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:55ab10852b13e0a73ac4156f0f023b53d902f33ab00af86f058a68f0164a930d",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -120,7 +204,14 @@
           "id": "scn.terminalreport.3c53b931fbf3.unit",
           "level": "unit",
           "rationale": "--details could still truncate. Pure rendering.",
-          "placement": "internal/stele/report_test.go"
+          "placement": "internal/stele/report_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:de649087d38d82c5db693661af996de88201eebd155c33e4404649a5494bfa1e",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -130,13 +221,27 @@
           "id": "scn.terminalreport.3fc2e84a5b98.unit",
           "level": "unit",
           "rationale": "In-place control bytes could leak into logs, or lines have the wrong granularity. A fake writer captures the bytes in process.",
-          "placement": "internal/stele/progress_test.go"
+          "placement": "internal/stele/progress_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:5a665eb3fd51d5e3d51390c8c755cc4b6379a7108837bed184600f600f9b94c9",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         },
         {
           "id": "scn.terminalreport.3fc2e84a5b98.e2e",
           "level": "e2e",
           "rationale": "Distinct risk: the real binary with redirected standard error is exactly CI; only it proves no escape byte reaches a log.",
-          "placement": "tests/cli.test.mts, with piped streams as in CI"
+          "placement": "tests/cli.test.mts, with piped streams as in CI",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:0f377dd9d98f4fed853267832a2ee8acd4dd3254c87b583d8176804906f2db59",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -146,7 +251,14 @@
           "id": "scn.terminalreport.42e58de06dfa.unit",
           "level": "unit",
           "rationale": "The --all summary could hide a scope or misname the failure. An in-process run over a fixture with two changes shows it.",
-          "placement": "internal/stele/cli_test.go, beside TestAllScopesReportSeparately"
+          "placement": "internal/stele/cli_test.go, beside TestAllScopesReportSeparately",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:b82dfd0117219620d4160bc84b4ba94d31383e691e2a3efb2659e185e727f009",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -156,7 +268,14 @@
           "id": "scn.terminalreport.4bf69bd755ef.unit",
           "level": "unit",
           "rationale": "Stale tests could be shown as failed or hidden, or locations lost. Pure rendering over synthetic evidence.",
-          "placement": "internal/stele/report_test.go"
+          "placement": "internal/stele/report_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:b8ec3f268f76bb8a92e530193220223129b5f995cf60171449c0d304b734ad61",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -166,7 +285,14 @@
           "id": "scn.terminalreport.5b46740a15da.unit",
           "level": "unit",
           "rationale": "Level counts or the duration could come from the wrong data or clock. An injected fixed clock makes the duration exact in process.",
-          "placement": "internal/stele/report_test.go"
+          "placement": "internal/stele/report_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:ce94a959b4a093bdcaa7400784172c09b970fb781c8f2a49f32b3961d627843a",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -176,7 +302,14 @@
           "id": "scn.terminalreport.6678ddf5a27f.unit",
           "level": "unit",
           "rationale": "Quiet mode could still print progress or extra lines, or lose the exit code. Run in process.",
-          "placement": "internal/stele/cli_test.go"
+          "placement": "internal/stele/cli_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:3754bc81d45d6b5f71ebd9128ae92f75b441a1e0927e073beb893119278db6b4",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -186,7 +319,14 @@
           "id": "scn.terminalreport.78fda44eee93.unit",
           "level": "unit",
           "rationale": "A new diagnostic code could ship without stage, meaning, or fix. Scanning the package sources against the catalogue is an in-process check.",
-          "placement": "internal/stele/diagnostics_test.go, beside the new catalogue"
+          "placement": "internal/stele/diagnostics_test.go, beside the new catalogue",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:a31df7d1de06e9c8508cf21d0879a3dfcd9db166cfbf4e89849f93b6889ac48e",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -196,7 +336,14 @@
           "id": "scn.terminalreport.99cec4c2f435.unit",
           "level": "unit",
           "rationale": "Capabilities could be mis-grouped or mis-marked. Grouping by source path is pure logic over a built report.",
-          "placement": "internal/stele/report_test.go"
+          "placement": "internal/stele/report_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:a5cb630d0d7499c9b8eccc7e634626bcbe3f8c50d9ec26d62507dd8a266a98b5",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -206,7 +353,14 @@
           "id": "scn.terminalreport.9f3cb9c00f42.unit",
           "level": "unit",
           "rationale": "Progress could reach standard output or change the JSON. Run in process with separate writers compares stdout with the current JSON format.",
-          "placement": "internal/stele/cli_test.go"
+          "placement": "internal/stele/cli_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:e7cd28e13c9daad2731d0ee20fde9dd30395b735502e01f31c9fd83fc57bce94",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -216,13 +370,27 @@
           "id": "scn.terminalreport.a735c55107ce.unit",
           "level": "unit",
           "rationale": "The progress line could stay on screen, overwrite failures, or exceed the width. A fake terminal and clock capture the exact bytes in process.",
-          "placement": "internal/stele/progress_test.go, beside the new progress.go"
+          "placement": "internal/stele/progress_test.go, beside the new progress.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:e625acdca592cfcf7e69333c21157c1c0a101f71401acf2dba5718f92c89ccf3",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         },
         {
           "id": "scn.terminalreport.a735c55107ce.e2e",
           "level": "e2e",
           "rationale": "Distinct risk: terminal detection on the real standard error descriptor of the shipped binary, which no in-process writer exercises.",
-          "placement": "tests/cli.test.mts, under a pseudo-terminal via script with per-OS arguments"
+          "placement": "tests/cli.test.mts, under a pseudo-terminal via script with per-OS arguments",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:a0e35ad84128b2f5c3b7d8f3c47fe79048a44b025334e85221bebf1ea4794776",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -232,7 +400,14 @@
           "id": "scn.terminalreport.a76da19c3313.unit",
           "level": "unit",
           "rationale": "validate could keep hiding warnings or let them change the exit code. Run in process with stubbed tests and OpenSpec shows both.",
-          "placement": "internal/stele/cli_test.go, beside the validate command tests"
+          "placement": "internal/stele/cli_test.go, beside the validate command tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:b4e75fbe64023632a467b602b5e903d029b83a4dbc69a12a0389c0392dfef9bb",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -242,7 +417,14 @@
           "id": "scn.terminalreport.cd40642c50e6.e2e",
           "level": "e2e",
           "rationale": "The build script could omit the linker flag or pack a stale binary. Only the installed package proves the shipped version.",
-          "placement": "tests/package_install_test.go, the packed-package smoke test"
+          "placement": "tests/package_install_test.go, the packed-package smoke test",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:13de18cd64b854df73b6276a9fe651b7c773518a314c76d848b7344bde85c281",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -252,7 +434,14 @@
           "id": "scn.terminalreport.cf302ba34005.unit",
           "level": "unit",
           "rationale": "Color could be forced in CI or ignore NO_COLOR. Environment and terminal detection are injected seams.",
-          "placement": "internal/stele/report_test.go, or a style_test.go beside the color logic"
+          "placement": "internal/stele/report_test.go, or a style_test.go beside the color logic",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:2efd12912c458500587ea6a51fd019856e32f1ce0e4ca125950310cb524f9c16",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -262,7 +451,14 @@
           "id": "scn.validate.704b1662c309.unit",
           "level": "unit",
           "rationale": "A step could skip the current specifications or a change. A fixture with specs and two changes runs in process.",
-          "placement": "internal/stele/check_test.go"
+          "placement": "internal/stele/check_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:44e60cee4858d2b183ead6dd337626c321fe67c37599b4861b64095946c22d76",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -272,7 +468,14 @@
           "id": "scn.validate.d768594936b1.unit",
           "level": "unit",
           "rationale": "Exit code 1 could mask a tool failure. A stubbed OpenSpec failure in process shows the combined code.",
-          "placement": "internal/stele/check_test.go"
+          "placement": "internal/stele/check_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:214fc5a36c3603d5bc674e3d54661ee5f5b57193ee1b8edd38b7bf1f157e4521",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -282,7 +485,14 @@
           "id": "scn.validate.ddff25a243df.e2e",
           "level": "e2e",
           "rationale": "Distinct risk: CI and verify:self run the installed binary without a terminal, where exit code, streams, and bundled OpenSpec decide together.",
-          "placement": "tests/package_install_test.go, in the consumer project"
+          "placement": "tests/package_install_test.go, in the consumer project",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:673dc9988e302f2ae76b427f70584d4760f3c3eb82db67628011d608935c409d",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -292,7 +502,14 @@
           "id": "scn.validate.ed99aac59b49.unit",
           "level": "unit",
           "rationale": "An early failure could skip later steps, or the summary misreport them. Run in process over a fixture change.",
-          "placement": "internal/stele/check_test.go, beside the new check.go"
+          "placement": "internal/stele/check_test.go, beside the new check.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:d2a5010b1304aec344e1c5ca3f5a0bc3218aebdf01dd0b89d4131dcb801cba7e",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -302,7 +519,14 @@
           "id": "scn.verificationscope.101e06b07f39.unit",
           "level": "unit",
           "rationale": "ANCHOR_DANGLING could be replaced or lost by the new rule. Fixture anchor without any declaration, in process.",
-          "placement": "internal/stele/scope_test.go (existing test)"
+          "placement": "internal/stele/scope_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:ccf2f118c4b95e7170faff5077157f7243c44b60c79f3c1656bc2aca262a0bb2",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -312,7 +536,14 @@
           "id": "scn.verificationscope.1c6a44335f91.unit",
           "level": "unit",
           "rationale": "An undecidable archive order could pass silently. A fixture with two matching same-day archives is pure.",
-          "placement": "internal/stele/scope_test.go"
+          "placement": "internal/stele/scope_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:26dca034d9f1322d821d4ee7c1261ee080c1696d1caa9f9b76172f9778a72479",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -322,7 +553,14 @@
           "id": "scn.verificationscope.4ad1b478a310.unit",
           "level": "unit",
           "rationale": "The rc.3 bug: alphabetical order wins over the change that last modified the scenario. A fixture with two same-day archives is pure.",
-          "placement": "internal/stele/scope_test.go, beside the existing ordering test"
+          "placement": "internal/stele/scope_test.go, beside the existing ordering test",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:ed801ea3c62225081baa40738a016dc1c1e2317d418839b16ae00574520c8ae7",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -332,7 +570,14 @@
           "id": "scn.verificationscope.70c3ee060846.unit",
           "level": "unit",
           "rationale": "Date order could regress when both texts match. Fixture archives on two dates, in process.",
-          "placement": "internal/stele/scope_test.go (existing test)"
+          "placement": "internal/stele/scope_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:9bacd96c20b29e1d99a136acc612bfd5d6bdea281067ab527f5d84eda3e14e6f",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -342,17 +587,44 @@
           "id": "scn.verificationscope.79a83cf82aba.unit",
           "level": "unit",
           "rationale": "Conflicting scope options could be accepted. Option parsing runs in process.",
-          "placement": "internal/stele/scope_test.go (existing test)"
+          "placement": "internal/stele/scope_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:bda44ce40b8adba0ffad50636c748abce81c641caccda095c6f3acb6cb6e6906",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
     "scn.verificationscope.8b577e9712e7": {
       "evidence": [
         {
+          "id": "scn.verificationscope.8b577e9712e7.e2e",
+          "level": "e2e",
+          "rationale": "Existing end-to-end evidence carried over from the archived plan: a real openspec archive followed by verify --specs through the built binary shows archive layout differences that the unit fixture cannot.",
+          "placement": "tests/cli.test.mts (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:b96d6d942476e9bb2232c12b82923864d94843444dcf0332459a0dd55558c1f3",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
+        },
+        {
           "id": "scn.verificationscope.8b577e9712e7.unit",
           "level": "unit",
           "rationale": "Combined plans could stop verifying archived behavior after the ordering change. A fixture archive runs in process.",
-          "placement": "internal/stele/scope_test.go (existing test)"
+          "placement": "internal/stele/scope_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:2608d4e3aa50f8b3c5ac71fb0d03ba1b168c6175e71aaad312e3ed068fe7c363",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -362,7 +634,14 @@
           "id": "scn.verificationscope.9c3ef2025b56.unit",
           "level": "unit",
           "rationale": "After archiving, anchors to removed behavior would pass silently, because archived deltas still declare the IDs. Fixture archive with a removal, verified with --specs in process.",
-          "placement": "internal/stele/scope_test.go, beside the anchor scoping tests"
+          "placement": "internal/stele/scope_test.go, beside the anchor scoping tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:68c1c076d40e704c42b85a463131209381a098e1e1ba22ed03f430a5bde16f74",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -372,7 +651,14 @@
           "id": "scn.verificationscope.ee5d7b261d62.unit",
           "level": "unit",
           "rationale": "Anchors of another active change could start failing a scope once archive-only identities are checked. Fixture with two changes, in process.",
-          "placement": "internal/stele/scope_test.go (existing test)"
+          "placement": "internal/stele/scope_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:d2569790b51518a9f404a0ad5a7157e76bc6253cfe93bbb9b2c67d992c8c7738",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -382,7 +668,14 @@
           "id": "scn.verificationscope.f8ab6e2e1812.integration",
           "level": "integration",
           "rationale": "The real OpenSpec CLI must run for --specs; it needs the bundled OpenSpec, one real outside tool.",
-          "placement": "internal/stele/scope_test.go (existing test)"
+          "placement": "internal/stele/scope_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:f3c9a18ef356aab37c3ca1ad56844136bc301e3267ad0a92b603ee087e404c91",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -392,7 +685,14 @@
           "id": "scn.verify.42bc49e1f29f.unit",
           "level": "unit",
           "rationale": "Plan entries for removed scenarios could be reported only as PLAN_UNKNOWN_ID, or twice. Plan checks over a fixture plan are pure.",
-          "placement": "internal/stele/plan_test.go, beside the evidence plan checks"
+          "placement": "internal/stele/plan_test.go, beside the evidence plan checks",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:feb2f2cf587bf0cf6b738a2724694fdbde05b83ee938ad110b54ccea3a4fcf85",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -402,7 +702,14 @@
           "id": "scn.verify.5172c64aec19.unit",
           "level": "unit",
           "rationale": "Code or tests of removed behavior could stay anchored unnoticed, including evidence-suffixed IDs. Resolution against a fixture current spec and anchor matching run in process.",
-          "placement": "internal/stele/verify_test.go, beside report building (or a new removed_test.go beside removed.go)"
+          "placement": "internal/stele/verify_test.go, beside report building (or a new removed_test.go beside removed.go)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:72a8fefef57dda2290a7f61a2d9fc4d0ed20d968f137800f564cd208249ba29e",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -412,7 +719,14 @@
           "id": "scn.verify.6c22483ab3c3.unit",
           "level": "unit",
           "rationale": "Requirement and scenario relationships could break when the parser learns delta sections. Parsing fixture files is pure.",
-          "placement": "internal/stele/specs_test.go (existing test)"
+          "placement": "internal/stele/specs_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:39806da31f299d81df27cc1d116f33bb61dda68504234dc6b178e8eb515cc8cc",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -422,7 +736,14 @@
           "id": "scn.verify.70eaaa57724a.unit",
           "level": "unit",
           "rationale": "A misspelled REMOVED name could silently check nothing. Name resolution against a fixture current spec is pure.",
-          "placement": "internal/stele/verify_test.go"
+          "placement": "internal/stele/verify_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:fd3ebbc7af5117009c227a4fd011bed411f1633ec569e3c229666ff222754708",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -432,7 +753,14 @@
           "id": "scn.verify.9fb98ac252a0.unit",
           "level": "unit",
           "rationale": "A REMOVED block in either form could be parsed as an active requirement, the bug found while planning. Parsing fixture files is pure.",
-          "placement": "internal/stele/specs_test.go, beside the identity parsing tests"
+          "placement": "internal/stele/specs_test.go, beside the identity parsing tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:9f8255c15898ed50db689824aaf852a93506afbec00d0bb8017f781d22c3c30c",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -442,7 +770,14 @@
           "id": "scn.verify.c03b05c1c11e.unit",
           "level": "unit",
           "rationale": "The check could report removed behavior that is already gone. Same in-process fixture without anchors.",
-          "placement": "internal/stele/verify_test.go"
+          "placement": "internal/stele/verify_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:c2475346784d829d33ce3c686db6971bb70ca807436e3b842cb3146accc36b72",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -452,7 +787,14 @@
           "id": "scn.verify.c5fd3656da59.unit",
           "level": "unit",
           "rationale": "Identity shape errors could stop being reported outside REMOVED sections. Parsing fixture files is pure.",
-          "placement": "internal/stele/specs_test.go (existing test)"
+          "placement": "internal/stele/specs_test.go (existing test)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:5c36d55343bd2fdd13a7d910f675ca7c714ec2d073915bc7624070a0a4e6a926",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     },
@@ -462,7 +804,14 @@
           "id": "scn.verify.ec83e3f24b0a.unit",
           "level": "unit",
           "rationale": "Behavior that moves to a renamed requirement, as this change's own init delta does, could be reported as removed. Fixture with REMOVED plus ADDED sharing IDs, in process.",
-          "placement": "internal/stele/verify_test.go"
+          "placement": "internal/stele/verify_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:32b450852aa262233c8ee7a2e98051b7a36b14d6c3d6a591945310b7c2e0d545",
+            "via": "cli",
+            "revision": "333215e7652340e439203fd7280543292da1650b"
+          }
         }
       ]
     }

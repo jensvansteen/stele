@@ -6,6 +6,9 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
+	"sort"
 	"strings"
 )
 
@@ -106,34 +109,161 @@ func loadChangePlan(root string, scope verificationScope) (LinkagePlan, []Diagno
 	return plan, nil
 }
 
-// loadArchivedPlans combines the plans of archived changes. OpenSpec prefixes
-// archive directories with their date, so path order is archive order and a
-// later plan replaces an earlier entry for the same identity, whatever the
-// schema version of either plan.
+// archivedPlan is the linkage plan of one archived change, with the text of
+// every identity its archived delta specs declare.
+type archivedPlan struct {
+	plan LinkagePlan
+	// name is the archive directory, such as 2026-09-18-link-index: its date
+	// prefix and then the change name give the archive order.
+	name  string
+	texts map[string]string
+}
+
+// loadArchivedPlans combines the plans of archived changes. For each identity
+// it uses the archived change whose delta spec declares the identity with the
+// text the current specification has; when several or none do, the one
+// archived last by date prefix and then name. OpenSpec records only the date,
+// so when changes archived on the same date still compete with different
+// entries, PLAN_ARCHIVE_ORDER_AMBIGUOUS names both plans.
+//
+// @implements req.verificationscope.bee89d6750ed
 func loadArchivedPlans(root string, scope verificationScope) (LinkagePlan, []Diagnostic) {
 	combined := emptyLinkagePlan()
 	combined.Evidence = map[string][]EvidenceEntry{}
 	diagnostics := make([]Diagnostic, 0)
+	current := identityTexts(root, scope.spec().SpecFiles(root, scope))
+	plans := make([]archivedPlan, 0)
 	for _, file := range scope.spec().PlanPaths(root, scope) {
 		plan, err := readLinkagePlan(file)
 		if err != nil {
 			continue
 		}
-		if plan.SchemaVersion == evidencePlanVersion {
-			for id, entries := range plan.Evidence {
-				combined.Evidence[id] = entries
-				delete(combined.Scenarios, id)
-			}
-			continue
+		plan.Source = repositoryPath(root, file)
+		if plan.SchemaVersion != evidencePlanVersion {
+			diagnostics = append(diagnostics, deprecatedPlanDiagnostic(plan.Source))
 		}
-		diagnostics = append(diagnostics, deprecatedPlanDiagnostic(repositoryPath(root, file)))
-		maps.Copy(combined.Requirements, plan.Requirements)
-		for id, target := range plan.Scenarios {
-			combined.Scenarios[id] = target
-			delete(combined.Evidence, id)
+		plans = append(plans, archivedPlan{
+			plan:  plan,
+			name:  filepath.Base(filepath.Dir(file)),
+			texts: identityTexts(root, scope.spec().ArchivedSpecFiles(root, file)),
+		})
+	}
+	sort.Slice(plans, func(i, j int) bool { return plans[i].name < plans[j].name })
+	for _, id := range plannedIdentities(plans) {
+		winner, runnerUp := archivedCandidates(plans, id, current[id])
+		entry := winner.plan
+		switch {
+		case entry.Evidence[id] != nil:
+			combined.Evidence[id] = entry.Evidence[id]
+		case entry.Scenarios[id] != "":
+			combined.Scenarios[id] = entry.Scenarios[id]
+		default:
+			combined.Requirements[id] = entry.Requirements[id]
+		}
+		if runnerUp != nil && archiveDate(runnerUp.name) == archiveDate(winner.name) &&
+			plannedEntryKey(runnerUp.plan, id) != plannedEntryKey(entry, id) {
+			diagnostics = append(diagnostics, diagnostic(
+				"PLAN_ARCHIVE_ORDER_AMBIGUOUS",
+				"warning",
+				fmt.Sprintf("Archived plans %s and %s, archived on the same date, plan %s differently; "+
+					"Stele uses %s.", runnerUp.plan.Source, entry.Source, id, entry.Source),
+				entry.Source,
+				1,
+				id,
+			))
 		}
 	}
 	return combined, diagnostics
+}
+
+// archivedCandidates returns the archived plan that decides an identity and
+// the plan that would decide it next. Plans whose archived text matches the
+// current text come first; among them, or among all when none match, the
+// plan archived last wins.
+func archivedCandidates(plans []archivedPlan, id, text string) (archivedPlan, *archivedPlan) {
+	all := make([]archivedPlan, 0)
+	matching := make([]archivedPlan, 0)
+	for _, candidate := range plans {
+		if plannedEntryKey(candidate.plan, id) == "" {
+			continue
+		}
+		all = append(all, candidate)
+		if text != "" && candidate.texts[id] == text {
+			matching = append(matching, candidate)
+		}
+	}
+	if len(matching) > 0 {
+		all = matching
+	}
+	winner := all[len(all)-1]
+	if len(all) == 1 {
+		return winner, nil
+	}
+	return winner, &all[len(all)-2]
+}
+
+// plannedIdentities lists every identity any archived plan names, sorted.
+func plannedIdentities(plans []archivedPlan) []string {
+	seen := make(map[string]bool)
+	for _, archived := range plans {
+		for id := range archived.plan.Evidence {
+			seen[id] = true
+		}
+		for id := range archived.plan.Scenarios {
+			seen[id] = true
+		}
+		for id := range archived.plan.Requirements {
+			seen[id] = true
+		}
+	}
+	identities := slices.Collect(maps.Keys(seen))
+	sort.Strings(identities)
+	return identities
+}
+
+// plannedEntryKey describes what a plan plans for an identity, or returns ""
+// when the plan does not name it: evidence IDs and levels, or a v1 target.
+func plannedEntryKey(plan LinkagePlan, id string) string {
+	if entries, listed := plan.Evidence[id]; listed {
+		parts := make([]string, 0, len(entries))
+		for _, entry := range entries {
+			parts = append(parts, entry.ID+"="+entry.Level)
+		}
+		return "evidence:" + strings.Join(parts, ",")
+	}
+	if target := plan.Scenarios[id]; target != "" {
+		return "scenario:" + target
+	}
+	if target := plan.Requirements[id]; target != "" {
+		return "requirement:" + target
+	}
+	return ""
+}
+
+// archiveDate returns the YYYY-MM-DD prefix of an archive directory name, or
+// the whole name when it has none.
+func archiveDate(name string) string {
+	if archiveDatePattern.MatchString(name) {
+		return name[:len("2006-01-02")]
+	}
+	return name
+}
+
+var archiveDatePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-`)
+
+// identityTexts returns the whitespace-normalized text of every requirement
+// and scenario the files declare, the same text approvals fingerprint.
+func identityTexts(root string, files []string) map[string]string {
+	parsed, _ := parseSpecFiles(root, files, "")
+	texts := make(map[string]string)
+	for _, requirement := range parsed.Requirements {
+		texts[requirement.ID] = strings.Join(strings.Fields(requirement.Title+" "+requirement.Text), " ")
+		for _, scenario := range requirement.Scenarios {
+			texts[scenario.ID] = normalizedScenarioText(scenario)
+		}
+	}
+	delete(texts, "")
+	return texts
 }
 
 // repositoryPath returns a file's slash-separated path relative to root.
@@ -143,23 +273,34 @@ func repositoryPath(root, file string) string {
 
 // declaredIdentities returns every Verification-ID declared anywhere under
 // openspec/: active changes, archived changes, and current specifications.
+// It also returns the retired identities: those that only archived changes
+// declare, which is behavior an archived change removed.
 //
 // @implements req.verificationscope.9c81618619df
-func declaredIdentities(root string) (map[string]bool, error) {
+func declaredIdentities(root string) (map[string]bool, map[string]bool, error) {
 	declared := make(map[string]bool)
+	live := make(map[string]bool)
 	files := walkFiles(filepath.Join(root, "openspec"), func(path string) bool {
 		return strings.EqualFold(filepath.Ext(path), ".md")
 	})
 	for _, file := range files {
 		content, err := os.ReadFile(file)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+		archived := strings.HasPrefix(repositoryPath(root, file), "openspec/changes/archive/")
 		for line := range strings.SplitSeq(string(content), "\n") {
 			if match := verificationIDPattern.FindStringSubmatch(line); match != nil {
 				declared[match[1]] = true
+				live[match[1]] = live[match[1]] || !archived
 			}
 		}
 	}
-	return declared, nil
+	retired := make(map[string]bool)
+	for id := range declared {
+		if !live[id] {
+			retired[id] = true
+		}
+	}
+	return declared, retired, nil
 }

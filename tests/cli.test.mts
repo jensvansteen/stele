@@ -546,7 +546,7 @@ void test("prints a link index for editors", async (context: TestContext): Promi
 
   const tested: SpawnSyncReturns<string> = cli(["test", "scn.todo.abcdef012345.e2e", "--root", root, "--change", "todo-basics"]);
   assert.equal(tested.status, 0, tested.stdout + tested.stderr);
-  assert.match(tested.stdout, /selected tests: 1\/1 passed/v);
+  assert.match(tested.stdout, /✓ Test execution\s+1\/1 passed/v);
   const after: SpawnSyncReturns<string> = cli(["index", "--root", root, "--change", "todo-basics"]);
   assert.match(after.stdout, /"state": "executed",\n\s+"outcome": "passed"/v);
 });
@@ -576,11 +576,71 @@ void test("checks every scope with --all", async (context: TestContext): Promise
   ]);
   const result: SpawnSyncReturns<string> = cli(["verify", "--all", "--root", root]);
   assert.equal(result.status, 1, result.stdout + result.stderr);
-  assert.match(result.stdout, /== current specifications ==\n✓ implementation verification pass/v);
-  assert.match(result.stdout, /== change broken ==\n✗ implementation verification fail/v);
-  assert.match(result.stdout, /== change example ==\n✓ implementation verification pass/v);
-  assert.match(result.stdout, /✗ 1 of 3 scopes failed: change broken/v);
+  assert.match(result.stdout, /== current specifications ==\nstele \S+ · verify · current specifications\n/v);
+  assert.match(result.stdout, /✗ FAILED {2}change broken — linkage \(anchors\)/v);
+  assert.match(result.stdout, /✓ PASSED {2}change example/v);
+  assert.match(result.stdout, /✗ FAILED {2}1 of 3 scopes failed: change broken\n$/v);
 
   const conflicting: SpawnSyncReturns<string> = cli(["verify", "--all", "--change", "example", "--root", root]);
   assert.equal(conflicting.status, 2);
+});
+
+function hasScript(): boolean {
+  return spawnSync("script", ["-V"], { encoding: "utf8" }).error === undefined;
+}
+
+// Runs the shipped binary with standard output and standard error attached to
+// a pseudo-terminal created by `script`, whose arguments differ per platform.
+function cliOnTerminal(args: readonly string[]): SpawnSyncReturns<string> {
+  const binary: string = path.join(ROOT, "dist/stele");
+  const quoted: string = [binary, ...args].map((part: string): string => `'${part.replaceAll("'", "'\\''")}'`).join(" ");
+  const scriptArgs: readonly string[] = process.platform === "darwin"
+    ? ["-q", "/dev/null", binary, ...args]
+    : ["-qefc", quoted, "/dev/null"];
+  return spawnSync("script", scriptArgs, {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, TERM: "xterm-256color", NO_COLOR: "", COLUMNS: "120" },
+  });
+}
+
+// @verifies scn.terminalreport.a735c55107ce.e2e
+void test("updates one progress line on a terminal", async (context: TestContext): Promise<void> => {
+  if (!hasScript()) {
+    context.skip("script is not available to create a pseudo-terminal");
+    return;
+  }
+  const root: string = await passingFixture(context);
+  const result: SpawnSyncReturns<string> = cliOnTerminal(["test", "--root", root, "--change", "example"]);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /\r\[2K. tests 0\/1 · Save entered text · 0 ✓ 0 ✗ · 0:0\d/v);
+  assert.match(result.stdout, /\r\[2Kstele \S+ · test · change example/v);
+  assert.match(result.stdout, /\[32m✓\[0m Test execution/v);
+});
+
+// @verifies scn.terminalreport.3fc2e84a5b98.e2e
+void test("prints plain progress lines without a terminal", async (context: TestContext): Promise<void> => {
+  const root: string = await passingFixture(context);
+  const result: SpawnSyncReturns<string> = cli(["test", "--root", root, "--change", "example"]);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stderr, /^test execution: 1 tests in 1 files\n {2}✓ tests\/todo\.test\.mts {2}1\/1 \(\d+\.\ds\) \[1\/1\]\ntest execution: 1\/1 passed \(\d+\.\ds\)\n$/v);
+  assert.doesNotMatch(result.stderr + result.stdout, //v);
+  assert.match(result.stdout, /✓ Test execution\s+1\/1 passed/v);
+});
+
+// @verifies scn.terminalreport.334afe00983b.e2e
+void test("keeps timing out of machine output", async (context: TestContext): Promise<void> => {
+  const root: string = await passingFixture(context);
+  const args: readonly string[] = ["validate", "--root", root, "--change", "example", "--json", "--report-file", "out/report.json"];
+  const first: SpawnSyncReturns<string> = cli(args);
+  const firstReport: string = await fs.readFile(path.join(root, "out/report.json"), "utf8");
+  const second: SpawnSyncReturns<string> = cli(args);
+  const secondReport: string = await fs.readFile(path.join(root, "out/report.json"), "utf8");
+  assert.equal(first.stdout, second.stdout);
+  assert.equal(firstReport, secondReport);
+  assert.match(first.stderr, /test execution: 1\/1 passed \(\d+\.\ds\)/v);
+  for (const output of [first.stdout, firstReport]) {
+    assert.doesNotMatch(output, /duration|elapsed|\d+\.\ds|test execution:|progress/iv);
+  }
 });

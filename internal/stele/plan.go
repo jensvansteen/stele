@@ -239,13 +239,19 @@ func planEntryDiagnostics(scenario Scenario, entries []EvidenceEntry) []Diagnost
 }
 
 // unknownPlanDiagnostics reports v2 plan scenarios that the scope does not declare.
-func unknownPlanDiagnostics(plan LinkagePlan, scenarios map[string]bool, source string) []Diagnostic {
+// Removed behavior has its own diagnostic, so it is not reported again here.
+func unknownPlanDiagnostics(
+	plan LinkagePlan,
+	scenarios map[string]bool,
+	removed map[string]removedIdentity,
+	source string,
+) []Diagnostic {
 	diagnostics := make([]Diagnostic, 0)
 	if !plan.EvidenceOnly {
 		return diagnostics
 	}
 	for id := range plan.Evidence {
-		if !scenarios[id] {
+		if _, isRemoved := removed[id]; !scenarios[id] && !isRemoved {
 			diagnostics = append(diagnostics, diagnostic(
 				"PLAN_UNKNOWN_ID",
 				"error",

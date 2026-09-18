@@ -412,7 +412,7 @@ func loadIndex(root string, scopes []verificationScope) (Index, error) {
 	if input.Anchors, err = ScanAnchors(root); err != nil {
 		return Index{}, err
 	}
-	if input.Declared, err = scopes[0].spec().DeclaredIdentities(root); err != nil {
+	if input.Declared, _, err = scopes[0].spec().DeclaredIdentities(root); err != nil {
 		return Index{}, err
 	}
 	if input.InputDigest, err = ComputeInputDigest(root); err != nil {

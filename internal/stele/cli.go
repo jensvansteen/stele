@@ -12,10 +12,8 @@ import (
 	"strings"
 )
 
-const (
-	Version         = "0.1.0"
-	OpenSpecVersion = "1.13.0"
-)
+// OpenSpecVersion is the pinned OpenSpec release.
+const OpenSpecVersion = "1.13.0"
 
 const helpBody = ` — deterministic OpenSpec implementation verification
 
@@ -23,16 +21,23 @@ Usage:
   stele init [--change ID] [--tools TOOLS] [--refresh-schema] [--strict-versions] [--root PATH]
   stele ids [--change ID] [--root PATH] [--check] [--json]
   stele annotate [--change ID | --specs | --all] [--root PATH] [--check] [--json]
+  stele check [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--evidence-file PATH]
+              [--json] [--strict-versions] [OUTPUT]
   stele verify [--stage proposal|implementation] [--change ID | --specs | --all] [--root PATH]
-               [--report-file PATH] [--json] [--strict-versions]
+               [--report-file PATH] [--json] [--strict-versions] [OUTPUT]
   stele test [targets...] [--change ID | --specs | --all] [--root PATH] [--evidence-file PATH] [--json]
+             [OUTPUT]
   stele validate [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--evidence-file PATH]
-                 [--json] [--strict-versions]
+                 [--json] [--strict-versions] [OUTPUT]
   stele index [--change ID | --specs | --all] [--root PATH] [--output-file PATH] [--json]
   stele approve [--change ID | --specs] [--evidence ID]... [--scenario ID]... [--all --yes | --confirmed-in-chat]
                 [--by NAME] [--root PATH]
   stele plan migrate [--change ID | --specs] [--root PATH]
 
+OUTPUT is [--details] [--quiet] [--color auto|always|never]: --details lists every finding, --quiet prints
+only the verdict line, and --color auto colors terminals unless NO_COLOR is set. Progress goes to
+standard error; --json output on standard output is unchanged.
+stele check runs stele ids --check, stele annotate --check, and stele validate, and exits with the worst code.
 Test targets are requirement, scenario, or evidence IDs, or spec.md files under openspec/.
 --report and --evidence are deprecated aliases of --report-file and --evidence-file until 0.2.0.
 
@@ -73,6 +78,10 @@ type options struct {
 	every *everyScopeRun
 	// unannotated is the unannotatedSpecs policy from stele.config.json.
 	unannotated string
+	// details, quiet, and color control the human report and progress.
+	details bool
+	quiet   bool
+	color   string
 }
 
 type validationResult struct {
@@ -90,6 +99,7 @@ var (
 	verifyProject           = verifyScope
 	runProjectScenarios     = runScopeTests
 	validateProjectOpenSpec = validateScopeSpecs
+	checkScopeSpecs         = requireScopeSpecs
 )
 
 // validateScopeSpecs runs the backend's strict validation for a scope.
@@ -136,7 +146,7 @@ func Run(arguments []string, stdout, stderr io.Writer) int {
 			return writeCommandError(stderr, errUnknownPlanCommand)
 		}
 		command, rest = "plan migrate", rest[1:]
-	case "init", "ids", "annotate", "verify", "test", "validate", "approve", "index":
+	case "init", "ids", "annotate", "verify", "test", "validate", "check", "approve", "index":
 	default:
 		_, _ = fmt.Fprintf(stderr, "stele: unknown command: %s\n", command)
 		return 2
@@ -161,6 +171,10 @@ func Run(arguments []string, stdout, stderr io.Writer) int {
 	return routeCommand(command, parsed, stdout, stderr)
 }
 
+// writeHelp prints the help text, headed by the package version that the
+// build sets in Version; --version, reports, and the human report use it too.
+//
+// @implements req.terminalreport.e78c864148cd
 func writeHelp(stdout io.Writer) {
 	_, _ = fmt.Fprintf(stdout, "stele %s%s", Version, helpBody)
 }
@@ -171,7 +185,7 @@ func writeCommandError(stderr io.Writer, err error) int {
 }
 
 func routeCommand(command string, parsed options, stdout, stderr io.Writer) int {
-	if parsed.allScopes && command != "index" && command != "annotate" {
+	if parsed.allScopes && command != "index" && command != "annotate" && command != "check" {
 		return runEveryScope(command, parsed, stdout, stderr)
 	}
 	switch command {
@@ -179,6 +193,8 @@ func routeCommand(command string, parsed options, stdout, stderr io.Writer) int 
 		return indexCommand(parsed, stdout, stderr)
 	case "annotate":
 		return annotateCommand(parsed, stdout, stderr)
+	case "check":
+		return checkCommand(parsed, stdout, stderr)
 	case "verify":
 		return verifyCommand(parsed, stdout, stderr)
 	case "ids":
@@ -310,6 +326,9 @@ func parseOptions(command string, arguments []string) (options, error) {
 	if parsed.stage != "proposal" && parsed.stage != "implementation" {
 		return options{}, fmt.Errorf("unknown stage: %s", parsed.stage)
 	}
+	if parsed.color != "" && !colorModes[parsed.color] {
+		return options{}, fmt.Errorf("unknown --color value %q; accepted values: auto, always, never", parsed.color)
+	}
 	return parsed, nil
 }
 
@@ -378,7 +397,7 @@ func registerOutputFlags(flags *flag.FlagSet, command string, parsed *options) {
 		register("report-file", "report", &parsed.reportPath)
 	case "test":
 		register("evidence-file", "evidence", &parsed.evidencePath)
-	case "validate":
+	case "validate", "check":
 		register("report-file", "report", &parsed.reportPath)
 		register("evidence-file", "evidence", &parsed.evidencePath)
 	case "index":
@@ -408,8 +427,13 @@ func registerCommandFlags(flags *flag.FlagSet, command string, parsed *options) 
 		flags.BoolVar(&parsed.confirmedInChat, "confirmed-in-chat", false, "record a confirmation given in chat")
 		flags.StringVar(&parsed.approver, "by", "", "approver name")
 	case "plan migrate":
-	case "verify", "validate":
+	case "verify", "validate", "check":
 		flags.BoolVar(&parsed.strictVersions, "strict-versions", false, "fail on backend version drift")
+		fallthrough
+	case "test":
+		flags.BoolVar(&parsed.details, "details", false, "list every finding without truncation")
+		flags.BoolVar(&parsed.quiet, "quiet", false, "print only the verdict line and no progress")
+		flags.StringVar(&parsed.color, "color", "auto", "color: auto, always, or never")
 		fallthrough
 	default:
 		flags.BoolVar(&parsed.allScopes, "all", false, "check the current specifications and every active change")
@@ -461,68 +485,67 @@ func withConfig(parsed options) (options, error) {
 }
 
 // verifyCommand exits according to the linkage verdict, so proposal gates and
-// verify-only CI steps keep their meaning; the output also names execution
+// verify-only CI steps keep their meaning; the report also names execution
 // and the overall verdict.
 func verifyCommand(parsed options, stdout, stderr io.Writer) int {
+	progress := parsed.progress(stderr)
+	progress.stage("Verification")
+	scope := resolveScope(parsed)
 	report, err := verifyProject(verifyRequest{
 		root:       parsed.root,
-		scope:      resolveScope(parsed),
+		scope:      scope,
 		mode:       parsed.stage,
 		reportPath: parsed.every.reportPath(parsed.reportPath),
 	})
+	progress.done()
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
 	parsed.every.collect(report)
+	passed := report.Verdicts.Linkage == "pass"
 	if parsed.json {
 		writeMachineJSON(stdout, report)
 	} else {
-		renderVerification(stdout, report)
+		input := humanReportInput{command: "verify", scope: scope, report: &report, passed: passed}
+		if report.Mode == "implementation" {
+			input.testsRelevant = true
+			input.executions = storedExecutions(parsed.root, report)
+			input.currentDigest = report.Repository.InputDigest
+			if report.Verdicts.Overall != "pass" {
+				input.notes = append(input.notes, "overall "+report.Verdicts.Overall+
+					" (test execution "+strings.ReplaceAll(report.Verdicts.Execution, "-", " ")+")")
+			}
+		}
+		parsed.writeReport(stdout, input)
 	}
-	return parsed.every.versionCheck(resultExitCode(report.Verdicts.Linkage == "pass"), parsed, stderr)
+	return parsed.every.versionCheck(resultExitCode(passed), parsed, stderr)
 }
 
-func renderVerification(stdout io.Writer, report Report) {
-	mark := choose(report.Verdicts.Linkage == "pass", "✓", "✗")
-	_, _ = fmt.Fprintf(
-		stdout,
-		"%s %s verification %s: %d requirements, %d scenarios, %d errors\n",
-		mark,
-		report.Mode,
-		report.Verdicts.Linkage,
-		report.Summary.Requirements,
-		report.Summary.Scenarios,
-		report.Summary.Errors,
-	)
-	for _, diagnostic := range report.Diagnostics {
-		_, _ = fmt.Fprintf(
-			stdout,
-			"  %s %s: %s\n",
-			strings.ToUpper(diagnostic.Severity),
-			diagnostic.Code,
-			diagnostic.Message,
-		)
+// storedExecutions returns the stored test executions of a report's scenarios.
+func storedExecutions(root string, report Report) []TestExecution {
+	var evidence Evidence
+	if !readJSON(filepath.Join(root, defaultEvidencePath), &evidence) {
+		return nil
 	}
-	if report.Mode == "proposal" {
-		return
-	}
-	_, _ = fmt.Fprintf(
-		stdout,
-		"%s execution %s: %d/%d scenarios passed\n",
-		choose(report.Verdicts.Execution == "passed", "✓", "✗"),
-		report.Verdicts.Execution,
-		report.Summary.PassedScenarios,
-		report.Summary.Scenarios,
-	)
+	scenarios := make(map[string]bool)
 	for _, requirement := range report.Requirements {
 		for _, scenario := range requirement.Scenarios {
-			if scenario.Execution.Outcome == "failed" {
-				_, _ = fmt.Fprintf(stdout, "  FAILED %s %s\n", scenario.ID, scenario.Title)
+			scenarios[scenario.ID] = true
+		}
+	}
+	executions := make([]TestExecution, 0)
+	for _, execution := range evidence.Executions {
+		if execution.InputDigest == "" {
+			execution.InputDigest = evidence.InputDigest
+		}
+		for _, id := range execution.ScenarioIDs {
+			if scenarios[id] {
+				executions = append(executions, execution)
+				break
 			}
 		}
 	}
-	_, _ = fmt.Fprintf(stdout, "%s overall %s\n", choose(report.Verdicts.Overall == "pass", "✓", "✗"),
-		report.Verdicts.Overall)
+	return executions
 }
 
 // testCommand runs the scope's tests, or with targets only the selected ones,
@@ -532,30 +555,55 @@ func testCommand(parsed options, stdout, stderr io.Writer) int {
 	if len(parsed.targets) > 0 && parsed.evidencePath == "" {
 		parsed.evidencePath = defaultEvidencePath
 	}
+	progress := parsed.progress(stderr)
+	started := now()
+	scope := resolveScope(parsed)
 	run, err := runProjectScenarios(testRequest{
 		root:         parsed.root,
-		scope:        resolveScope(parsed),
+		scope:        scope,
 		evidencePath: parsed.evidencePath,
 		targets:      parsed.targets,
 		merge:        parsed.every.mergesEvidence(),
+		observer:     progress,
 	})
+	duration := now().Sub(started)
+	progress.done()
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
-	switch {
-	case parsed.json:
-		writeMachineJSON(stdout, run.evidence)
-	case run.targeted:
-		renderSelectedExecution(stdout, run.selected)
-		_, _ = fmt.Fprintf(stdout, "  scope evidence: %d/%d scenarios passed\n",
-			countPassed(run.evidence), len(run.evidence.Scenarios))
-	default:
-		renderScenarioExecution(stdout, run.evidence)
-	}
+	passed := run.evidence.Outcome == "passed"
+	executions := run.evidence.Executions
 	if run.targeted {
-		return resultExitCode(selectedPassed(run.selected))
+		passed = selectedPassed(run.selected)
+		executions = append(append([]TestExecution{}, run.selected...), staleExecutions(run)...)
 	}
-	return resultExitCode(run.evidence.Outcome == "passed")
+	if parsed.json {
+		writeMachineJSON(stdout, run.evidence)
+	} else {
+		input := humanReportInput{
+			command: "test", scope: scope, specs: run.parsed.Requirements,
+			executions: executions, currentDigest: run.evidence.InputDigest, testsRelevant: true,
+			duration: &duration, passed: passed,
+		}
+		if run.targeted {
+			input.notes = []string{fmt.Sprintf("scope evidence: %d/%d scenarios passed",
+				countPassed(run.evidence), len(run.evidence.Scenarios))}
+		}
+		parsed.writeReport(stdout, input)
+	}
+	return resultExitCode(passed)
+}
+
+// staleExecutions returns the stored executions of a targeted run's scope that
+// ran with other inputs.
+func staleExecutions(run testRun) []TestExecution {
+	stale := make([]TestExecution, 0)
+	for _, execution := range run.evidence.Executions {
+		if execution.InputDigest != run.evidence.InputDigest {
+			stale = append(stale, execution)
+		}
+	}
+	return stale
 }
 
 func selectedPassed(executions []TestExecution) bool {
@@ -567,59 +615,50 @@ func selectedPassed(executions []TestExecution) bool {
 	return len(executions) > 0
 }
 
-func renderSelectedExecution(stdout io.Writer, executions []TestExecution) {
-	passed := 0
-	for _, execution := range executions {
-		if execution.Outcome == "passed" {
-			passed++
-			continue
-		}
-		_, _ = fmt.Fprintf(stdout, "  FAILED %s#%s (%s)\n", execution.Path, pointerValue(execution.Selector),
-			pointerValue(execution.Reason))
-	}
-	_, _ = fmt.Fprintf(stdout, "%s selected tests: %d/%d passed\n",
-		choose(selectedPassed(executions), "✓", "✗"), passed, len(executions))
-}
-
-func renderScenarioExecution(stdout io.Writer, evidence Evidence) {
-	passed := countPassed(evidence)
-	mark := choose(evidence.Outcome == "passed", "✓", "✗")
-	_, _ = fmt.Fprintf(
-		stdout,
-		"%s scenario execution %s: %d/%d passed\n",
-		mark,
-		evidence.Outcome,
-		passed,
-		len(evidence.Scenarios),
-	)
-}
-
+// validateCommand runs the fast stages first, OpenSpec strict validation and
+// a check of the plan and linkage, then the tests, then the verification that
+// uses their evidence.
+//
 // @implements req.validate.56cc774dc871
 func validateCommand(parsed options, stdout, stderr io.Writer) int {
 	setDefaultOutputPaths(&parsed)
-	run, err := runProjectScenarios(testRequest{
-		root:         parsed.root,
-		scope:        resolveScope(parsed),
-		evidencePath: parsed.evidencePath,
-		merge:        parsed.every.mergesEvidence(),
-	})
-	if err != nil {
+	scope := resolveScope(parsed)
+	if err := checkScopeSpecs(parsed.root, scope); err != nil {
 		return writeCommandError(stderr, err)
 	}
-	evidence := run.evidence
-
-	openSpecPassed, openSpecErr := validateProjectOpenSpec(parsed.root, resolveScope(parsed))
+	progress := parsed.progress(stderr)
+	progress.stage("OpenSpec strict validation")
+	openSpecPassed, openSpecErr := validateProjectOpenSpec(parsed.root, scope)
 	if openSpecErr != nil {
 		_, _ = fmt.Fprintf(stderr, "stele: %s\n", openSpecErr)
 	}
-
+	progress.stageDone(choose(openSpecPassed, markPass, markFail),
+		"OpenSpec strict validation: "+choose(openSpecPassed, "passed", "failed"))
+	if _, silent := progress.(silentProgress); !silent {
+		precheck(parsed, scope, progress)
+	}
+	started := now()
+	run, err := runProjectScenarios(testRequest{
+		root:         parsed.root,
+		scope:        scope,
+		evidencePath: parsed.evidencePath,
+		merge:        parsed.every.mergesEvidence(),
+		observer:     progress,
+	})
+	duration := now().Sub(started)
+	if err != nil {
+		progress.done()
+		return writeCommandError(stderr, err)
+	}
+	evidence := run.evidence
 	report, err := verifyProject(verifyRequest{
 		root:       parsed.root,
-		scope:      resolveScope(parsed),
+		scope:      scope,
 		mode:       "implementation",
 		reportPath: parsed.every.reportPath(parsed.reportPath),
 		evidence:   &evidence,
 	})
+	progress.done()
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
@@ -628,9 +667,36 @@ func validateCommand(parsed options, stdout, stderr io.Writer) int {
 	if parsed.json {
 		writeMachineJSON(stdout, newValidationResult(evidence, report, openSpecPassed, passed))
 	} else {
-		renderValidation(stdout, evidence, report, openSpecPassed, passed)
+		parsed.writeReport(stdout, humanReportInput{
+			command: "validate", scope: scope, report: &report,
+			executions: evidence.Executions, currentDigest: evidence.InputDigest, testsRelevant: true,
+			openSpec: &openSpecPassed, duration: &duration, passed: passed,
+		})
 	}
 	return parsed.every.versionCheck(resultExitCode(passed), parsed, stderr)
+}
+
+// precheck verifies the plan and linkage before the tests run, so their
+// problems show in the progress output a minute earlier. Nothing is written.
+func precheck(parsed options, scope verificationScope, progress progressReporter) {
+	progress.stage("Plan and linkage")
+	report, err := verifyProject(verifyRequest{
+		root: parsed.root, scope: scope, mode: "implementation",
+		evidence: &Evidence{},
+	})
+	if err != nil {
+		progress.stageDone(markWarn, "plan and linkage: checked after the tests")
+		return
+	}
+	parts := make([]string, 0, 3)
+	failed := false
+	for _, stage := range []string{stageSpecifications, stagePlan, stageLinkage} {
+		errors, _ := stageCounts(stage, report.Diagnostics)
+		failed = failed || len(errors) > 0
+		parts = append(parts, strings.ToLower(stage)+": "+choose(len(errors) == 0, "passed",
+			strings.Join(errors, ", ")))
+	}
+	progress.stageDone(choose(failed, markFail, markPass), strings.Join(parts, "; "))
 }
 
 func setDefaultOutputPaths(parsed *options) {
@@ -656,44 +722,6 @@ func newValidationResult(
 		Verification:  report.Verdict,
 		Verdicts:      report.Verdicts,
 	}
-}
-
-func renderValidation(
-	stdout io.Writer,
-	evidence Evidence,
-	report Report,
-	openSpecPassed bool,
-	passed bool,
-) {
-	_, _ = fmt.Fprintf(
-		stdout,
-		"%s OpenSpec strict validation %s\n",
-		choose(openSpecPassed, "✓", "✗"),
-		choose(openSpecPassed, "passed", "failed"),
-	)
-	_, _ = fmt.Fprintf(
-		stdout,
-		"%s scenario execution %s: %d/%d passed\n",
-		choose(evidence.Outcome == "passed", "✓", "✗"),
-		evidence.Outcome,
-		countPassed(evidence),
-		len(evidence.Scenarios),
-	)
-	_, _ = fmt.Fprintf(
-		stdout,
-		"%s implementation verification %s: %d requirements, %d scenarios, %d errors\n",
-		choose(report.Verdicts.Linkage == "pass", "✓", "✗"),
-		report.Verdicts.Linkage,
-		report.Summary.Requirements,
-		report.Summary.Scenarios,
-		report.Summary.Errors,
-	)
-	_, _ = fmt.Fprintf(
-		stdout,
-		"%s deterministic validation %s\n",
-		choose(passed, "✓", "✗"),
-		choose(passed, "passed", "failed"),
-	)
 }
 
 func resultExitCode(passed bool) int {
@@ -731,8 +759,9 @@ func countPassed(evidence Evidence) int {
 // reports are collected into one file, evidence after the first scope merges
 // into the same file, and version drift is checked once.
 type everyScopeRun struct {
-	first   bool
-	reports *[]Report
+	first    bool
+	reports  *[]Report
+	verdicts *[]humanReport
 }
 
 func (run *everyScopeRun) reportPath(path string) string {
@@ -789,6 +818,32 @@ func scopeName(scope verificationScope) (string, string, string) {
 	return scope.changeID, "change", "change " + scope.changeID
 }
 
+// runOneScope runs a command for one scope of an --all run. It returns the
+// scope's JSON entry and its human output under a heading, and records a
+// verdict for a scope that could not be checked.
+func runOneScope(
+	command string,
+	parsed options,
+	scope verificationScope,
+	run *everyScopeRun,
+	stdout, stderr io.Writer,
+) (scopeResult, []byte) {
+	name, kind, label := scopeName(scope)
+	scoped := parsed
+	scoped.allScopes, scoped.specs, scoped.changeID = false, scope.currentSpecs, scope.changeID
+	// Each scope renders into a buffer, so color follows the real output.
+	scoped.color = choose(colorEnabled(parsed.color, stdout), "always", "never")
+	scoped.every = run
+	var output bytes.Buffer
+	recorded := len(*run.verdicts)
+	code := routeCommand(command, scoped, &output, stderr)
+	if len(*run.verdicts) == recorded {
+		*run.verdicts = append(*run.verdicts, humanReport{verdict: "FAILED  " + label + " — could not be checked"})
+	}
+	result := scopeResult{Scope: name, Kind: kind, ExitCode: code, Result: rawJSON(output.Bytes())}
+	return result, []byte(fmt.Sprintf("== %s ==\n%s\n", label, output.String()))
+}
+
 // runEveryScope runs a command once per scope, reports each scope separately,
 // and exits with the worst code: 2 when a scope could not be checked, else 1
 // when a scope failed, else 0.
@@ -803,44 +858,32 @@ func runEveryScope(command string, parsed options, stdout, stderr io.Writer) int
 		setDefaultOutputPaths(&parsed)
 	}
 	reports := make([]Report, 0, len(scopes))
+	verdicts := make([]humanReport, 0, len(scopes))
 	results := make([]scopeResult, 0, len(scopes))
 	failed := make([]string, 0)
 	worst := 0
 	for index, scope := range scopes {
-		name, kind, label := scopeName(scope)
-		scoped := parsed
-		scoped.allScopes, scoped.specs, scoped.changeID = false, scope.currentSpecs, scope.changeID
-		scoped.every = &everyScopeRun{first: index == 0, reports: &reports}
-		var output bytes.Buffer
-		code := routeCommand(command, scoped, &output, stderr)
-		worst = max(worst, code)
-		if code != 0 {
+		run := &everyScopeRun{first: index == 0, reports: &reports, verdicts: &verdicts}
+		result, output := runOneScope(command, parsed, scope, run, stdout, stderr)
+		worst = max(worst, result.ExitCode)
+		if result.ExitCode != 0 {
+			_, _, label := scopeName(scope)
 			failed = append(failed, label)
 		}
-		if parsed.json {
-			result := json.RawMessage("null")
-			if json.Valid(output.Bytes()) {
-				result = json.RawMessage(output.Bytes())
-			}
-			results = append(results, scopeResult{Scope: name, Kind: kind, ExitCode: code, Result: result})
-			continue
+		results = append(results, result)
+		if !parsed.json && !parsed.quiet {
+			_, _ = stdout.Write(output)
 		}
-		_, _ = fmt.Fprintf(stdout, "== %s ==\n", label)
-		_, _ = stdout.Write(output.Bytes())
 	}
 	if parsed.reportPath != "" && command != "test" {
 		if err := writeJSON(resolveWithin(parsed.root, parsed.reportPath), reports); err != nil {
 			return writeCommandError(stderr, err)
 		}
 	}
-	switch {
-	case parsed.json:
+	if parsed.json {
 		writeMachineJSON(stdout, results)
-	case len(failed) == 0:
-		_, _ = fmt.Fprintf(stdout, "✓ all %d scopes passed\n", len(scopes))
-	default:
-		_, _ = fmt.Fprintf(stdout, "✗ %d of %d scopes failed: %s\n", len(failed), len(scopes),
-			strings.Join(failed, ", "))
+	} else {
+		renderScopeSummary(stdout, verdicts, failed, len(scopes), parsed)
 	}
 	if command == "test" {
 		return worst

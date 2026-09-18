@@ -53,6 +53,14 @@ type ParsedSpecs struct {
 	Files        []string
 	// Annotations holds the annotation of each file, in the order of Files.
 	Annotations []SpecAnnotation
+	// Removed lists the requirements named under `## REMOVED Requirements`.
+	Removed []RemovedRequirement
+}
+
+// RemovedRequirement is a requirement that a delta spec removes, by name.
+type RemovedRequirement struct {
+	Name   string
+	Source Source
 }
 
 // Anchor is a source or test declaration linked to a verification identity.

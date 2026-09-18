@@ -146,10 +146,32 @@ Each approval records the approver (your `git config user.name`, or `--by`), the
 Attach `@implements` to the code declaration and `@verifies scn.todo.20d9cd2785a4.unit` to the named test, wherever your project's conventions place them. Then run:
 
 ```bash
-npx stele validate --change todo-basics
+npx stele check --change todo-basics
 ```
 
-Validation runs every evidence test, OpenSpec strict validation, and implementation verification. Every approved entry needs a matching `@verifies` anchor on a test that passes, and every requirement needs an `@implements` anchor. Exit code `0` means all selected checks passed; see the [CLI reference](/reference/cli) for the complete contract.
+`stele check` checks that every requirement and scenario has an ID and every specification file its annotation, then runs `stele validate`: OpenSpec strict validation, every evidence test, and implementation verification. Every approved entry needs a matching `@verifies` anchor on a test that passes, and every requirement needs an `@implements` anchor. While the tests run, progress appears on standard error; then the report names each stage's result, explains each problem with a `→ Fix:` step, and ends with one verdict line:
+
+```text
+stele 0.1.0-rc.4 · validate · change todo-basics
+
+  Capability  Scenarios  Tests     Plan          Status
+  todo                2  2 passed  2/2 approved  ✗
+
+  ✓ OpenSpec strict validation  passed
+  ✓ Specifications              1 requirement, 2 scenarios
+  ✓ Plan approval               2/2 evidence entries approved
+  ✗ Linkage (anchors)           0/1 requirements and 2/2 scenarios linked; 1 unimplemented requirement
+  ✓ Test execution              2/2 passed · unit 2 · 0.9s
+
+Errors
+  LINK_CODE_MISSING ×1  No code has `@implements` for a requirement.
+    → Fix: add `@implements <requirement-id>` above the implementing declaration
+    req.todo.22b616c90f42  Add a todo  openspec/changes/todo-basics/specs/todo/spec.md:3
+
+✗ FAILED  change todo-basics — linkage (anchors) (1 unimplemented requirement)
+```
+
+Exit code `0` means all selected checks passed. `--details` lists every finding, `--quiet` prints only the verdict line, and `--json` prints machine-readable output; see the [CLI reference](/reference/cli) for the complete contract.
 
 While you work on one behavior, run only its tests. A target is a requirement, scenario, or evidence ID, or a spec file, and the outcomes merge into the stored evidence:
 
@@ -158,7 +180,7 @@ npx stele test scn.todo.20d9cd2785a4
 npx stele test openspec/changes/todo-basics/specs/todo/spec.md
 ```
 
-`npx stele verify` then reports linkage, execution, and an overall verdict separately; it stays `incomplete` until every scenario's tests have run with the current inputs. `npx stele index` prints the links as JSON for editors, including each scenario's `WHEN`/`THEN` steps; see [Link index](/reference/link-index). In CI, `npx stele validate --all` checks the current specifications and every active change in one step.
+`npx stele verify` then reports linkage, execution, and an overall verdict separately; it stays `incomplete` until every scenario's tests have run with the current inputs. `npx stele index` prints the links as JSON for editors, including each scenario's `WHEN`/`THEN` steps; see [Link index](/reference/link-index). In CI, `npx stele check --all` checks IDs, annotations, the current specifications, and every active change in one step, with plain progress lines and one exit code.
 
 Plans with `schemaVersion` 1, which map each ID to a `path#selector` target, still work with a `PLAN_V1_DEPRECATED` warning until Stele 0.2.0. Convert one with `npx stele plan migrate --change <change>`.
 

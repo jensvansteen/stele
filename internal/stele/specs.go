@@ -17,6 +17,9 @@ var (
 	verificationIDPattern = regexp.MustCompile(`^Verification-ID:\s*(\S+)\s*$`)
 	stepBulletPattern     = regexp.MustCompile(`^[-*+]\s+(.*)$`)
 	stepKeywordPattern    = regexp.MustCompile(`^\*\*([A-Za-z][A-Za-z ]*?)\*\*:?\s*(.*)$`)
+	// removedBulletPattern matches the bullet form of a removed requirement,
+	// such as "- `### Requirement: Export todos`".
+	removedBulletPattern = regexp.MustCompile("^\\s*[-*+]\\s*`?###\\s*Requirement:\\s*(.+?)`?\\s*$")
 )
 
 type identityTarget uint8
@@ -39,6 +42,9 @@ type specFileParser struct {
 	// requirementText those of the open requirement body.
 	scenarioText    *string
 	requirementText *string
+	// section is the delta section of the current line, such as "REMOVED".
+	section string
+	removed []RemovedRequirement
 }
 
 func diagnostic(code, severity, message, path string, line int, identity string) Diagnostic {
@@ -75,6 +81,7 @@ func parseSpecFiles(root string, files []string, fix string) (ParsedSpecs, error
 		Diagnostics:  []Diagnostic{},
 		Files:        []string{},
 		Annotations:  []SpecAnnotation{},
+		Removed:      []RemovedRequirement{},
 	}
 
 	for _, file := range files {
@@ -85,8 +92,9 @@ func parseSpecFiles(root string, files []string, fix string) (ParsedSpecs, error
 		relative = filepath.ToSlash(relative)
 		parsed.Files = append(parsed.Files, relative)
 
-		requirements, diagnostics, annotation, err := parseSpecFile(file, relative, fix)
+		requirements, diagnostics, annotation, removed, err := parseSpecFile(file, relative, fix)
 		parsed.Requirements = append(parsed.Requirements, requirements...)
+		parsed.Removed = append(parsed.Removed, removed...)
 		parsed.Diagnostics = append(parsed.Diagnostics, diagnostics...)
 		parsed.Annotations = append(parsed.Annotations, annotation)
 		if err != nil {
@@ -101,11 +109,13 @@ func parseSpecFiles(root string, files []string, fix string) (ParsedSpecs, error
 	return parsed, nil
 }
 
-func parseSpecFile(path, relativePath, fix string) ([]Requirement, []Diagnostic, SpecAnnotation, error) {
+func parseSpecFile(path, relativePath, fix string) ([]Requirement, []Diagnostic, SpecAnnotation, []RemovedRequirement,
+	error,
+) {
 	classifier := newAnnotationClassifier(relativePath)
 	handle, err := os.Open(path)
 	if err != nil {
-		return nil, nil, classifier.result(), err
+		return nil, nil, classifier.result(), nil, err
 	}
 	defer func() { _ = handle.Close() }()
 
@@ -118,7 +128,7 @@ func parseSpecFile(path, relativePath, fix string) ([]Requirement, []Diagnostic,
 	}
 	finishSpecText(parser.requirements)
 	parser.diagnostics = append(parser.diagnostics, classifier.diagnostics(fix)...)
-	return parser.requirements, parser.diagnostics, classifier.result(), scanner.Err()
+	return parser.requirements, parser.diagnostics, classifier.result(), parser.removed, scanner.Err()
 }
 
 // finishSpecText trims the collected requirement text and derives each
@@ -170,6 +180,14 @@ func (parser *specFileParser) parseLine(line string) {
 		parser.scenarioText = nil
 		parser.requirementText = nil
 	}
+	if match := deltaSectionPattern.FindStringSubmatch(line); match != nil {
+		parser.section = strings.ToUpper(match[1])
+		return
+	}
+	if parser.section == "REMOVED" {
+		parser.parseRemovedLine(line)
+		return
+	}
 	if match := requirementPattern.FindStringSubmatch(line); match != nil {
 		parser.beginRequirement(match[1])
 		return
@@ -187,6 +205,23 @@ func (parser *specFileParser) parseLine(line string) {
 	}
 	if parser.requirementText != nil {
 		*parser.requirementText += "\n" + line
+	}
+}
+
+// parseRemovedLine records a removed requirement, written as a header or as a
+// bullet naming one. Nothing under REMOVED is an active requirement, so the
+// requirement and scenario that were open before the section stay closed.
+func (parser *specFileParser) parseRemovedLine(line string) {
+	parser.currentRequirement, parser.currentScenario, parser.target = nil, nil, noIdentityTarget
+	match := requirementPattern.FindStringSubmatch(line)
+	if match == nil {
+		match = removedBulletPattern.FindStringSubmatch(line)
+	}
+	if match != nil {
+		parser.removed = append(parser.removed, RemovedRequirement{
+			Name:   strings.TrimSpace(match[1]),
+			Source: Source{Path: parser.path, Line: parser.line},
+		})
 	}
 }
 
