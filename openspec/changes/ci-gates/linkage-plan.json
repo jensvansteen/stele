@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 2,
+  "changeId": "ci-gates",
+  "scenarios": {
+    "scn.terminalreport.447957e12de7": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.447957e12de7.unit",
+          "level": "unit",
+          "rationale": "Failed tests are not diagnostics and could be left out or lose their location and evidence ID. Rendering from a built report is pure.",
+          "placement": "internal/stele/annotations_test.go, beside the new annotations.go"
+        }
+      ]
+    },
+    "scn.terminalreport.50fd0b8c9244": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.50fd0b8c9244.unit",
+          "level": "unit",
+          "rationale": "A typo could be accepted and silently leave annotations off. Option parsing in process.",
+          "placement": "internal/stele/cli_test.go, beside the unknown color mode test"
+        }
+      ]
+    },
+    "scn.terminalreport.be5c922ef009": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.be5c922ef009.unit",
+          "level": "unit",
+          "rationale": "123 annotations could flood the log past GitHub's limit, the remainder be off by one, or --details be ignored. Pure over synthetic findings.",
+          "placement": "internal/stele/annotations_test.go"
+        }
+      ]
+    },
+    "scn.terminalreport.d9386a6ce84d": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.d9386a6ce84d.unit",
+          "level": "unit",
+          "rationale": "The annotation could lack or misplace file and line, or turning annotations on could change standard output or the exit code. Two in-process runs with a stubbed environment compare exactly.",
+          "placement": "internal/stele/cli_test.go, beside the validate command tests"
+        }
+      ]
+    },
+    "scn.terminalreport.e045d1b2d55c": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.e045d1b2d55c.unit",
+          "level": "unit",
+          "rationale": "Annotations could leak into terminals and other CI systems, or never could lose to the environment. Option parsing plus the environment seam, in process.",
+          "placement": "internal/stele/cli_test.go, beside the --color and NO_COLOR tests"
+        }
+      ]
+    },
+    "scn.terminalreport.f466c27970e9": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.f466c27970e9.unit",
+          "level": "unit",
+          "rationale": "A percent sign or line break could split the command, or a comma cut a property. The encoder is pure.",
+          "placement": "internal/stele/annotations_test.go"
+        }
+      ]
+    },
+    "scn.terminalreport.fbadf694cd04": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.fbadf694cd04.unit",
+          "level": "unit",
+          "rationale": "With --root, annotations could point at wrong files on the diff. Path mapping over temporary directories is in process.",
+          "placement": "internal/stele/annotations_test.go"
+        }
+      ]
+    },
+    "scn.validate.0c6103aa40e7": {
+      "evidence": [
+        {
+          "id": "scn.validate.0c6103aa40e7.unit",
+          "level": "unit",
+          "rationale": "The ID and annotation steps of check are not validation diagnostics and could be left out, or get the wrong heading line. Run in process over a fixture change with a stubbed environment.",
+          "placement": "internal/stele/check_test.go, beside the ID-step test"
+        }
+      ]
+    },
+    "scn.validate.704b1662c309": {
+      "evidence": [
+        {
+          "id": "scn.validate.704b1662c309.unit",
+          "level": "unit",
+          "rationale": "A step could skip the current specifications or a change, which the repository's second CI gate relies on. A fixture with specs and two changes runs in process.",
+          "placement": "internal/stele/check_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.validate.d768594936b1": {
+      "evidence": [
+        {
+          "id": "scn.validate.d768594936b1.unit",
+          "level": "unit",
+          "rationale": "Exit code 1 could mask a tool failure. A stubbed OpenSpec failure in process shows the combined code.",
+          "placement": "internal/stele/check_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.validate.ddff25a243df": {
+      "evidence": [
+        {
+          "id": "scn.validate.ddff25a243df.e2e",
+          "level": "e2e",
+          "rationale": "Distinct risk: GitHub Actions runs the installed binary without a terminal, where exit code, both streams, annotation detection from the real environment, and bundled OpenSpec decide together.",
+          "placement": "tests/package_install_test.go, in the consumer project (existing test, now with GITHUB_ACTIONS=true)"
+        }
+      ]
+    },
+    "scn.validate.ed99aac59b49": {
+      "evidence": [
+        {
+          "id": "scn.validate.ed99aac59b49.unit",
+          "level": "unit",
+          "rationale": "An early failure could skip later steps, or the summary misreport them. Run in process over a fixture change.",
+          "placement": "internal/stele/check_test.go (existing test)"
+        }
+      ]
+    }
+  }
+}
