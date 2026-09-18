@@ -29,6 +29,8 @@ type checkStepSummary struct {
 	name, detail string
 	code         int
 	lines        []string
+	// annotations locate the step's findings for GitHub Actions.
+	annotations []annotation
 }
 
 // checkCommand runs the ID check, the annotation check, and validation for
@@ -43,6 +45,8 @@ func checkCommand(parsed options, stdout, stderr io.Writer) int {
 	}
 	identities, identitiesStep := checkIdentities(parsed.root, scopes)
 	annotations, annotationsStep := checkAnnotations(parsed.root, scopes)
+	parsed.annotations.addAll(identities.annotations)
+	parsed.annotations.addAll(annotations.annotations)
 	var validation bytes.Buffer
 	validate := parsed
 	validate.color = choose(colorEnabled(parsed.color, stdout), "always", "never")
@@ -94,8 +98,10 @@ func checkIdentities(root string, scopes []verificationScope) (checkStepSummary,
 		if result.Verdict != "pass" {
 			summary.code = 1
 		}
+		name, _, _ := scopeName(scope)
 		for _, insertion := range result.Insertions {
 			missing++
+			summary.annotations = append(summary.annotations, identityAnnotation(insertion, scopeFlag(scope, name)))
 			summary.lines = append(summary.lines, fmt.Sprintf("%s:%d %s %q", insertion.Path, insertion.Line,
 				insertion.Kind, insertion.Title))
 		}
@@ -121,6 +127,8 @@ func checkAnnotations(root string, scopes []verificationScope) (checkStepSummary
 		if file.State != annotationAnnotated {
 			summary.code = 1
 			summary.lines = append(summary.lines, fmt.Sprintf("%s %s", strings.ToUpper(file.State), file.Path))
+			summary.annotations = append(summary.annotations,
+				fileAnnotation(file, choose(file.Scope == "specs", "--specs", "--change "+file.Scope)))
 		}
 	}
 	if summary.code != 0 {

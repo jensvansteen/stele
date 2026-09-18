@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added `--annotations=auto|github|never` to `validate`, `verify`, `test`, and `check`. In GitHub Actions (`GITHUB_ACTIONS=true`), Stele writes each finding the report shows and each failed test as an `::error` or `::warning` workflow command to standard error, so they appear inline on the pull request diff. Truncated groups add one annotation that counts the rest, and `--details` annotates every finding. Paths are relative to `GITHUB_WORKSPACE`. `stele check` also annotates missing Verification-IDs and specification files without a valid annotation. Standard output, JSON, report and evidence files, and exit codes are unchanged; `--annotations=never` turns annotations off. Any other value exits with code `2`.
+- Added the [Continuous integration](https://jensvansteen.github.io/stele/guide/continuous-integration) guide with a ready-to-copy GitHub Actions workflow that runs `npx stele check --all`, and notes on exit codes, output, pinning, browser e2e evidence, and merging changes complete.
+- Stele's own CI now also runs `stele check --all` with the Stele built from the pull request, so every active change must be approved, implemented, and passing before it merges.
+
 ## 0.1.0-rc.4 — Release candidate
 
 - Stele is now released under the MIT License: the repository has a `LICENSE` file, and the npm package declares `"license": "MIT"` and ships the license text.

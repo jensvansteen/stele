@@ -21,7 +21,7 @@ See proposal.md for the problem. The current state that shapes the approach:
 **Non-Goals:**
 
 - The release workflow.
-- `fast-runs` (batching and parallel test execution), and the execution groups it adds.
+- `fast-runs` (test batching; parallel execution is deferred).
 - A GitHub step summary, `::group::` folding, or annotation formats of other CI systems.
 - Checking a change at the proposal stage in CI (see Decision 7).
 
@@ -107,7 +107,9 @@ An e2e run of the workflow, for example with `act` and Docker, was rejected. It 
 - **Proposal stage for all active changes.** This drops evidence, the problem this change fixes.
 - **A pull request label or a list of in-progress changes in configuration.** This adds a manual override to a gate meant to be mechanical.
 
-This is the main open question for the reviewer.
+*Decided:* the maintainer accepted this rule before implementation started (2026-09-18).
+
+*Known gap:* `stele check --stage proposal` does not work today, so a plan cannot be gated in CI on its own. Making it work is a separate follow-up change, not part of this one.
 
 ### 8. GitHub Actions annotations: auto-detected, with an override
 
@@ -202,7 +204,7 @@ The page explains:
 - **Output:** without a terminal, output is plain and uncolored, and `NO_COLOR` is respected. Progress goes to standard error. `--quiet` prints only the verdict line. `--json` is the machine interface, and nobody should parse the human report. Annotations appear inline in GitHub Actions, with `--annotations=never` to opt out.
 - **Pinning:** `stele-spec` is pinned in `package-lock.json`, so `npx stele` runs the locked version.
 - **The merge rule:** `--all` gates every active change at the implementation stage (Decision 7).
-- **Performance:** the planned `fast-runs` change will add parallel execution and `execution.groups` in `stele.config.json`. The page links to the CLI reference for it once released. Until then it says only that the page will cover it.
+- **Performance:** the page does not mention `execution.groups` (open question 4, decided): `fast-runs` now covers batching only, and parallel execution is deferred.
 
 Getting started links to the guide where it mentions CI. The CLI reference links to it from `stele check` and from "Determinism in CI". The sidebar lists the guide after "Build a verified change".
 
@@ -211,13 +213,26 @@ Getting started links to the guide where it mentions CI. The CLI reference links
 - **Self-grading in the second gate.** A defect in the build under review can hide its own findings. Mitigation: `verify:self` (Decision 1) and review. The window closes at the next release.
 - **The merge rule blocks plan-only merges** (Decision 7). This is a workflow change for the maintainer.
 - **Longer Linux job**, 1–2 minutes until `fast-runs` lands.
-- **Duplicate annotations later.** Once `stele-published` contains this feature, `verify:self` also annotates the current specifications, and both gates would annotate the same findings. This only happens when both fail on the current specifications. Accept it, or pass `--annotations=never` to `verify:self` then (open question).
+- **Duplicate annotations later.** Once `stele-published` contains this feature, `verify:self` also annotates the current specifications, and both gates would annotate the same findings. This only happens when both fail on the current specifications. `verify:self` passes `--annotations=never` once the published package supports it (open question 3, decided; task 6.3).
 - **The annotation limit.** GitHub shows only the first 10 errors per step inline. The full list stays in the log and the report.
 - **The line-based `ci.yml` test** breaks when the workflow is restructured. It fails loudly, which is the point.
 
+## Open questions (decided)
+
+Decided by the maintainer in chat on 2026-09-18, before implementation started:
+
+1. **Decision 7, changes merge complete:** accepted.
+2. **Repository-process specifications**, requirements for this repository's workflow and documentation: out of scope (Decision 6).
+3. **Duplicate annotations from `verify:self`:** `verify:self` passes `--annotations=never` once the published package supports it. Task 6.3 stays a post-release task.
+4. **`execution.groups` in the guide:** not mentioned. `fast-runs` now covers batching only; parallel execution is deferred.
+5. **The GitHub step summary and `::group::` folding:** deferred.
+6. **Whether the new step behaves as planned in GitHub Actions:** confirmed in the first CI run (task 6.2).
+
+Known gap, out of scope: `stele check --stage proposal` (Decision 7) is a separate future follow-up.
+
 ## Verification strategy
 
-**Status: proposed, awaiting approval.** No entry is approved. `stele approve` is the maintainer's action.
+**Status: approved by jensvansteen on 2026-09-18, before implementation started (via: cli).** All 12 entries are approved in `linkage-plan.json`.
 
 Placement follows AGENTS.md: co-located Go tests in `internal/stele`, CLI contract tests in `tests/cli.test.mts`, and packed-package tests in `tests/package_install_test.go`. Placement is advisory. Unit tests call the annotation renderer or `Run` in process, with `lookupEnv` stubbed.
 

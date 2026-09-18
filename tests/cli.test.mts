@@ -16,8 +16,18 @@ interface VerificationReport {
 
 const ROOT: string = path.resolve(import.meta.dirname, "..");
 
+// The environment of every binary these tests start, without GitHub Actions,
+// so the output is the same locally and in CI, and failing fixtures print no
+// annotations into this repository's job log.
+function testEnvironment(): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = { ...process.env };
+  delete environment.GITHUB_ACTIONS;
+  delete environment.GITHUB_WORKSPACE;
+  return environment;
+}
+
 function cli(args: readonly string[]): SpawnSyncReturns<string> {
-  return spawnSync("dist/stele", args, { cwd: ROOT, encoding: "utf8" });
+  return spawnSync("dist/stele", args, { cwd: ROOT, encoding: "utf8", env: testEnvironment() });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -186,7 +196,7 @@ void test("verifies current specifications after archiving", async (context: Tes
   const archived: SpawnSyncReturns<string> = spawnSync(
     "node",
     [OPENSPEC_CLI, "archive", "todo-basics", "--yes"],
-    { cwd: root, encoding: "utf8", env: { ...process.env, OPENSPEC_TELEMETRY: "0" } },
+    { cwd: root, encoding: "utf8", env: { ...testEnvironment(), OPENSPEC_TELEMETRY: "0" } },
   );
   assert.equal(archived.status, 0, archived.stdout + archived.stderr);
 
@@ -601,7 +611,7 @@ function cliOnTerminal(args: readonly string[]): SpawnSyncReturns<string> {
     cwd: ROOT,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, TERM: "xterm-256color", NO_COLOR: "", COLUMNS: "120" },
+    env: { ...testEnvironment(), TERM: "xterm-256color", NO_COLOR: "", COLUMNS: "120" },
   });
 }
 

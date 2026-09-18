@@ -18,7 +18,7 @@ Stele users need the same gate, but the documentation gives no ready-made CI set
 - **GitHub Actions annotations.** `stele validate`, `verify`, `test`, and `check` get `--annotations=auto|github|never`. With `auto`, the default, Stele writes `::error` and `::warning` workflow commands to standard error when `GITHUB_ACTIONS` is `true`, so findings, failed tests, missing IDs, and missing annotations appear inline on the pull request diff. Annotations are presentation only, like progress: standard output, JSON, report and evidence files, and exit codes do not change.
 - **A "Continuous integration" guide for Stele users**, `docs/guide/continuous-integration.md`:
   - a ready-to-copy GitHub Actions workflow: Node 24, `npm ci` with the npm cache, `npx stele check --all`, report upload;
-  - notes on browsers for e2e evidence, such as Playwright's Chromium and its cache, and on the execution groups that the planned `fast-runs` change will add;
+  - notes on browsers for e2e evidence, such as Playwright's Chromium and its cache;
   - generic CI notes: exit codes `0`, `1`, and `2`, the non-terminal output, `NO_COLOR`, `--quiet`, `--json`, and annotations.
 
   Getting started, the CLI reference, and the sidebar link to it.

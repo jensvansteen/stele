@@ -28,6 +28,7 @@ export default defineConfig({
           { text: "Build the Todo feature", link: "/guide/build-todo" },
           { text: "Inspect the Todo example", link: "/guide/inspect-example" },
           { text: "Build a verified change", link: "/guide/verified-change" },
+          { text: "Continuous integration", link: "/guide/continuous-integration" },
           { text: "Use Stele with OpenSpec", link: "/guide/openspec" },
           { text: "Use a local package", link: "/guide/local-package" },
         ],

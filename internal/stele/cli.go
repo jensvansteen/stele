@@ -34,9 +34,10 @@ Usage:
                 [--by NAME] [--root PATH]
   stele plan migrate [--change ID | --specs] [--root PATH]
 
-OUTPUT is [--details] [--quiet] [--color auto|always|never]: --details lists every finding, --quiet prints
-only the verdict line, and --color auto colors terminals unless NO_COLOR is set. Progress goes to
-standard error; --json output on standard output is unchanged.
+OUTPUT is [--details] [--quiet] [--color auto|always|never] [--annotations auto|github|never]: --details
+lists every finding, --quiet prints only the verdict line, --color auto colors terminals unless NO_COLOR
+is set, and --annotations auto writes GitHub Actions annotations when GITHUB_ACTIONS is true. Progress and
+annotations go to standard error; --json output on standard output is unchanged.
 stele check runs stele ids --check, stele annotate --check, and stele validate, and exits with the worst code.
 Test targets are requirement, scenario, or evidence IDs, or spec.md files under openspec/.
 --report and --evidence are deprecated aliases of --report-file and --evidence-file until 0.2.0.
@@ -82,6 +83,10 @@ type options struct {
 	details bool
 	quiet   bool
 	color   string
+	// annotationMode is --annotations, and annotations collects the GitHub
+	// Actions annotations of the run when they are on.
+	annotationMode string
+	annotations    *annotationSink
 }
 
 type validationResult struct {
@@ -168,7 +173,10 @@ func Run(arguments []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
-	return routeCommand(command, parsed, stdout, stderr)
+	parsed.annotations = newAnnotationSink(parsed.annotationMode, parsed.root)
+	code := routeCommand(command, parsed, stdout, stderr)
+	parsed.annotations.flush(stderr)
+	return code
 }
 
 // writeHelp prints the help text, headed by the package version that the
@@ -329,6 +337,10 @@ func parseOptions(command string, arguments []string) (options, error) {
 	if parsed.color != "" && !colorModes[parsed.color] {
 		return options{}, fmt.Errorf("unknown --color value %q; accepted values: auto, always, never", parsed.color)
 	}
+	if parsed.annotationMode != "" && !annotationModes[parsed.annotationMode] {
+		return options{}, fmt.Errorf("unknown --annotations value %q; accepted values: auto, github, never",
+			parsed.annotationMode)
+	}
 	return parsed, nil
 }
 
@@ -434,6 +446,8 @@ func registerCommandFlags(flags *flag.FlagSet, command string, parsed *options) 
 		flags.BoolVar(&parsed.details, "details", false, "list every finding without truncation")
 		flags.BoolVar(&parsed.quiet, "quiet", false, "print only the verdict line and no progress")
 		flags.StringVar(&parsed.color, "color", "auto", "color: auto, always, or never")
+		flags.StringVar(&parsed.annotationMode, "annotations", "auto",
+			"GitHub Actions annotations: auto, github, or never")
 		fallthrough
 	default:
 		flags.BoolVar(&parsed.allScopes, "all", false, "check the current specifications and every active change")
@@ -503,21 +517,22 @@ func verifyCommand(parsed options, stdout, stderr io.Writer) int {
 	}
 	parsed.every.collect(report)
 	passed := report.Verdicts.Linkage == "pass"
+	input := humanReportInput{command: "verify", scope: scope, report: &report, passed: passed}
+	if report.Mode == "implementation" {
+		input.testsRelevant = true
+		input.executions = storedExecutions(parsed.root, report)
+		input.currentDigest = report.Repository.InputDigest
+		if report.Verdicts.Overall != "pass" {
+			input.notes = append(input.notes, "overall "+report.Verdicts.Overall+
+				" (test execution "+strings.ReplaceAll(report.Verdicts.Execution, "-", " ")+")")
+		}
+	}
 	if parsed.json {
 		writeMachineJSON(stdout, report)
 	} else {
-		input := humanReportInput{command: "verify", scope: scope, report: &report, passed: passed}
-		if report.Mode == "implementation" {
-			input.testsRelevant = true
-			input.executions = storedExecutions(parsed.root, report)
-			input.currentDigest = report.Repository.InputDigest
-			if report.Verdicts.Overall != "pass" {
-				input.notes = append(input.notes, "overall "+report.Verdicts.Overall+
-					" (test execution "+strings.ReplaceAll(report.Verdicts.Execution, "-", " ")+")")
-			}
-		}
 		parsed.writeReport(stdout, input)
 	}
+	parsed.annotate(input)
 	return parsed.every.versionCheck(resultExitCode(passed), parsed, stderr)
 }
 
@@ -577,20 +592,21 @@ func testCommand(parsed options, stdout, stderr io.Writer) int {
 		passed = selectedPassed(run.selected)
 		executions = append(append([]TestExecution{}, run.selected...), staleExecutions(run)...)
 	}
+	input := humanReportInput{
+		command: "test", scope: scope, specs: run.parsed.Requirements,
+		executions: executions, currentDigest: run.evidence.InputDigest, testsRelevant: true,
+		duration: &duration, passed: passed,
+	}
+	if run.targeted {
+		input.notes = []string{fmt.Sprintf("scope evidence: %d/%d scenarios passed",
+			countPassed(run.evidence), len(run.evidence.Scenarios))}
+	}
 	if parsed.json {
 		writeMachineJSON(stdout, run.evidence)
 	} else {
-		input := humanReportInput{
-			command: "test", scope: scope, specs: run.parsed.Requirements,
-			executions: executions, currentDigest: run.evidence.InputDigest, testsRelevant: true,
-			duration: &duration, passed: passed,
-		}
-		if run.targeted {
-			input.notes = []string{fmt.Sprintf("scope evidence: %d/%d scenarios passed",
-				countPassed(run.evidence), len(run.evidence.Scenarios))}
-		}
 		parsed.writeReport(stdout, input)
 	}
+	parsed.annotate(input)
 	return resultExitCode(passed)
 }
 
@@ -664,15 +680,17 @@ func validateCommand(parsed options, stdout, stderr io.Writer) int {
 	}
 	parsed.every.collect(report)
 	passed := evidence.Outcome == "passed" && openSpecPassed && report.Verdicts.Linkage == "pass"
+	input := humanReportInput{
+		command: "validate", scope: scope, report: &report,
+		executions: evidence.Executions, currentDigest: evidence.InputDigest, testsRelevant: true,
+		openSpec: &openSpecPassed, duration: &duration, passed: passed,
+	}
 	if parsed.json {
 		writeMachineJSON(stdout, newValidationResult(evidence, report, openSpecPassed, passed))
 	} else {
-		parsed.writeReport(stdout, humanReportInput{
-			command: "validate", scope: scope, report: &report,
-			executions: evidence.Executions, currentDigest: evidence.InputDigest, testsRelevant: true,
-			openSpec: &openSpecPassed, duration: &duration, passed: passed,
-		})
+		parsed.writeReport(stdout, input)
 	}
+	parsed.annotate(input)
 	return parsed.every.versionCheck(resultExitCode(passed), parsed, stderr)
 }
 

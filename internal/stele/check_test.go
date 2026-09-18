@@ -101,3 +101,39 @@ func TestCheckCoversEveryScope(t *testing.T) {
 		"✗ FAILED  check · all scopes — annotations, validation",
 	)
 }
+
+// @verifies scn.validate.0c6103aa40e7.unit
+func TestCheckAnnotatesMissingIDsAndAnnotations(t *testing.T) {
+	root := allScopesFixture(t)
+	recordTests(t)
+	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `<!-- stele: spec v1 -->
+### Requirement: Return value
+Verification-ID: req.demo.aaaaaaaaaaaa
+#### Scenario: Value is returned
+Verification-ID: scn.demo.bbbbbbbbbbbb
+#### Scenario: Value is cached
+`)
+	stubEnvironment(t, map[string]string{"GITHUB_ACTIONS": "true"})
+	code, _, stderr := runCommand(t, "check", "--root", root, "--change", "example")
+	if code != 1 || !strings.Contains(stderr,
+		"::error file=openspec/changes/example/specs/demo/spec.md,line=6,title=ID_SCENARIO_MISSING::"+
+			"A scenario has no Verification-ID. scenario \"Value is cached\"; run `stele ids --change example`") {
+		t.Fatalf("check annotations = %d\n%s", code, stderr)
+	}
+	code, stdout, stderr := runCommand(t, "check", "--all", "--root", root, "--json")
+	if code != 1 || !json.Valid([]byte(stdout)) || strings.Count(stderr, "title=ID_SCENARIO_MISSING::") != 2 {
+		t.Fatalf("check --all --json = %d\n%s", code, stderr)
+	}
+	assertOrdered(t, stderr,
+		"::error file=openspec/changes/example/specs/demo/spec.md,line=6,title=ID_SCENARIO_MISSING::",
+		"::error file=openspec/specs/demo/spec.md,title=SPEC_ANNOTATION_MISSING::"+
+			"A specification file has no Stele annotation. Fix: run `stele annotate --specs`",
+		"::error file=openspec/changes/broken/specs/broken/spec.md,title=SPEC_ANNOTATION_MISSING::",
+		"title=LINK_CODE_MISSING::",
+	)
+	requirement := identityAnnotation(
+		IdentityInsertion{Kind: "requirement", Title: "R", Path: "s.md", Line: 2}, "--specs")
+	if requirement.title != "ID_REQUIREMENT_MISSING" {
+		t.Fatalf("requirement annotation = %#v", requirement)
+	}
+}

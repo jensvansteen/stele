@@ -180,7 +180,7 @@ npx stele test scn.todo.20d9cd2785a4
 npx stele test openspec/changes/todo-basics/specs/todo/spec.md
 ```
 
-`npx stele verify` then reports linkage, execution, and an overall verdict separately; it stays `incomplete` until every scenario's tests have run with the current inputs. `npx stele index` prints the links as JSON for editors, including each scenario's `WHEN`/`THEN` steps; see [Link index](/reference/link-index). In CI, `npx stele check --all` checks IDs, annotations, the current specifications, and every active change in one step, with plain progress lines and one exit code.
+`npx stele verify` then reports linkage, execution, and an overall verdict separately; it stays `incomplete` until every scenario's tests have run with the current inputs. `npx stele index` prints the links as JSON for editors, including each scenario's `WHEN`/`THEN` steps; see [Link index](/reference/link-index). In CI, `npx stele check --all` checks IDs, annotations, the current specifications, and every active change in one step, with plain progress lines and one exit code. [Continuous integration](/guide/continuous-integration) has a ready-to-copy GitHub Actions workflow.
 
 Plans with `schemaVersion` 1, which map each ID to a `path#selector` target, still work with a `PLAN_V1_DEPRECATED` warning until Stele 0.2.0. Convert one with `npx stele plan migrate --change <change>`.
 

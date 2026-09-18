@@ -19,7 +19,7 @@ stele help
 stele version
 ```
 
-`OUTPUT` is `[--details] [--quiet] [--color auto|always|never]`; see [Terminal output](#terminal-output). `stele --version` prints the version of the npm package that contains the binary, such as `0.1.0-rc.4`; a binary built outside the package build prints `0.0.0-dev`.
+`OUTPUT` is `[--details] [--quiet] [--color auto|always|never] [--annotations auto|github|never]`; see [Terminal output](#terminal-output). `stele --version` prints the version of the npm package that contains the binary, such as `0.1.0-rc.4`; a binary built outside the package build prints `0.0.0-dev`.
 
 ## `stele init`
 
@@ -193,6 +193,8 @@ The exit code is the worst of the steps: `2` when a step could not run, else `1`
 
 With `--specs`, OpenSpec validates all specifications with `openspec validate --specs --strict`.
 
+In GitHub Actions, `check` also annotates each missing Verification-ID at its heading and each specification file without a valid annotation; see [GitHub Actions annotations](#github-actions-annotations). [Continuous integration](/guide/continuous-integration) has a workflow that runs `stele check --all`.
+
 ## `stele index`
 
 Prints a deterministic JSON link index for editors and review tools: every requirement and scenario with its text, structured steps, and source location; every code and test anchor with its status; the planned evidence with its approval state; and the last execution outcome of each piece of evidence, marked `stale` when inputs changed since. It writes to standard output, or with `--output-file PATH` to that file. `--json` is accepted for symmetry; the output is always JSON. Identical inputs give identical bytes, without timestamps.
@@ -350,8 +352,10 @@ Errors
 | `--quiet` | Print only the verdict line, and no progress; errors that stop the command still go to standard error |
 | `--color auto` | Default. Color a stream only when it is a terminal, `NO_COLOR` is unset or empty, and `TERM` is not `dumb` |
 | `--color always`, `--color never` | Force color on or off, whatever `NO_COLOR` and the terminal say |
+| `--annotations auto` | Default. Write GitHub Actions annotations to standard error only when `GITHUB_ACTIONS` is `true` |
+| `--annotations github`, `--annotations never` | Force annotations on or off, whatever `GITHUB_ACTIONS` says |
 
-Any other `--color` value exits with code `2`. `--json` output is the same whatever these options say.
+Any other `--color` or `--annotations` value exits with code `2`. `--json` output is the same whatever these options say.
 
 ### Progress
 
@@ -371,9 +375,25 @@ test execution: 3/3 passed (1.8s)
 
 `TERM=dumb` gets plain lines. `--quiet` turns progress off.
 
+### GitHub Actions annotations
+
+When annotations are on, `validate`, `verify`, `test`, and `check` write one [workflow command](https://docs.github.com/actions/reference/workflows-and-actions/workflow-commands) per finding the report shows and per failed test to standard error, after the run:
+
+```text
+::error file=openspec/specs/todo/spec.md,line=12,title=PLAN_UNAPPROVED::Planned evidence has no human approval yet. scn.todo.591a3b429cf0.e2e · Save entered text
+::error file=tests/todo.test.mts,line=20,title=Test failed::saves entered text · scn.todo.591a3b429cf0.e2e · Save entered text
+::error title=PLAN_UNAPPROVED::118 more findings not shown; run with --details to list every one
+```
+
+- Errors and failed tests are `::error`, and warnings `::warning`. `title` is the diagnostic code, or `Test failed`. The message is the code's meaning, then the ID and title.
+- A group the report truncates adds one annotation without a location that counts the rest; `--details` annotates every finding.
+- `check` also annotates missing Verification-IDs (`ID_REQUIREMENT_MISSING`, `ID_SCENARIO_MISSING`) at their heading, and files without a valid annotation (`SPEC_ANNOTATION_*`).
+- Paths are relative to `GITHUB_WORKSPACE` when the project root lies inside it, so `--root app` gives `file=app/src/todo.ts`, and relative to the root otherwise. Values are escaped as GitHub requires, and identical lines are written once.
+- Standard output, JSON output, report and evidence files, and exit codes do not change. `--quiet` and `--json` do not turn annotations off.
+
 ### Determinism in CI
 
-For identical inputs, the report is byte-identical apart from its durations. JSON output, report files, and evidence files never contain durations or progress. Gate on the exit code and read JSON for automation; the human report may change between releases.
+For identical inputs, the report is byte-identical apart from its durations, and annotations are byte-identical. JSON output, report files, and evidence files never contain durations or progress. Gate on the exit code and read JSON for automation; the human report may change between releases. See [Continuous integration](/guide/continuous-integration) for a GitHub Actions workflow.
 
 ### Diagnostics
 
