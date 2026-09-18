@@ -1,0 +1,805 @@
+{
+  "schemaVersion": 2,
+  "changeId": "editor-language-server",
+  "scenarios": {
+    "scn.languageserver.015bb7af18f8": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.015bb7af18f8.unit",
+          "level": "unit",
+          "rationale": "Risk: a stale pass reads as green. Pure over a fixture index with a changed digest.",
+          "placement": "lsp_hover_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:d0c8ce3259f111f70717e0d91384b961b3ccf55912cfe85710913c30775fcd29",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.074136f1f47f": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.074136f1f47f.unit",
+          "level": "unit",
+          "rationale": "Risk: extra tests run or other outcomes are lost. The recording stub plus a real temporary evidence file show both; real test execution is already covered by link-index's runner evidence.",
+          "placement": "internal/stele/lsp_run_test.go, with the runner's recording stub",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:bd5cf7b27a5e48582a3e8ba16e8168165293a8491e3e24fe2548b1159142618a",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.08b3c3878af0": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.08b3c3878af0.unit",
+          "level": "unit",
+          "rationale": "Risk: wrong line or column (UTF-16 vs UTF-8). Pure position mapping over fixtures with non-ASCII text.",
+          "placement": "internal/stele/lsp_definition_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:9f08308d54cbb7c55271929ea8eac04216ef0a7e56893d9d8dbfd30b83f1c416",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.100060104a1b": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.100060104a1b.unit",
+          "level": "unit",
+          "rationale": "Risk: a scenario's tests or a scope's heading are missing, or a location repeats. Pure over a two-scope fixture index.",
+          "placement": "lsp_definition_test.go, beside definition (same lookup)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:f7c382b60baba398cd1d3a8bb2ba155fc072cd2e3ad5b3ca922a01afdcfcf48b",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.106cfbc87c5b": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.106cfbc87c5b.unit",
+          "level": "unit",
+          "rationale": "Risk: diagnostics linger after a fix. In-process session over io.Pipe checks the empty republish.",
+          "placement": "lsp_diagnostics_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:3c4f695448ab53a254530bdefdef8418a42dbf0a7fcfcf8cf4b0bb332f0ce645",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.159800f00b8d": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.159800f00b8d.unit",
+          "level": "unit",
+          "rationale": "Risk: progress never ends, counts go backwards, or a failure is not named, so the editor looks hung. The recording stub emits observer events; the session records $/progress.",
+          "placement": "lsp_run_test.go, with an in-process session",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:6321debdab84c5a608502d2c7c253c0b89630e6f0f359be3d1759651ab084a10",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.16fcd1dc9b41": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.16fcd1dc9b41.unit",
+          "level": "unit",
+          "rationale": "Risk: one bad message kills the session. Framing and dispatch are pure over an io.Pipe.",
+          "placement": "internal/stele/lsp_rpc_test.go, beside framing",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:5493e55e8905c538f9b4d1c99b35f0ce298ff3b33a13d94dca1519b5a0ac00d1",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.28e44f61a51f": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.28e44f61a51f.unit",
+          "level": "unit",
+          "rationale": "Risk: the lens cuts a multi-byte character, varies in length, or shows the wrong steps. Pure over index steps with non-ASCII text.",
+          "placement": "lsp_codelens_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:9e7aa2e3b0dc3a7d6ac956e098572f92b843800b5e9707bd899b3e21758cbbc4",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.28e4bd385efa": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.28e4bd385efa.unit",
+          "level": "unit",
+          "rationale": "Risk: one level's tests are missed. Pure.",
+          "placement": "lsp_definition_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:61bf3ca7d28146095cfe41caf8a271e5c35894d1e760eba17ddb11602e187eb4",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.2d35637c302f": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.2d35637c302f.unit",
+          "level": "unit",
+          "rationale": "Risk: unannotated or unsupported specs are silent, or the policy severity is ignored. Pure over fixture files.",
+          "placement": "lsp_diagnostics_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:413c0fe7bdc07997751dbe76b6657365da95f71bcea339b85b36cc397e3dae08",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.300e9d84bbbd": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.300e9d84bbbd.unit",
+          "level": "unit",
+          "rationale": "Risk: editor-specific branches creep in. Two in-process sessions with different clientInfo.",
+          "placement": "lsp_server_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:ff1affa94a46faf3ba3f4048fb46cb267e136406bb4eb92582741daf14ef22c6",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.39afeb90a2e9": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.39afeb90a2e9.unit",
+          "level": "unit",
+          "rationale": "Risk: new specs are invisible until restart. In process with a created file event.",
+          "placement": "lsp_watch_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:243d2681653d722eee4b377ba57005dfb038ac07611d4bfbbc4038d11d41cffd",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.3a0c2fb46bad": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.3a0c2fb46bad.e2e",
+          "level": "e2e",
+          "rationale": "Risk: stray bytes on stdout (logging, progress, prints), a wrong exit code, or a version not wired in by the build break every editor at once. Only a real process with real pipes built by the release script exposes buffering, framing, exit behavior, and the injected version.",
+          "placement": "tests/cli.test.mts (executable contract of the shipped binary)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:d59fefdd51e090d9ad816978797f9c7e3e2bd738c90655fa2b7c0e2c38cd5b3c",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.3c56123372c1": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.3c56123372c1.unit",
+          "level": "unit",
+          "rationale": "Risk: orphaned test processes, a leaked group environment, or a half-written evidence file. A real child process started through the scheduler's process-group code, in process, with the evidence file's bytes compared before and after; no editor is involved.",
+          "placement": "lsp_run_test.go, with a helper process that blocks until killed and a recording teardown",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:27d566bcf2a23d5402083b795dcb915c6d3241ba2ce01a7d4c396c1b413d4740",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.3efdcf7c5cf2": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.3efdcf7c5cf2.unit",
+          "level": "unit",
+          "rationale": "Risk: editor wording drifts from the terminal report, or the fix names the wrong scope. Pure over the catalogue.",
+          "placement": "lsp_diagnostics_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:3b70deed098f58156fdcd4c86106e1e14e604ab30d8f7917b90969f605d83aa1",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.3f9633e42fd4": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.3f9633e42fd4.unit",
+          "level": "unit",
+          "rationale": "Risk: missing or unordered locations. Pure.",
+          "placement": "lsp_definition_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:470de1915036ab794295828d857e02a9781b303753195e6eee39599e8b93b214",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.4aa8ef7297c3": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.4aa8ef7297c3.unit",
+          "level": "unit",
+          "rationale": "Risk: badges stay old after a CLI run. In process: rewrite the evidence file and send didChangeWatchedFiles, assert refresh and republished diagnostics.",
+          "placement": "lsp_watch_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:1a556c5d519d4fa94527e06d8b61af613c74f7e152c89acd747f4e4597cf03bc",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.4b2f05995999": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.4b2f05995999.unit",
+          "level": "unit",
+          "rationale": "Risk: a second annotation is added above a broken one. Pure.",
+          "placement": "lsp_codeaction_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:9abfadd0cc753090469718c0e2d1d542e1805eb56d0028e470cc31645de0d5d8",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.4edc5f1a06b4": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.4edc5f1a06b4.unit",
+          "level": "unit",
+          "rationale": "Risk: the fix is missing, not preferred, or not linked to its diagnostic. Pure over a fixture document.",
+          "placement": "internal/stele/lsp_codeaction_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:2ba5aba506d91c31bfe084e71d7445729873341241c1d7963588e911e9166250",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.53c81eb42bf4": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.53c81eb42bf4.unit",
+          "level": "unit",
+          "rationale": "Risk: clients without code action literals cannot use the fix. The session records workspace/applyEdit.",
+          "placement": "lsp_codeaction_test.go, with an in-process session",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:573e4bd6267ad336cdfb6a26278442a791cc147b6223700608cde6ff600a81d4",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.53ed0e506ce6": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.53ed0e506ce6.unit",
+          "level": "unit",
+          "rationale": "Risk: clients without window/showDocument get nothing. Two in-process sessions with different capabilities record the server-to-client request.",
+          "placement": "lsp_codelens_test.go, with an in-process session",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:a326ebb17506c892d37dda54e3c350bf83022ede6b84dca64b7638189acb296b",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.59068d53a952": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.59068d53a952.unit",
+          "level": "unit",
+          "rationale": "Risk: the wrong text or scope is shown. Lookup and rendering are pure over a fixture index.",
+          "placement": "internal/stele/lsp_hover_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:9dba0f8824233309d171c01af5e7c90b9c031ca09312d888d2eb4433e767d944",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.5c3579497b2b": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.5c3579497b2b.unit",
+          "level": "unit",
+          "rationale": "Risk: the card drops a continued line, reorders steps, or loses a keyword-less step, so the doc-comment view misstates the behavior. Rendering is pure over index steps.",
+          "placement": "lsp_hover_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:67dd0fcb91ef4424d82bbf020bb4a1829ec6fd4d93bb65f28aef05494d0b74c5",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.5df656e62280": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.5df656e62280.unit",
+          "level": "unit",
+          "rationale": "Risk: a change being planned is flooded with expected findings, or never switches to implementation checks. Fixture plan before and after an approval.",
+          "placement": "lsp_diagnostics_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:e0b157079debc986b789922b08f1144047e3f3db283e275c073d88ab0fa74b08",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.62861d0e5875": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.62861d0e5875.unit",
+          "level": "unit",
+          "rationale": "Risk: raw Markdown in plain-text clients. Capability-driven rendering is pure.",
+          "placement": "lsp_hover_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:5a850e2f8516ffbda0430ebc66577da998a1a1138decf16743ab8c19d7efa9e8",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.72a3e3ef9ecb": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.72a3e3ef9ecb.unit",
+          "level": "unit",
+          "rationale": "Risk: old greens look current. Pure with a changed digest.",
+          "placement": "lsp_diagnostics_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:c355771e5e958cc3e45c7ac0f1b5c74fe5aa8dc3b3add88bbf2add21fbe2f5a7",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.82c1741b92aa": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.82c1741b92aa.unit",
+          "level": "unit",
+          "rationale": "Risk: cache bugs make the editor disagree with the CLI. Seeded pseudo-random edit sequences compared with a from-scratch build, pure.",
+          "placement": "lsp_watch_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:756f75c484deeec423e259c0aae0ae35133638737508afcf4c3e088077397ddc",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.8431050348d1": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.8431050348d1.unit",
+          "level": "unit",
+          "rationale": "Risk: tests for removed behavior stay green in the editor. Pure over a fixture change with a REMOVED requirement.",
+          "placement": "lsp_diagnostics_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:499f42905be52d10462b1c820ab213865ab096cf991d14e7d110fd2105c9ace4",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.8d66c5680555": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.8d66c5680555.unit",
+          "level": "unit",
+          "rationale": "Risk: map order leaks into responses. Two in-process sessions compared byte for byte; the CLI's own determinism e2e already covers cross-process environment effects.",
+          "placement": "lsp_server_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:d37b6301d1a4b35b8ee951466fc03fd86ee239cf62ab5ea78f617dbecf5de00b",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.a12e36dfdfb8": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.a12e36dfdfb8.unit",
+          "level": "unit",
+          "rationale": "Risk: a typo runs everything. The stub proves nothing ran.",
+          "placement": "lsp_run_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:ef4a6093cda7e38b93ccd7b03db5e059bc4a15328a0b0ecea8424d54b92470ce",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.a8fc0b7b6625": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.a8fc0b7b6625.unit",
+          "level": "unit",
+          "rationale": "Risk: editors without dynamic registration (several built-in clients) never refresh. The poller is exercised in process with a fake clock, deterministically.",
+          "placement": "lsp_watch_test.go, with an injected clock for the poller",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:2ca0f76d0d0d4c3d9b07c27624f5054b540009c6f134c27aef2a8fcae4f7b584",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.aa36d54d66ec": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.aa36d54d66ec.unit",
+          "level": "unit",
+          "rationale": "Risk: missing tests are hidden on the spec side. Pure over a fixture index.",
+          "placement": "lsp_hover_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:1251ff6224afe10a75ba5d408fe2b750538db9b35e7d0d010da87c73e00f0353",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.ba15e715dc8b": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.ba15e715dc8b.unit",
+          "level": "unit",
+          "rationale": "Risk: the server reads disk instead of the buffer. In-process session with didChange only.",
+          "placement": "internal/stele/lsp_watch_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:4713250eb8f3ea2d0f2b554c9df8c077ebfb1929a5a8bfe8dbe1825aa768b10a",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.bc6723089290": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.bc6723089290.e2e",
+          "level": "e2e",
+          "rationale": "Distinct risk: the shipped binary's two entry points (stele lsp and stele index) drift in flags, scope, specFiles, or encoding. Only running both through the installed executable shows the editor and CI see the same thing.",
+          "placement": "tests/cli.test.mts, next to link-index's index tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:a2ca44d8d38577a0e7a4ab9c905b5b28b94d8073abedaa89a6b45fb2244ce851",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.be03d984234b": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.be03d984234b.unit",
+          "level": "unit",
+          "rationale": "Risk: half-initialized state serves wrong roots. Lifecycle state machine in process.",
+          "placement": "internal/stele/lsp_server_test.go, beside lifecycle",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:894ebefee2041c08fef78ac72c3140e0faa3d35c859fc48ce2d716b71da4d71a",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.cbace7f5db1a": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.cbace7f5db1a.unit",
+          "level": "unit",
+          "rationale": "Risk: the server builds its own run path and skips groups, setup, or worker IDs, so container tests collide. The seams record the job count, setup, teardown, and environment; real processes are covered by fast-runs.",
+          "placement": "lsp_run_test.go, with fast-runs' batch and group-command seams",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:f17d1d314bd5ee830a9c756182bdd6068d184df96063e452cdd88fb684f95069",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.cd81e42944ee": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.cd81e42944ee.unit",
+          "level": "unit",
+          "rationale": "Risk: reviewers see only one version of a changed requirement. Fixture with an active change and current specs.",
+          "placement": "lsp_hover_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:bb82c93c3a989d2c26fe4cd77d695750c969d0b2dc1723bee1b237d4fd1c94b4",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.cdca0ea9f34c": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.cdca0ea9f34c.unit",
+          "level": "unit",
+          "rationale": "Risk: the test lens runs other levels. Pure.",
+          "placement": "lsp_codelens_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:8059bfbf0b228ed143d4193f57043d6a95e17d62505d8daca8ac253dd996b4be",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.ddba3d8c9626": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.ddba3d8c9626.unit",
+          "level": "unit",
+          "rationale": "Risk: two runs race on the evidence file. A blocking stub makes the overlap deterministic.",
+          "placement": "lsp_run_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:89eee1e949ee25d85f4e6fb910c8c80d7289acfd53a65aac92c6b3f5b2cfdfd2",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.dfffd1e421b4": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.dfffd1e421b4.unit",
+          "level": "unit",
+          "rationale": "Risk: a green run hides a linkage failure, the old verdict confusion in the editor. Pure over stubbed outcomes and a fixture scope.",
+          "placement": "lsp_run_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:5c078aabc0a7b0f8c529e6d950603cf2909d446851dc251b6ca20fcecec8c951",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.e311dc0148f1": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.e311dc0148f1.unit",
+          "level": "unit",
+          "rationale": "Risk: wrong exit code confuses clients' restart logic. The run function returns the code in process; the e2e session covers the real exit path for 0.",
+          "placement": "lsp_server_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:15554be7fe994342989d0f77bf2f814657c2f519e4106ac20e31f03c3f952a95",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.e33a998bdf85": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.e33a998bdf85.unit",
+          "level": "unit",
+          "rationale": "Risk: approved but unimplemented evidence is silent in the editor, or its severity differs from stele verify. Pure.",
+          "placement": "lsp_diagnostics_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:93c3951d562720b3dcd05786b9a510bcde58a6a95a1ab421beb1e6f8600bf8e7",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.e42ad028df53": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.e42ad028df53.unit",
+          "level": "unit",
+          "rationale": "Risk: an evidence ID is not reduced to its scenario, so sibling levels are missed, or the declaration leaks in. Pure.",
+          "placement": "lsp_definition_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:c043578ffa82a00efecb3537192b1f4c88ae32d36efa82bbfca2c0a31ae476bd",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.e6a664740343": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.e6a664740343.unit",
+          "level": "unit",
+          "rationale": "Risk: typos stay invisible, or the code differs from the CLI's. Pure over fixtures, asserting the shared code.",
+          "placement": "internal/stele/lsp_diagnostics_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:3f15f585800dab5121d044b6223bb709f23973606e86a478717dc8604f330544",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.f1cf94d0c1d6": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.f1cf94d0c1d6.unit",
+          "level": "unit",
+          "rationale": "Risk: \"not run\" is hidden by a pass, or the editor combines differently from verdicts.execution. Pure aggregation through the shared rule.",
+          "placement": "lsp_codelens_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:69360e848479103aeaaae6f62d221b10eb30b197cfaf4f9d091a7439a9dd3c5f",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.f584d3ec6c44": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.f584d3ec6c44.unit",
+          "level": "unit",
+          "rationale": "Risk: wrong targets or a misleading badge. Lens building is pure over a fixture index.",
+          "placement": "internal/stele/lsp_codelens_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:d6da2e8e2e9b95945a55d568c222d632873027736f5576a43eb49ace399d91dd",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    },
+    "scn.languageserver.fe68c635aa85": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.fe68c635aa85.unit",
+          "level": "unit",
+          "rationale": "Risk: the edit loses a CRLF, lands before a byte order mark, or adds a stray newline, so stele annotate --check disagrees. The edit is applied in process and compared with insertAnnotation.",
+          "placement": "lsp_codeaction_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:acef1c13469728b9fb7cdb5e23032112029ab63f934f361eb8e95878baaf7de3",
+            "via": "cli",
+            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
+          }
+        }
+      ]
+    }
+  }
+}
