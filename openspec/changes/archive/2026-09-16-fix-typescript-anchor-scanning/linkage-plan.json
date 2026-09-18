@@ -7,7 +7,14 @@
         {
           "id": "scn.tsanchors.e3be49f14532.unit",
           "level": "unit",
-          "rationale": "Migrated from v1; review level and rationale."
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:3fcd0bd2eff36bd51fc3039b740f68bd78db0d25631027e9cb469e9562b8d740",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
         }
       ]
     },
@@ -16,7 +23,14 @@
         {
           "id": "scn.tsanchors.e6114f49ffdc.unit",
           "level": "unit",
-          "rationale": "Migrated from v1; review level and rationale."
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:e268810f300d0b67165d517de4915a37edac9f718b8ecb6bf2fd44a5ac7362fc",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
         }
       ]
     },
@@ -25,7 +39,14 @@
         {
           "id": "scn.tsanchors.f4c1eb23c2ab.unit",
           "level": "unit",
-          "rationale": "Migrated from v1; review level and rationale."
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:2f89ef25e6ac729b76c5ac2a4da6c7763abd1bffda8f63ca1a8d3037a1dc95e9",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
         }
       ]
     },
@@ -34,7 +55,14 @@
         {
           "id": "scn.tsanchors.f5c807c92cad.unit",
           "level": "unit",
-          "rationale": "Migrated from v1; review level and rationale."
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:5eb887314310a591f3059665ea1040af3ff909359d5fd4a5dd287ce13101e44a",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
         }
       ]
     }

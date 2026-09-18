@@ -7,12 +7,26 @@
         {
           "id": "scn.execution.9cbf5cc6d03d.integration",
           "level": "integration",
-          "rationale": "Migrated from v1; review level and rationale."
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:85d36c209a9a857773a61bef4788140de9d4d50a598452eaa329899e05667824",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
         },
         {
           "id": "scn.execution.9cbf5cc6d03d.e2e",
           "level": "e2e",
-          "rationale": "Migrated from v1; review level and rationale."
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:85804f6fd63ef7266345b5fb392999c0f6ac1fd467447639652d095bf40cdfbd",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
         }
       ]
     },
@@ -21,7 +35,14 @@
         {
           "id": "scn.verificationscope.0246717fcb77.unit",
           "level": "unit",
-          "rationale": "Migrated from v1; review level and rationale."
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:8585375b9c1c35a0070c521e81f2218f819444285b8e129645bb4560f43c8851",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
         }
       ]
     },
@@ -30,7 +51,14 @@
         {
           "id": "scn.verificationscope.2af83d65e804.unit",
           "level": "unit",
-          "rationale": "Migrated from v1; review level and rationale."
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:baf4fb6797d0ad5a91663c5fc1048b59a5549f10be8ebadcb21f5b9c19b44ca0",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
         }
       ]
     },
@@ -39,7 +67,14 @@
         {
           "id": "scn.verificationscope.6f3a1ce24f05.unit",
           "level": "unit",
-          "rationale": "Migrated from v1; review level and rationale."
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:e106277f02bfe4bb75497c14570b411a8e5d3c1043d9ee979a1b3f5251300c75",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
         }
       ]
     }
