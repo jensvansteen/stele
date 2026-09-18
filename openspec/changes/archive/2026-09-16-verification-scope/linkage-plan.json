@@ -1,20 +1,92 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "changeId": "verification-scope",
-  "requirements": {
-    "req.verificationscope.713ceb31377c": "internal/stele/scope.go#loadChangePlan",
-    "req.verificationscope.9c81618619df": "internal/stele/scope.go#declaredIdentities",
-    "req.verificationscope.bee89d6750ed": "internal/stele/scope.go#resolveScope"
-  },
   "scenarios": {
-    "scn.verificationscope.101e06b07f39": "internal/stele/scope_test.go#TestRunVerificationReportsUndeclaredAnchors",
-    "scn.verificationscope.20fde975089b": "internal/stele/scope_test.go#TestRunVerificationPrefersChangePlan",
-    "scn.verificationscope.70c3ee060846": "internal/stele/scope_test.go#TestCombinedArchivePlanPrefersLatest",
-    "scn.verificationscope.784db68ce025": "internal/stele/scope_test.go#TestRunVerificationRejectsPlanForOtherChange",
-    "scn.verificationscope.79a83cf82aba": "internal/stele/scope_test.go#TestRunRejectsSpecsWithChange",
-    "scn.verificationscope.8b577e9712e7": "internal/stele/scope_test.go#TestRunVerificationVerifiesCurrentSpecs",
-    "scn.verificationscope.d477fd8e9980": "internal/stele/scope_test.go#TestRunVerificationFallsBackToSharedPlan",
-    "scn.verificationscope.ee5d7b261d62": "internal/stele/scope_test.go#TestRunVerificationIgnoresOtherChangeAnchors",
-    "scn.verificationscope.f8ab6e2e1812": "internal/stele/scope_test.go#TestRunOpenSpecValidatesCurrentSpecs"
+    "scn.verificationscope.101e06b07f39": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.101e06b07f39.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verificationscope.20fde975089b": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.20fde975089b.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verificationscope.70c3ee060846": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.70c3ee060846.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verificationscope.784db68ce025": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.784db68ce025.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verificationscope.79a83cf82aba": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.79a83cf82aba.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verificationscope.8b577e9712e7": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.8b577e9712e7.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        },
+        {
+          "id": "scn.verificationscope.8b577e9712e7.e2e",
+          "level": "e2e",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verificationscope.d477fd8e9980": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.d477fd8e9980.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verificationscope.ee5d7b261d62": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.ee5d7b261d62.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verificationscope.f8ab6e2e1812": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.f8ab6e2e1812.integration",
+          "level": "integration",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    }
   }
 }

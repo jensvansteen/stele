@@ -1,14 +1,42 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "changeId": "fix-typescript-anchor-scanning",
-  "requirements": {
-    "req.tsanchors.3529ec7b6931": "internal/stele/anchors.go#testSelector",
-    "req.tsanchors.c02ad141ee6a": "internal/stele/anchors.go#typeScriptCommentText"
-  },
   "scenarios": {
-    "scn.tsanchors.e3be49f14532": "internal/stele/anchors_test.go#TestScanAnchorsIgnoresTypeScriptStringLiterals",
-    "scn.tsanchors.e6114f49ffdc": "internal/stele/anchors_test.go#TestScanAnchorsReadsEveryCommentForm",
-    "scn.tsanchors.f4c1eb23c2ab": "internal/stele/anchors_test.go#TestScanAnchorsResolvesExpressionTestCalls",
-    "scn.tsanchors.f5c807c92cad": "internal/stele/anchors_test.go#TestScanAnchorsIgnoresOtherExpressionCalls"
+    "scn.tsanchors.e3be49f14532": {
+      "evidence": [
+        {
+          "id": "scn.tsanchors.e3be49f14532.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.tsanchors.e6114f49ffdc": {
+      "evidence": [
+        {
+          "id": "scn.tsanchors.e6114f49ffdc.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.tsanchors.f4c1eb23c2ab": {
+      "evidence": [
+        {
+          "id": "scn.tsanchors.f4c1eb23c2ab.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.tsanchors.f5c807c92cad": {
+      "evidence": [
+        {
+          "id": "scn.tsanchors.f5c807c92cad.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    }
   }
 }

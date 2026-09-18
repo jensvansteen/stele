@@ -1,36 +1,187 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "changeId": "baseline-verification-core",
-  "requirements": {
-    "req.execution.7e4755bd8f60": "internal/stele/files.go#ComputeInputDigest",
-    "req.execution.f9056cdc6fe6": "internal/stele/runner.go#RunScenarioTests",
-    "req.init.eed35c447821": "internal/stele/init.go#Initialize",
-    "req.validate.56cc774dc871": "internal/stele/cli.go#validateCommand",
-    "req.verify.1d6031f2d3dd": "internal/stele/verify.go#RunVerification",
-    "req.verify.43d1d0d9f883": "internal/stele/anchors.go#ScanAnchors",
-    "req.verify.999a5d082295": "internal/stele/cli.go#Run",
-    "req.verify.9dbf2146c01f": "internal/stele/specs.go#ParseSpecs",
-    "req.verify.aa9f017c4cb4": "internal/stele/verify.go#MarshalDeterministic"
-  },
   "scenarios": {
-    "scn.execution.8371d74b5134": "internal/stele/runner_test.go#TestExecuteNodeTestDetectsNoMatchingExecution",
-    "scn.execution.a70f24b45cfe": "internal/stele/verify_test.go#TestBuildReportTracksEvidenceAndDiagnostics",
-    "scn.execution.a9dde959cf57": "internal/stele/runner_test.go#TestExecuteExactTestRejectsUnsupportedExtensions",
-    "scn.execution.bce9246e1444": "internal/stele/runner_test.go#TestExecuteExactTypeScriptTest",
-    "scn.init.754fd262e114": "internal/stele/cli_test.go#TestRunHandlesHelpVersionAndInitialization",
-    "scn.init.cbf5781012fa": "internal/stele/cli_test.go#TestInitializeWritesConfigAndSkills",
-    "scn.init.e841b29256e0": "internal/stele/init_test.go#TestInitializeIsIdempotent",
-    "scn.validate.10388560c2dc": "tests/package_install_test.go#TestPackedPackageInitializesAndValidatesSeparateConsumer",
-    "scn.validate.d9553f1a4c1c": "internal/stele/cli_test.go#TestValidateCommand",
-    "scn.verify.0d43596abe4a": "internal/stele/anchors_test.go#TestScanAnchorsIgnoresUnsupportedConsumerLanguages",
-    "scn.verify.14c6b4fe39bc": "internal/stele/verify_test.go#TestRunVerificationProposalPlans",
-    "scn.verify.36f0ef1f337f": "internal/stele/anchors_test.go#TestScanAnchorsResolvesTypeScriptDeclarations",
-    "scn.verify.3a70c9d1ef24": "tests/cli.test.mts#omits volatile metadata from the deterministic payload",
-    "scn.verify.5e9a130cd7b4": "tests/cli.test.mts#exposes an executable verify command",
-    "scn.verify.6c22483ab3c3": "internal/stele/specs_test.go#TestParseSpecsPreservesRelationships",
-    "scn.verify.a2c7e48b610f": "tests/cli.test.mts#returns stable failure exit codes",
-    "scn.verify.c4db6a432869": "internal/stele/verify_test.go#TestRunVerificationRejectsMismatchedTarget",
-    "scn.verify.c5fd3656da59": "internal/stele/specs_test.go#TestParseSpecsReportsAllShapeDiagnostics",
-    "scn.verify.d6f8012b3ea5": "tests/cli.test.mts#emits identical default JSON for identical inputs"
+    "scn.execution.8371d74b5134": {
+      "evidence": [
+        {
+          "id": "scn.execution.8371d74b5134.integration",
+          "level": "integration",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.execution.a70f24b45cfe": {
+      "evidence": [
+        {
+          "id": "scn.execution.a70f24b45cfe.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.execution.a9dde959cf57": {
+      "evidence": [
+        {
+          "id": "scn.execution.a9dde959cf57.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.execution.bce9246e1444": {
+      "evidence": [
+        {
+          "id": "scn.execution.bce9246e1444.integration",
+          "level": "integration",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.init.754fd262e114": {
+      "evidence": [
+        {
+          "id": "scn.init.754fd262e114.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.init.cbf5781012fa": {
+      "evidence": [
+        {
+          "id": "scn.init.cbf5781012fa.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        },
+        {
+          "id": "scn.init.cbf5781012fa.e2e",
+          "level": "e2e",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.init.e841b29256e0": {
+      "evidence": [
+        {
+          "id": "scn.init.e841b29256e0.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        },
+        {
+          "id": "scn.init.e841b29256e0.unit.2",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.validate.10388560c2dc": {
+      "evidence": [
+        {
+          "id": "scn.validate.10388560c2dc.e2e",
+          "level": "e2e",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.validate.d9553f1a4c1c": {
+      "evidence": [
+        {
+          "id": "scn.validate.d9553f1a4c1c.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verify.0d43596abe4a": {
+      "evidence": [
+        {
+          "id": "scn.verify.0d43596abe4a.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verify.14c6b4fe39bc": {
+      "evidence": [
+        {
+          "id": "scn.verify.14c6b4fe39bc.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verify.36f0ef1f337f": {
+      "evidence": [
+        {
+          "id": "scn.verify.36f0ef1f337f.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verify.3a70c9d1ef24": {
+      "evidence": [
+        {
+          "id": "scn.verify.3a70c9d1ef24.e2e",
+          "level": "e2e",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verify.5e9a130cd7b4": {
+      "evidence": [
+        {
+          "id": "scn.verify.5e9a130cd7b4.e2e",
+          "level": "e2e",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verify.6c22483ab3c3": {
+      "evidence": [
+        {
+          "id": "scn.verify.6c22483ab3c3.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verify.a2c7e48b610f": {
+      "evidence": [
+        {
+          "id": "scn.verify.a2c7e48b610f.e2e",
+          "level": "e2e",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verify.c4db6a432869": {
+      "evidence": [
+        {
+          "id": "scn.verify.c4db6a432869.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verify.c5fd3656da59": {
+      "evidence": [
+        {
+          "id": "scn.verify.c5fd3656da59.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    },
+    "scn.verify.d6f8012b3ea5": {
+      "evidence": [
+        {
+          "id": "scn.verify.d6f8012b3ea5.e2e",
+          "level": "e2e",
+          "rationale": "Migrated from v1; review level and rationale."
+        }
+      ]
+    }
   }
 }
