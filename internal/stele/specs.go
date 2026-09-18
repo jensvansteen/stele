@@ -15,6 +15,8 @@ var (
 	requirementPattern    = regexp.MustCompile(`^### Requirement:\s*(.+)$`)
 	scenarioPattern       = regexp.MustCompile(`^#### Scenario:\s*(.+)$`)
 	verificationIDPattern = regexp.MustCompile(`^Verification-ID:\s*(\S+)\s*$`)
+	stepBulletPattern     = regexp.MustCompile(`^[-*+]\s+(.*)$`)
+	stepKeywordPattern    = regexp.MustCompile(`^\*\*([A-Za-z][A-Za-z ]*?)\*\*:?\s*(.*)$`)
 )
 
 type identityTarget uint8
@@ -33,8 +35,10 @@ type specFileParser struct {
 	diagnostics        []Diagnostic
 	currentRequirement *Requirement
 	currentScenario    *Scenario
-	// scenarioText collects the lines of the open scenario block.
-	scenarioText *string
+	// scenarioText collects the lines of the open scenario block, and
+	// requirementText those of the open requirement body.
+	scenarioText    *string
+	requirementText *string
 }
 
 func diagnostic(code, severity, message, path string, line int, identity string) Diagnostic {
@@ -100,16 +104,61 @@ func parseSpecFile(path, relativePath string) ([]Requirement, []Diagnostic, erro
 		parser.line++
 		parser.parseLine(scanner.Text())
 	}
+	finishSpecText(parser.requirements)
 	if err := scanner.Err(); err != nil {
 		return parser.requirements, parser.diagnostics, err
 	}
 	return parser.requirements, parser.diagnostics, nil
 }
 
+// finishSpecText trims the collected requirement text and derives each
+// scenario's body and steps.
+func finishSpecText(requirements []Requirement) {
+	for index := range requirements {
+		requirement := &requirements[index]
+		requirement.Text = strings.TrimSpace(requirement.Text)
+		for scenarioIndex := range requirement.Scenarios {
+			scenario := &requirement.Scenarios[scenarioIndex]
+			_, body, _ := strings.Cut(scenario.Text, "\n")
+			scenario.Body = strings.TrimSpace(body)
+			scenario.Steps = scenarioSteps(scenario.Body)
+		}
+	}
+}
+
+// scenarioSteps returns one step per bullet of a scenario body. A bullet's
+// continuation lines join its text; text outside bullets stays only in the
+// body, and a bullet without a bold keyword has an empty keyword.
+//
+// @implements req.linkindex.78a6abc9c59d
+func scenarioSteps(body string) []ScenarioStep {
+	steps := make([]ScenarioStep, 0)
+	var current *ScenarioStep
+	for line := range strings.SplitSeq(body, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if match := stepBulletPattern.FindStringSubmatch(trimmed); match != nil {
+			step := ScenarioStep{Text: match[1]}
+			if keyword := stepKeywordPattern.FindStringSubmatch(match[1]); keyword != nil {
+				step = ScenarioStep{Keyword: strings.ToUpper(keyword[1]), Text: keyword[2]}
+			}
+			steps = append(steps, step)
+			current = &steps[len(steps)-1]
+			continue
+		}
+		if trimmed == "" || current == nil {
+			current = nil
+			continue
+		}
+		current.Text = strings.TrimSpace(current.Text + " " + trimmed)
+	}
+	return steps
+}
+
 func (parser *specFileParser) parseLine(line string) {
 	if strings.HasPrefix(line, "#") {
-		// Any heading ends the text of the current scenario.
+		// Any heading ends the text of the current requirement or scenario.
 		parser.scenarioText = nil
+		parser.requirementText = nil
 	}
 	if match := requirementPattern.FindStringSubmatch(line); match != nil {
 		parser.beginRequirement(match[1])
@@ -126,6 +175,9 @@ func (parser *specFileParser) parseLine(line string) {
 	if parser.scenarioText != nil {
 		*parser.scenarioText += "\n" + line
 	}
+	if parser.requirementText != nil {
+		*parser.requirementText += "\n" + line
+	}
 }
 
 func (parser *specFileParser) beginRequirement(title string) {
@@ -135,6 +187,7 @@ func (parser *specFileParser) beginRequirement(title string) {
 		Scenarios: []Scenario{},
 	})
 	parser.currentRequirement = &parser.requirements[len(parser.requirements)-1]
+	parser.requirementText = &parser.currentRequirement.Text
 	parser.currentScenario = nil
 	parser.target = requirementIdentityTarget
 }

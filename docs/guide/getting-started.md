@@ -143,6 +143,15 @@ npx stele validate --change todo-basics
 
 Validation runs every evidence test, OpenSpec strict validation, and implementation verification. Every approved entry needs a matching `@verifies` anchor on a test that passes, and every requirement needs an `@implements` anchor. Exit code `0` means all selected checks passed; see the [CLI reference](/reference/cli) for the complete contract.
 
+While you work on one behavior, run only its tests. A target is a requirement, scenario, or evidence ID, or a spec file, and the outcomes merge into the stored evidence:
+
+```bash
+npx stele test scn.todo.20d9cd2785a4
+npx stele test openspec/changes/todo-basics/specs/todo/spec.md
+```
+
+`npx stele verify` then reports linkage, execution, and an overall verdict separately; it stays `incomplete` until every scenario's tests have run with the current inputs. `npx stele index` prints the links as JSON for editors, including each scenario's `WHEN`/`THEN` steps; see [Link index](/reference/link-index). In CI, `npx stele validate --all` checks the current specifications and every active change in one step.
+
 Plans with `schemaVersion` 1, which map each ID to a `path#selector` target, still work with a `PLAN_V1_DEPRECATED` warning until Stele 0.2.0. Convert one with `npx stele plan migrate --change <change>`.
 
 ## Commit inputs, ignore outputs

@@ -182,12 +182,23 @@ func TestNearestGoModule(t *testing.T) {
 
 func TestScenarioOutcomesRequireEveryLinkedTest(t *testing.T) {
 	parsed := ParsedSpecs{Requirements: []Requirement{{Scenarios: []Scenario{{ID: "scn.demo.aaaaaaaaaaaa"}}}}}
-	executions := []TestExecution{
-		{ScenarioIDs: []string{"scn.demo.aaaaaaaaaaaa"}, Outcome: "failed"},
-		{ScenarioIDs: []string{"scn.demo.aaaaaaaaaaaa"}, Outcome: "passed"},
+	groups := []testGroup{
+		{Key: testGroupKey{Path: "a.test.ts", Selector: "a"}, IDs: []string{"scn.demo.aaaaaaaaaaaa"}},
+		{Key: testGroupKey{Path: "b.test.ts", Selector: "b"}, IDs: []string{"scn.demo.aaaaaaaaaaaa"}},
 	}
-	outcomes := scenarioOutcomes(parsed, executions)
+	first, second := "a", "b"
+	executions := []TestExecution{
+		{Path: "a.test.ts", Selector: &first, Outcome: "failed", InputDigest: "digest"},
+		{Path: "b.test.ts", Selector: &second, Outcome: "passed", InputDigest: "digest"},
+	}
+	outcomes := scenarioOutcomes(parsed, groups, executions, "digest")
 	if len(outcomes) != 1 || outcomes[0].Outcome != "failed" {
 		t.Fatalf("a failing linked test was masked: %#v", outcomes)
+	}
+	if outcomes := scenarioOutcomes(parsed, groups, executions[1:], "digest"); outcomes[0].Outcome != "not-run" {
+		t.Fatalf("a test without an execution did not count as not run: %#v", outcomes)
+	}
+	if outcomes := scenarioOutcomes(parsed, groups[1:], executions[1:], "other"); outcomes[0].Outcome != "stale" {
+		t.Fatalf("an execution for other inputs did not count as stale: %#v", outcomes)
 	}
 }

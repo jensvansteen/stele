@@ -12,6 +12,9 @@ import (
 
 var marshalJSON = json.MarshalIndent
 
+// reportSchemaVersion 2.1 adds separate linkage, execution, and overall verdicts.
+const reportSchemaVersion = "2.1"
+
 func readJSON(path string, target any) bool {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -73,12 +76,26 @@ type reportContribution struct {
 	ExecutionOutcomes []string
 }
 
-// @implements req.verify.1d6031f2d3dd
-func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
-	return verifyScope(root, changeScope(changeID), mode, reportPath)
+// verifyRequest selects the scope, stage, and output of a verification.
+type verifyRequest struct {
+	root       string
+	scope      verificationScope
+	mode       string
+	reportPath string
+	// evidence, when set, replaces the stored evidence file.
+	evidence *Evidence
 }
 
-func verifyScope(root string, scope verificationScope, mode, reportPath string) (Report, error) {
+// defaultEvidencePath is where test runs store evidence and verification reads it.
+const defaultEvidencePath = "artifacts/test-results.json"
+
+// @implements req.verify.1d6031f2d3dd
+func RunVerification(root, changeID, mode, reportPath string) (Report, error) {
+	return verifyScope(verifyRequest{root: root, scope: changeScope(changeID), mode: mode, reportPath: reportPath})
+}
+
+func verifyScope(request verifyRequest) (Report, error) {
+	root, scope, mode, reportPath := request.root, request.scope, request.mode, request.reportPath
 	if err := requireScopeSpecs(root, scope); err != nil {
 		return Report{}, err
 	}
@@ -107,9 +124,9 @@ func verifyScope(root string, scope verificationScope, mode, reportPath string) 
 	if err != nil {
 		return Report{}, err
 	}
-	var evidence *Evidence
+	evidence := request.evidence
 	var loaded Evidence
-	if readJSON(filepath.Join(root, "artifacts", "test-results.json"), &loaded) {
+	if evidence == nil && readJSON(filepath.Join(root, defaultEvidencePath), &loaded) {
 		evidence = &loaded
 	}
 	report := BuildReport(root, scope.changeID, mode, inputDigest, parsed, anchors, plan, diagnostics, evidence)
@@ -357,7 +374,30 @@ func buildReport(input reportBuildInput) Report {
 	report.Summary.Requirements = len(report.Requirements)
 	report.Summary.Scenarios = len(executionOutcomes)
 	report.Stages.Execution.Status = aggregateExecution(executionOutcomes)
+	report.Verdicts = reportVerdicts(input.Mode, report.Verdict, report.Stages.Execution.Status)
+	report.Verdict = report.Verdicts.Overall
 	return report
+}
+
+// reportVerdicts keeps linkage and execution apart and derives the overall
+// verdict: the proposal stage follows linkage; otherwise a linkage or
+// execution failure fails, missing or stale evidence is incomplete, and only
+// passing linkage with passing execution passes.
+//
+// @implements req.verify.27a52b8cfbd6
+func reportVerdicts(mode, linkage, execution string) ReportVerdicts {
+	verdicts := ReportVerdicts{Linkage: linkage, Execution: execution}
+	switch {
+	case mode == "proposal":
+		verdicts.Overall = linkage
+	case linkage == "fail" || execution == "failed":
+		verdicts.Overall = "fail"
+	case execution == "passed":
+		verdicts.Overall = "pass"
+	default:
+		verdicts.Overall = "incomplete"
+	}
+	return verdicts
 }
 
 func evidenceOutcomes(evidence *Evidence, inputDigest string) map[string]string {
@@ -378,7 +418,7 @@ func evidenceOutcomes(evidence *Evidence, inputDigest string) map[string]string 
 
 func initialReport(input reportBuildInput, revision string, dirty bool) Report {
 	report := Report{
-		SchemaVersion: "2.0",
+		SchemaVersion: reportSchemaVersion,
 		Complete:      true,
 		Requirements:  []RequirementReport{},
 		Diagnostics:   input.Diagnostics,

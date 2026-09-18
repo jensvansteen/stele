@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -338,5 +339,58 @@ func TestAnchorsSplitEvidenceIDs(t *testing.T) {
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("anchors =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// @verifies scn.linkindex.57dcee8c30a8.unit
+func TestScanAnchorsLeavesParameterizedTestsUnresolved(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `### Requirement: Demo
+Verification-ID: req.demo.ffffffffffff
+#### Scenario: Interpolated
+Verification-ID: scn.demo.aaaaaaaaaaaa
+#### Scenario: Table
+Verification-ID: scn.demo.bbbbbbbbbbbb
+#### Scenario: Literal template
+Verification-ID: scn.demo.cccccccccccc
+`)
+	writeFixture(t, root, "tests/names.test.mts", "import test from \"node:test\";\n"+
+		"const size = 2;\n"+
+		"// @verifies scn.demo.aaaaaaaaaaaa\n"+
+		"test(`adds ${size} todos`, () => {});\n"+
+		"// @verifies scn.demo.bbbbbbbbbbbb\n"+
+		"test.each([[1], [2]])(\"adds %i todos\", () => {});\n"+
+		"// @verifies scn.demo.cccccccccccc\n"+
+		"test(`adds todos`, () => {});\n")
+	anchors, err := ScanAnchors(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertAnchorHasNoSelector(t, anchors, "scn.demo.aaaaaaaaaaaa")
+	assertAnchorHasNoSelector(t, anchors, "scn.demo.bbbbbbbbbbbb")
+	assertAnchor(t, anchors, "scn.demo.cccccccccccc", "tests/names.test.mts", "adds todos")
+
+	original := runExactTest
+	t.Cleanup(func() { runExactTest = original })
+	ran := make([]string, 0)
+	runExactTest = func(_, _, selector string) (bool, bool, error) {
+		ran = append(ran, selector)
+		return true, true, nil
+	}
+	evidence, err := RunScenarioTests(root, "example", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(ran, []string{"adds todos"}) {
+		t.Fatalf("tests run by a partial name: %v", ran)
+	}
+	unresolved := 0
+	for _, execution := range evidence.Executions {
+		if execution.Selector == nil && pointerValue(execution.Reason) == "target-not-resolved" {
+			unresolved++
+		}
+	}
+	if unresolved != 1 || evidence.Scenarios[0].Outcome != "failed" || evidence.Scenarios[1].Outcome != "failed" {
+		t.Fatalf("parameterized tests were not reported as not selectable: %#v", evidence)
 	}
 }

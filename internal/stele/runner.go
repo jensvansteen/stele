@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -71,36 +72,287 @@ func scenarioAnchorSortKey(anchor Anchor) string {
 	return anchor.Path + ":" + pointerValue(anchor.Selector) + ":" + anchor.ID
 }
 
-// @implements req.execution.f9056cdc6fe6
-func RunScenarioTests(root, changeID, evidencePath string) (Evidence, error) {
-	return runScopeTests(root, changeScope(changeID), evidencePath)
+// evidenceSchemaVersion is the evidence file format: version 3 records the
+// input digest of every execution.
+const evidenceSchemaVersion = 3
+
+// testRequest selects what `stele test` runs and where its evidence goes.
+type testRequest struct {
+	root         string
+	scope        verificationScope
+	evidencePath string
+	// targets are requirement, scenario, or evidence IDs, or spec file paths.
+	targets []string
+	// merge keeps the stored evidence of tests that do not run now.
+	merge bool
 }
 
-func runScopeTests(root string, scope verificationScope, evidencePath string) (Evidence, error) {
-	if err := requireScopeSpecs(root, scope); err != nil {
-		return Evidence{}, err
+// testRun is the result of running a scope's tests: the scope's evidence and,
+// for a targeted run, the executions that ran.
+type testRun struct {
+	evidence Evidence
+	selected []TestExecution
+	targeted bool
+}
+
+// @implements req.execution.f9056cdc6fe6
+func RunScenarioTests(root, changeID, evidencePath string) (Evidence, error) {
+	run, err := runScopeTests(testRequest{root: root, scope: changeScope(changeID), evidencePath: evidencePath})
+	return run.evidence, err
+}
+
+func runScopeTests(request testRequest) (testRun, error) {
+	root := request.root
+	if err := requireScopeSpecs(root, request.scope); err != nil {
+		return testRun{}, err
 	}
 	inputDigest, err := computeScenarioDigest(root)
 	if err != nil {
-		return Evidence{}, err
+		return testRun{}, err
 	}
-	parsed, err := parseScenarioSpecs(root, scope)
+	parsed, err := parseScenarioSpecs(root, request.scope)
 	if err != nil {
-		return Evidence{}, err
+		return testRun{}, err
 	}
 	anchors, err := scanScenarioAnchors(root)
 	if err != nil {
-		return Evidence{}, err
+		return testRun{}, err
 	}
-	groups := groupScenarioTests(selectScenarioTests(parsed, anchors))
-	executions := executeTestGroups(root, groups)
-	evidence := assembleEvidence(root, inputDigest, parsed, executions)
-	if evidencePath != "" {
-		if err := writeJSON(resolveWithin(root, evidencePath), evidence); err != nil {
-			return Evidence{}, err
+	scopeTests := selectScenarioTests(parsed, anchors)
+	groups := groupScenarioTests(scopeTests)
+	run := testRun{targeted: len(request.targets) > 0}
+	selectedGroups := groups
+	if run.targeted {
+		plan, _ := loadScopePlan(root, request.scope)
+		selected, err := selectBehaviorTests(root, parsed, plan, scopeTests, request.targets)
+		if err != nil {
+			return testRun{}, err
+		}
+		selectedGroups = groupsOf(groups, selected)
+	}
+	executions := executeTestGroups(root, selectedGroups, inputDigest)
+	if run.targeted {
+		run.selected = executions
+	}
+
+	var stored Evidence
+	merging := (request.merge || run.targeted) && request.evidencePath != "" &&
+		readJSON(resolveWithin(root, request.evidencePath), &stored)
+	if run.targeted {
+		executions = withStoredExecutions(groups, executions, stored)
+	}
+	run.evidence = assembleEvidence(root, inputDigest, parsed, groups, executions)
+	if request.evidencePath == "" {
+		return run, nil
+	}
+	file := run.evidence
+	if merging {
+		file = mergeEvidence(stored, run.evidence)
+	}
+	if err := writeJSON(resolveWithin(root, request.evidencePath), file); err != nil {
+		return testRun{}, err
+	}
+	return run, nil
+}
+
+var errUnknownTarget = errors.New("unknown test target")
+
+// behaviorCatalog lists what a scope declares, for resolving test targets.
+type behaviorCatalog struct {
+	requirements map[string][]string
+	scenarios    map[string]bool
+	files        map[string][]string
+	evidence     map[string]bool
+}
+
+func newBehaviorCatalog(parsed ParsedSpecs, plan LinkagePlan, tests []Anchor) behaviorCatalog {
+	catalog := behaviorCatalog{
+		requirements: make(map[string][]string),
+		scenarios:    make(map[string]bool),
+		files:        make(map[string][]string),
+		evidence:     make(map[string]bool),
+	}
+	for _, requirement := range parsed.Requirements {
+		for _, scenario := range requirement.Scenarios {
+			catalog.requirements[requirement.ID] = append(catalog.requirements[requirement.ID], scenario.ID)
+			catalog.scenarios[scenario.ID] = true
+			catalog.files[scenario.Source.Path] = append(catalog.files[scenario.Source.Path], scenario.ID)
+			for _, entry := range plan.Evidence[scenario.ID] {
+				catalog.evidence[entry.ID] = true
+			}
 		}
 	}
-	return evidence, nil
+	for _, anchor := range tests {
+		catalog.evidence[anchor.EvidenceID] = anchor.EvidenceID != ""
+	}
+	return catalog
+}
+
+// resolve returns the scenarios, or the one evidence entry, a target selects.
+func (catalog behaviorCatalog) resolve(root string, parsed ParsedSpecs, target string) ([]string, string, error) {
+	switch {
+	case strings.HasPrefix(target, "req."):
+		if identities, known := catalog.requirements[target]; known {
+			return identities, "", nil
+		}
+		return nil, "", fmt.Errorf("%w %s: the scope declares no such requirement", errUnknownTarget, target)
+	case catalog.scenarios[target]:
+		return []string{target}, "", nil
+	case catalog.evidence[target]:
+		return nil, target, nil
+	case strings.HasPrefix(target, "scn."):
+		return nil, "", fmt.Errorf("%w %s: the scope declares no such scenario or evidence",
+			errUnknownTarget, target)
+	default:
+		identities, err := specFileScenarios(root, target, parsed, catalog.files)
+		return identities, "", err
+	}
+}
+
+// selectBehaviorTests returns the scope's test anchors selected by the
+// targets: a requirement ID selects its scenarios, a scenario ID the scenario,
+// an evidence ID that entry, and a spec file path every scenario in the file.
+// Every target must name something the scope declares.
+//
+// @implements req.linkindex.860a4d91b9fe
+func selectBehaviorTests(
+	root string,
+	parsed ParsedSpecs,
+	plan LinkagePlan,
+	tests []Anchor,
+	targets []string,
+) ([]Anchor, error) {
+	catalog := newBehaviorCatalog(parsed, plan, tests)
+	selected := make(map[string]bool)
+	for _, target := range targets {
+		scenarios, evidence, err := catalog.resolve(root, parsed, target)
+		if err != nil {
+			return nil, err
+		}
+		for _, scenario := range scenarios {
+			selected[scenario] = true
+		}
+		if evidence != "" {
+			selected[evidence] = true
+		}
+	}
+	result := make([]Anchor, 0)
+	for _, anchor := range tests {
+		if selected[anchor.ID] || (anchor.EvidenceID != "" && selected[anchor.EvidenceID]) {
+			result = append(result, anchor)
+		}
+	}
+	return result, nil
+}
+
+// specFileScenarios resolves a spec file target against the repository root
+// and returns the scenarios the scope parsed from it.
+func specFileScenarios(root, target string, parsed ParsedSpecs, files map[string][]string) ([]string, error) {
+	absolute := resolveWithin(root, target)
+	relative := repositoryPath(root, filepath.Clean(absolute))
+	if !strings.HasPrefix(relative, "openspec/") || path.Base(relative) != "spec.md" {
+		return nil, fmt.Errorf("%w %s: expected a requirement, scenario, or evidence ID, "+
+			"or a spec.md file under openspec/", errUnknownTarget, target)
+	}
+	if !fileExists(absolute) {
+		return nil, fmt.Errorf("%w %s: the file does not exist", errUnknownTarget, target)
+	}
+	if !slices.Contains(parsed.Files, relative) {
+		return nil, fmt.Errorf("%w %s: the file is not part of the selected scope", errUnknownTarget, target)
+	}
+	return files[relative], nil
+}
+
+// groupsOf returns the groups whose test a selected anchor names, so a test
+// shared by several scenarios runs once and records all of them.
+func groupsOf(groups []testGroup, selected []Anchor) []testGroup {
+	keys := make(map[testGroupKey]bool, len(selected))
+	for _, anchor := range selected {
+		keys[testGroupKey{Path: anchor.Path, Selector: pointerValue(anchor.Selector)}] = true
+	}
+	result := make([]testGroup, 0)
+	for _, group := range groups {
+		if keys[group.Key] {
+			result = append(result, group)
+		}
+	}
+	return result
+}
+
+func executionKey(execution TestExecution) testGroupKey {
+	return testGroupKey{Path: execution.Path, Selector: pointerValue(execution.Selector)}
+}
+
+// withStoredExecutions completes the executions of a targeted run with the
+// stored executions of the scope's other tests. Stored executions without
+// their own digest take the digest of their file.
+func withStoredExecutions(groups []testGroup, executions []TestExecution, stored Evidence) []TestExecution {
+	fresh := make(map[testGroupKey]TestExecution, len(executions))
+	for _, execution := range executions {
+		fresh[executionKey(execution)] = execution
+	}
+	previous := make(map[testGroupKey]TestExecution, len(stored.Executions))
+	for _, execution := range stored.Executions {
+		if execution.InputDigest == "" {
+			execution.InputDigest = stored.InputDigest
+		}
+		previous[executionKey(execution)] = execution
+	}
+	result := make([]TestExecution, 0, len(groups))
+	for _, group := range groups {
+		if execution, ran := fresh[group.Key]; ran {
+			result = append(result, execution)
+			continue
+		}
+		if execution, found := previous[group.Key]; found {
+			execution.ScenarioIDs = append([]string{}, group.IDs...)
+			execution.EvidenceIDs = group.EvidenceIDs
+			result = append(result, execution)
+		}
+	}
+	return result
+}
+
+// mergeEvidence combines a scope's evidence with the stored evidence of other
+// tests and scenarios. Stored scenario outcomes from other inputs are stale,
+// and the aggregate outcome covers every scenario in the file.
+func mergeEvidence(stored, scope Evidence) Evidence {
+	merged := scope
+	keys := make(map[testGroupKey]bool, len(scope.Executions))
+	for _, execution := range scope.Executions {
+		keys[executionKey(execution)] = true
+	}
+	merged.Executions = append([]TestExecution{}, scope.Executions...)
+	for _, execution := range stored.Executions {
+		if keys[executionKey(execution)] {
+			continue
+		}
+		if execution.InputDigest == "" {
+			execution.InputDigest = stored.InputDigest
+		}
+		merged.Executions = append(merged.Executions, execution)
+	}
+	sort.Slice(merged.Executions, func(i, j int) bool {
+		left, right := executionKey(merged.Executions[i]), executionKey(merged.Executions[j])
+		return left.Path+"\x00"+left.Selector < right.Path+"\x00"+right.Selector
+	})
+	identities := make(map[string]bool, len(scope.Scenarios))
+	for _, scenario := range scope.Scenarios {
+		identities[scenario.ID] = true
+	}
+	merged.Scenarios = append([]ScenarioOutcome{}, scope.Scenarios...)
+	for _, scenario := range stored.Scenarios {
+		if identities[scenario.ID] {
+			continue
+		}
+		if stored.InputDigest != scope.InputDigest {
+			scenario = ScenarioOutcome{ID: scenario.ID, Outcome: "stale"}
+		}
+		merged.Scenarios = append(merged.Scenarios, scenario)
+	}
+	sort.Slice(merged.Scenarios, func(i, j int) bool { return merged.Scenarios[i].ID < merged.Scenarios[j].ID })
+	merged.Outcome = aggregateScenarioOutcome(merged.Scenarios)
+	return merged
 }
 
 // groupScenarioTests ensures scenarios sharing one exact test target execute once.
@@ -138,10 +390,12 @@ func groupScenarioTests(anchors []Anchor) []testGroup {
 	return groups
 }
 
-func executeTestGroups(root string, groups []testGroup) []TestExecution {
+func executeTestGroups(root string, groups []testGroup, inputDigest string) []TestExecution {
 	executions := make([]TestExecution, 0, len(groups))
 	for _, group := range groups {
-		executions = append(executions, executeTestGroup(root, group))
+		execution := executeTestGroup(root, group)
+		execution.InputDigest = inputDigest
+		executions = append(executions, execution)
 	}
 	return executions
 }
@@ -177,11 +431,16 @@ func executeTestGroup(root string, group testGroup) TestExecution {
 	return execution
 }
 
-func assembleEvidence(root, inputDigest string, parsed ParsedSpecs, executions []TestExecution) Evidence {
-	scenarios := scenarioOutcomes(parsed, executions)
+func assembleEvidence(
+	root, inputDigest string,
+	parsed ParsedSpecs,
+	groups []testGroup,
+	executions []TestExecution,
+) Evidence {
+	scenarios := scenarioOutcomes(parsed, groups, executions, inputDigest)
 	revision, _ := gitState(root)
 	return Evidence{
-		SchemaVersion:  2,
+		SchemaVersion:  evidenceSchemaVersion,
 		Runner:         "stele-go/exact-scenario",
 		TestedRevision: revision,
 		InputDigest:    inputDigest,
@@ -191,17 +450,41 @@ func assembleEvidence(root, inputDigest string, parsed ParsedSpecs, executions [
 	}
 }
 
-func scenarioOutcomes(parsed ParsedSpecs, executions []TestExecution) []ScenarioOutcome {
+// outcomeRank orders scenario outcomes: a scenario takes the worst outcome of
+// its tests, so it passes only when every linked test passed with the current
+// inputs.
+var outcomeRank = map[string]int{"": 0, "passed": 1, "not-run": 2, "stale": 3, "failed": 4}
+
+// scenarioOutcomes decides each scenario's outcome from the executions of the
+// scope's test groups. A group without an execution has not run, and an
+// execution recorded for other inputs is stale.
+func scenarioOutcomes(
+	parsed ParsedSpecs,
+	groups []testGroup,
+	executions []TestExecution,
+	inputDigest string,
+) []ScenarioOutcome {
+	byKey := make(map[testGroupKey]TestExecution, len(executions))
+	for _, execution := range executions {
+		byKey[executionKey(execution)] = execution
+	}
 	outcomes := make(map[string]string)
 	failedEvidence := make(map[string][]string)
-	for _, execution := range executions {
-		for _, id := range execution.ScenarioIDs {
-			// A scenario passes only when every test linked to it passed.
-			if outcomes[id] == "" || outcomes[id] == "passed" {
-				outcomes[id] = execution.Outcome
+	for _, group := range groups {
+		execution, found := byKey[group.Key]
+		outcome := execution.Outcome
+		switch {
+		case !found:
+			outcome = "not-run"
+		case execution.InputDigest != inputDigest:
+			outcome = "stale"
+		}
+		for _, id := range group.IDs {
+			if outcomeRank[outcome] > outcomeRank[outcomes[id]] {
+				outcomes[id] = outcome
 			}
-			if execution.Outcome != "passed" {
-				failedEvidence[id] = append(failedEvidence[id], evidenceOfScenario(execution.EvidenceIDs, id)...)
+			if outcome == "failed" {
+				failedEvidence[id] = append(failedEvidence[id], evidenceOfScenario(group.EvidenceIDs, id)...)
 			}
 		}
 	}

@@ -31,7 +31,7 @@ func TestImplementationAcceptsEvidenceAnywhere(t *testing.T) {
 	writeEvidenceTest(t, root, "tests/deep/journey/value.spec.ts", evidenceScenarioID+".e2e", "runs the journey")
 	writeEvidenceTest(t, root, "src/demo.test.mts", otherScenarioID+".unit", "reports a missing value")
 	report := verifyFixture(t, root, "implementation")
-	if report.Verdict != "pass" || len(report.Diagnostics) != 0 {
+	if report.Verdicts.Linkage != "pass" || len(report.Diagnostics) != 0 {
 		t.Fatalf("anchored evidence did not pass: %#v", report.Diagnostics)
 	}
 	scenario := report.Requirements[0].Scenarios[0]
@@ -74,8 +74,8 @@ func TestImplementationReportsMissingEvidence(t *testing.T) {
 	if strings.Join(identities, ",") != evidenceScenarioID+".e2e,"+otherScenarioID+".unit" {
 		t.Fatalf("LINK_EVIDENCE_MISSING for %v", identities)
 	}
-	if report.Verdict != "fail" || report.Requirements[0].Scenarios[0].Linkage != "missing" {
-		t.Fatalf("report = %s, %s", report.Verdict, report.Requirements[0].Scenarios[0].Linkage)
+	if report.Verdicts.Linkage != "fail" || report.Requirements[0].Scenarios[0].Linkage != "missing" {
+		t.Fatalf("report = %s, %s", report.Verdicts.Linkage, report.Requirements[0].Scenarios[0].Linkage)
 	}
 }
 
@@ -98,7 +98,7 @@ func TestImplementationRejectsUnplannedEvidence(t *testing.T) {
 	if !hasDiagnostic(report.Diagnostics, "LINK_CODE_MISSING") {
 		t.Fatalf("a requirement without @implements passed: %#v", report.Diagnostics)
 	}
-	if proposal := verifyFixture(t, root, "proposal"); proposal.Verdict != "pass" {
+	if proposal := verifyFixture(t, root, "proposal"); proposal.Verdicts.Linkage != "pass" {
 		t.Fatalf("the proposal stage judged anchors: %#v", proposal.Diagnostics)
 	}
 }
@@ -114,7 +114,7 @@ func TestV2VerificationIgnoresLocation(t *testing.T) {
 	writeFixture(t, root, "src/demo.mts", "export const nothing = 0;\n")
 	for _, stage := range []string{"proposal", "implementation"} {
 		report := verifyFixture(t, root, stage)
-		if report.Verdict != "pass" || len(report.Diagnostics) != 0 {
+		if report.Verdicts.Linkage != "pass" || len(report.Diagnostics) != 0 {
 			t.Fatalf("%s: location affected v2 verification: %#v", stage, report.Diagnostics)
 		}
 	}

@@ -438,3 +438,236 @@ func TestScenarioFailsWhenOneEvidenceFails(t *testing.T) {
 		t.Fatalf("passing evidence = %#v, %v", passed, err)
 	}
 }
+
+// behaviorFixture returns a change "example" with two spec files. Requirement
+// aaaa has scenario bbbb (unit and e2e tests) and cccc; requirement dddd has
+// eeee and ffff; the other file declares requirement 1111 with scenario 2222.
+// cccc and eeee share one test.
+func behaviorFixture(t *testing.T) string {
+	t.Helper()
+	root := fixtureRoot(t)
+	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `## ADDED Requirements
+### Requirement: Return value
+Verification-ID: req.demo.aaaaaaaaaaaa
+#### Scenario: Value is returned
+Verification-ID: scn.demo.bbbbbbbbbbbb
+#### Scenario: Missing value is reported
+Verification-ID: scn.demo.cccccccccccc
+### Requirement: Store value
+Verification-ID: req.demo.dddddddddddd
+#### Scenario: Value is stored
+Verification-ID: scn.demo.eeeeeeeeeeee
+#### Scenario: Value is replaced
+Verification-ID: scn.demo.ffffffffffff
+`)
+	writeFixture(t, root, "openspec/changes/example/specs/other/spec.md", `## ADDED Requirements
+### Requirement: Other
+Verification-ID: req.other.111111111111
+#### Scenario: Other behavior
+Verification-ID: scn.other.222222222222
+`)
+	writeEvidenceTest(t, root, "tests/b.test.mts", "scn.demo.bbbbbbbbbbbb.unit", "b unit")
+	writeEvidenceTest(t, root, "tests/e2e/b.test.mts", "scn.demo.bbbbbbbbbbbb.e2e", "b e2e")
+	writeEvidenceTest(t, root, "tests/c.test.mts", "scn.demo.cccccccccccc.unit", "c unit")
+	writeEvidenceTest(t, root, "tests/e.test.mts", "scn.demo.eeeeeeeeeeee.unit", "e unit")
+	writeEvidenceTest(t, root, "tests/f.test.mts", "scn.demo.ffffffffffff.unit", "f unit")
+	writeEvidenceTest(t, root, "tests/other.test.mts", "scn.other.222222222222.unit", "other unit")
+	writeFixture(t, root, "tests/shared.test.mts", "import test from \"node:test\";\n"+
+		"// @verifies scn.demo.cccccccccccc\n"+
+		"// @verifies scn.demo.eeeeeeeeeeee\n"+
+		"void test(\"shared\", () => {});\n")
+	return root
+}
+
+// recordTests replaces the test runner with a stub that records every test it
+// runs and fails the named selectors.
+func recordTests(t *testing.T, failing ...string) *[]string {
+	t.Helper()
+	original := runExactTest
+	t.Cleanup(func() { runExactTest = original })
+	ran := make([]string, 0)
+	runExactTest = func(_, _, selector string) (bool, bool, error) {
+		ran = append(ran, selector)
+		return !slices.Contains(failing, selector), true, nil
+	}
+	return &ran
+}
+
+func runTargets(t *testing.T, root string, targets ...string) testRun {
+	t.Helper()
+	run, err := runScopeTests(testRequest{
+		root:         root,
+		scope:        changeScope("example"),
+		evidencePath: defaultEvidencePath,
+		targets:      targets,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return run
+}
+
+func storedEvidence(t *testing.T, root string) Evidence {
+	t.Helper()
+	var evidence Evidence
+	if !readJSON(filepath.Join(root, defaultEvidencePath), &evidence) {
+		t.Fatal("no stored evidence")
+	}
+	return evidence
+}
+
+func scenarioOutcome(evidence Evidence, id string) string {
+	for _, scenario := range evidence.Scenarios {
+		if scenario.ID == id {
+			return scenario.Outcome
+		}
+	}
+	return ""
+}
+
+func executionOutcome(evidence Evidence, selector string) string {
+	for _, execution := range evidence.Executions {
+		if pointerValue(execution.Selector) == selector {
+			return execution.Outcome
+		}
+	}
+	return ""
+}
+
+// @verifies scn.linkindex.352d7120ec6c.unit
+func TestRunSelectedScenarioMergesEvidence(t *testing.T) {
+	root := behaviorFixture(t)
+	recordTests(t)
+	runTargets(t, root)
+	if stored := storedEvidence(t, root); stored.Outcome != "passed" || stored.SchemaVersion != 3 {
+		t.Fatalf("full run = %#v", stored)
+	}
+
+	ran := recordTests(t, "b e2e")
+	run := runTargets(t, root, "scn.demo.bbbbbbbbbbbb")
+	if slices.Sort(*ran); !slices.Equal(*ran, []string{"b e2e", "b unit"}) {
+		t.Fatalf("ran %v", *ran)
+	}
+	if len(run.selected) != 2 || !run.targeted {
+		t.Fatalf("selected executions = %#v", run.selected)
+	}
+	stored := storedEvidence(t, root)
+	if scenarioOutcome(stored, "scn.demo.bbbbbbbbbbbb") != "failed" ||
+		executionOutcome(stored, "b e2e") != "failed" || executionOutcome(stored, "b unit") != "passed" {
+		t.Fatalf("the selected outcomes were not recorded: %#v", stored)
+	}
+	for _, id := range []string{
+		"scn.demo.cccccccccccc", "scn.demo.eeeeeeeeeeee", "scn.demo.ffffffffffff", "scn.other.222222222222",
+	} {
+		if scenarioOutcome(stored, id) != "passed" {
+			t.Fatalf("the outcome of %s changed: %#v", id, stored)
+		}
+	}
+	if len(stored.Executions) != 7 || stored.Outcome != "failed" {
+		t.Fatalf("other executions were discarded: %#v", stored)
+	}
+}
+
+// @verifies scn.linkindex.1f063f3c5e49.unit
+func TestRunSelectedEvidenceOnly(t *testing.T) {
+	root := behaviorFixture(t)
+	recordTests(t)
+	runTargets(t, root)
+
+	ran := recordTests(t, "b e2e", "b unit")
+	runTargets(t, root, "scn.demo.bbbbbbbbbbbb.e2e")
+	if !slices.Equal(*ran, []string{"b e2e"}) {
+		t.Fatalf("ran %v", *ran)
+	}
+	stored := storedEvidence(t, root)
+	if executionOutcome(stored, "b e2e") != "failed" || executionOutcome(stored, "b unit") != "passed" {
+		t.Fatalf("outcomes other than the e2e test changed: %#v", stored)
+	}
+}
+
+// @verifies scn.linkindex.49a524bcf0ac.unit
+func TestRunSelectedRequirementScenarios(t *testing.T) {
+	root := behaviorFixture(t)
+	ran := recordTests(t)
+	run := runTargets(t, root, "req.demo.dddddddddddd")
+	if slices.Sort(*ran); !slices.Equal(*ran, []string{"e unit", "f unit", "shared"}) {
+		t.Fatalf("ran %v", *ran)
+	}
+	// Without earlier evidence, scenarios whose tests did not run are not run.
+	if scenarioOutcome(run.evidence, "scn.demo.eeeeeeeeeeee") != "passed" ||
+		scenarioOutcome(run.evidence, "scn.demo.ffffffffffff") != "passed" ||
+		scenarioOutcome(run.evidence, "scn.demo.cccccccccccc") != "not-run" ||
+		run.evidence.Outcome != "failed" {
+		t.Fatalf("evidence = %#v", run.evidence)
+	}
+}
+
+// @verifies scn.linkindex.e0b21aa95623.unit
+func TestRunSelectedSpecFileScenarios(t *testing.T) {
+	root := behaviorFixture(t)
+	ran := recordTests(t)
+	runTargets(t, root, "openspec/changes/example/specs/other/spec.md")
+	if !slices.Equal(*ran, []string{"other unit"}) {
+		t.Fatalf("ran %v", *ran)
+	}
+	*ran = (*ran)[:0]
+	runTargets(t, root, filepath.Join(root, "openspec", "changes", "example", "specs", "demo", "spec.md"))
+	if slices.Sort(*ran); !slices.Equal(*ran, []string{"b e2e", "b unit", "c unit", "e unit", "f unit", "shared"}) {
+		t.Fatalf("ran %v", *ran)
+	}
+}
+
+// @verifies scn.linkindex.6265c70bed70.unit
+func TestRunSelectedTargetsCombine(t *testing.T) {
+	root := behaviorFixture(t)
+	ran := recordTests(t)
+	runTargets(t, root, "scn.demo.cccccccccccc", "req.demo.dddddddddddd", "scn.demo.eeeeeeeeeeee")
+	if slices.Sort(*ran); !slices.Equal(*ran, []string{"c unit", "e unit", "f unit", "shared"}) {
+		t.Fatalf("ran %v", *ran)
+	}
+}
+
+func TestRunSelectedMergesOlderEvidence(t *testing.T) {
+	root := behaviorFixture(t)
+	unit, other := "b unit", "retired"
+	older := Evidence{
+		SchemaVersion: 2,
+		InputDigest:   "older",
+		Scenarios: []ScenarioOutcome{
+			{ID: "scn.demo.cccccccccccc", Outcome: "passed"},
+			{ID: "scn.retired.aaaaaaaaaaaa", Outcome: "passed"},
+		},
+		Executions: []TestExecution{
+			{Path: "tests/b.test.mts", Selector: &unit, Outcome: "passed"},
+			{Path: "tests/retired.test.mts", Selector: &other, Outcome: "passed"},
+		},
+	}
+	if err := writeJSON(filepath.Join(root, defaultEvidencePath), older); err != nil {
+		t.Fatal(err)
+	}
+	recordTests(t)
+	run := runTargets(t, root, "scn.demo.bbbbbbbbbbbb.e2e")
+	// The unit test ran with older inputs, so the scenario's outcome is stale.
+	if scenarioOutcome(run.evidence, "scn.demo.bbbbbbbbbbbb") != "stale" {
+		t.Fatalf("scope evidence = %#v", run.evidence)
+	}
+	stored := storedEvidence(t, root)
+	for _, execution := range stored.Executions {
+		if execution.InputDigest == "" {
+			t.Fatalf("an older execution kept no digest: %#v", execution)
+		}
+	}
+	if len(stored.Executions) != 3 || scenarioOutcome(stored, "scn.retired.aaaaaaaaaaaa") != "stale" ||
+		stored.Outcome != "failed" {
+		t.Fatalf("stored evidence = %#v", stored)
+	}
+
+	// Planned evidence without an anchored test is a known target that runs nothing.
+	writeEvidencePlan(t, root, map[string][]EvidenceEntry{
+		"scn.demo.bbbbbbbbbbbb": {entry("scn.demo.bbbbbbbbbbbb", "integration", "Storage.")},
+	})
+	ran := recordTests(t)
+	if run := runTargets(t, root, "scn.demo.bbbbbbbbbbbb.integration"); len(*ran) != 0 || len(run.selected) != 0 {
+		t.Fatalf("planned evidence without tests ran %v", *ran)
+	}
+}

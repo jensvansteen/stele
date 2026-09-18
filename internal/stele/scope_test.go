@@ -21,7 +21,7 @@ func TestRunVerificationPrefersChangePlan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "pass" || report.Requirements[0].Linkage != "planned" {
+	if report.Verdicts.Linkage != "pass" || report.Requirements[0].Linkage != "planned" {
 		t.Fatalf("change plan was not used: %#v", report.Diagnostics)
 	}
 }
@@ -34,7 +34,7 @@ func TestRunVerificationFallsBackToSharedPlan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "pass" {
+	if report.Verdicts.Linkage != "pass" {
 		t.Fatalf("shared plan was not used: %#v", report.Diagnostics)
 	}
 
@@ -56,7 +56,7 @@ func TestRunVerificationRejectsPlanForOtherChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "fail" || !hasDiagnostic(report.Diagnostics, "PLAN_CHANGE_MISMATCH") {
+	if report.Verdicts.Linkage != "fail" || !hasDiagnostic(report.Diagnostics, "PLAN_CHANGE_MISMATCH") {
 		t.Fatalf("expected a plan mismatch: %#v", report.Diagnostics)
 	}
 	if !hasDiagnostic(report.Diagnostics, "PLAN_CODE_MISSING") {
@@ -85,7 +85,7 @@ Verification-ID: scn.other.dddddddddddd
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "pass" || report.Summary.Errors != 0 {
+	if report.Verdicts.Linkage != "pass" || report.Summary.Errors != 0 {
 		t.Fatalf("anchors of another change affected the verdict: %#v", report.Diagnostics)
 	}
 }
@@ -111,7 +111,7 @@ func TestRunVerificationReportsUndeclaredAnchors(t *testing.T) {
 			}
 		}
 	}
-	if report.Verdict != "fail" || dangling != 1 {
+	if report.Verdicts.Linkage != "fail" || dangling != 1 {
 		t.Fatalf("expected exactly the undeclared anchor to dangle: %#v", report.Diagnostics)
 	}
 
@@ -151,15 +151,18 @@ Verification-ID: scn.demo.bbbbbbbbbbbb
 func TestRunVerificationVerifiesCurrentSpecs(t *testing.T) {
 	root := archivedFixture(t)
 	writeFixture(t, root, "openspec/changes/archive/2026-01-01-example/linkage-plan.json", scopePlanForExample)
-	report, err := verifyScope(root, verificationScope{currentSpecs: true}, "implementation", "")
+	report, err := verifyScope(verifyRequest{
+		root: root, scope: verificationScope{currentSpecs: true}, mode: "implementation",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "pass" || report.OpenSpec.ChangeID != "" || report.Summary.Requirements != 1 {
+	if report.Verdicts.Linkage != "pass" || report.OpenSpec.ChangeID != "" || report.Summary.Requirements != 1 {
 		t.Fatalf("current specifications did not verify: %#v", report)
 	}
 
-	evidence, err := runScopeTests(root, verificationScope{currentSpecs: true}, "")
+	run, err := runScopeTests(testRequest{root: root, scope: verificationScope{currentSpecs: true}})
+	evidence := run.evidence
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,11 +184,13 @@ func TestCombinedArchivePlanPrefersLatest(t *testing.T) {
 		plan.Scenarios["scn.demo.bbbbbbbbbbbb"] != "tests/demo.test.mts#returns value" {
 		t.Fatalf("latest archived plan did not win: %#v", plan)
 	}
-	report, err := verifyScope(root, verificationScope{currentSpecs: true}, "implementation", "")
+	report, err := verifyScope(verifyRequest{
+		root: root, scope: verificationScope{currentSpecs: true}, mode: "implementation",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "pass" {
+	if report.Verdicts.Linkage != "pass" {
 		t.Fatalf("combined plan did not verify: %#v", report.Diagnostics)
 	}
 }
