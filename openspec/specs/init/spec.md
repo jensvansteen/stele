@@ -6,7 +6,7 @@ Bootstrap a consumer project for Stele by selecting its default OpenSpec change 
 
 ## Requirements
 
-### Requirement: Initialize a consumer project
+### Requirement: Initialize a project
 Verification-ID: req.init.eed35c447821
 
 The `stele init` command SHALL do the following, without overwriting files that already exist:
@@ -29,7 +29,7 @@ Verification-ID: scn.init.e841b29256e0
 - **WHEN** `stele init` runs in a project that already contains the configuration and skills
 - **THEN** it leaves those files unchanged and reports that Stele is already initialized
 
-#### Scenario: Require a change for initialization
+#### Scenario: Initialize without a default change
 Verification-ID: scn.init.754fd262e114
 
 - **WHEN** `stele init` runs without `--change`

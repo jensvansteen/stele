@@ -43,8 +43,8 @@ Consumer fixtures use TypeScript or Go. Preserve their existing behavioral IDs. 
 
 1. Plan a change under `openspec/changes/<change>/`: proposal, delta specs with Verification-IDs, a design, tasks, and the change's own version 2 `linkage-plan.json` whose evidence entries the maintainer approved with `stele approve`. Check it with `npm run stele:published -- verify --stage proposal --change <change>`.
 2. Implement it across one or more pull requests. Until a release contains the behavior the change relies on, check it with the local build: `npm run stele -- validate --change <change>`.
-3. Archive the change with the `stele-archive` skill once all its tasks are complete, usually in the pull request that finishes it: `npm run stele:published -- validate --change <change>`, then `npx openspec archive <change> --yes`, then `npm run stele:published -- validate --specs`. OpenSpec merges its specs into `openspec/specs/` and moves the change, including its linkage plan, to `openspec/changes/archive/`.
-4. `npm run verify:self` builds the CLI under test and runs `stele validate --specs` with the published package, verifying all archived behavior. CI runs it on Linux for pull requests and pushes to `main`.
+3. Archive the change with the `stele-archive` skill once all its tasks are complete, usually in the pull request that finishes it: `npm run stele:published -- validate --change <change>`, then `npx openspec archive <change> --yes`, then `npm run stele:published -- annotate --specs` (OpenSpec drops the annotation line from newly created specifications), then `npm run stele:published -- validate --specs`. OpenSpec merges its specs into `openspec/specs/` and moves the change, including its linkage plan, to `openspec/changes/archive/`.
+4. `npm run verify:self` builds the CLI under test and runs `stele check --specs` with the published package (IDs, annotations, and validation of all archived behavior). CI runs it on Linux for pull requests and pushes to `main`.
 
 `stele.config.json` has no default change, so plain `stele verify` requires `--change` or `--specs`.
 
@@ -59,3 +59,5 @@ The workflow publishes through npm trusted publishing: its GitHub OIDC identity 
 A release that changes the bundled OpenSpec version follows the [OpenSpec upgrade checklist](docs/reference/versions.md#upgrading-openspec-is-a-stele-release) first.
 
 Never reuse or move a published version tag. Update both `package.json` and `package-lock.json` for each new candidate or final release, merge the change, then create the matching tag on `main`. After the workflow succeeds, approve the staged version, then confirm the GitHub release and the npm `next` or `latest` dist-tag with `npm view stele-spec dist-tags`.
+
+Until 0.1.0 is final, no stable version exists, so also point `latest` at the new candidate after approving it: `npm dist-tag add stele-spec@<version> latest`. Otherwise a plain `npm install stele-spec` keeps resolving to an older candidate. Once a stable version is published, the workflow moves `latest` itself and this step is no longer needed.

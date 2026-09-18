@@ -53,5 +53,5 @@
 
 ## 8. Gate
 
-- [ ] 8.1 Add `@implements` and `@verifies` anchors for this change and run `npm run verify`; verify it passes with exactly 100% core coverage and `npm run stele -- check --change terminal-report` passes with the local build
-- [ ] 8.2 After a release containing this change: bump `stele-published`, switch `verify:self` to `stele check --specs`, archive this change, and verify `npm run verify:self` passes
+- [x] 8.1 Add `@implements` and `@verifies` anchors for this change and run `npm run verify`; verify it passes with exactly 100% core coverage and `npm run stele -- check --change terminal-report` passes with the local build
+- [x] 8.2 After a release containing this change: bump `stele-published`, switch `verify:self` to `stele check --specs`, archive this change, and verify `npm run verify:self` passes
