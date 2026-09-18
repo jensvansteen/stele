@@ -5,7 +5,8 @@ The npm package exposes the compiled Go executable directly as the `stele` comma
 ## Global commands
 
 ```text
-stele init [--change ID] [--root PATH]
+stele init [--change ID] [--tools TOOLS] [--refresh-schema] [--root PATH]
+stele ids [--change ID] [--check] [--root PATH] [--json]
 stele verify [--stage proposal|implementation] [--change ID | --specs] [--root PATH] [--report PATH] [--json]
 stele test [--change ID | --specs] [--root PATH] [--evidence PATH] [--json]
 stele validate [--change ID | --specs] [--root PATH] [--report PATH] [--evidence PATH] [--json]
@@ -15,12 +16,30 @@ stele version
 
 ## `stele init`
 
-Creates `stele.config.json`, installs the `stele-plan` and `stele-verify` repository skills, and ensures `artifacts/` exists. Existing files are preserved.
+Prepares a project for Stele. Existing files are preserved.
+
+1. When the project has no `openspec/` directory, runs the bundled `openspec init` for the tools in `--tools` and, for the default `agents` target, links `.claude/skills` to `.agents/skills` unless `.claude/skills` exists.
+2. Forks OpenSpec's `spec-driven` schema into `openspec/schemas/stele`, unless that schema exists. The fork adds a `verification` artifact that generates `linkage-plan.json`, requires it before `tasks` and apply, and extends the apply instruction.
+3. Selects `stele` as the default schema when `openspec/config.yaml` selects `spec-driven`, and merges Stele guidance into `operations.apply.guidance`, `operations.archive.guidance`, and `rules.verification`. Existing values and comments are kept; the file is not rewritten when nothing is missing. Existing changes keep their schema.
+4. Writes `stele.config.json`, installs the `stele-propose`, `stele-apply`, `stele-archive`, `stele-plan`, and `stele-verify` skills in `.agents/skills/`, and ensures `artifacts/` exists.
+5. Prints the default workflow and the Stele commands to run around OpenSpec's own skills.
 
 | Option | Meaning |
 |---|---|
-| `--change ID` | Default OpenSpec change written to new configuration |
+| `--change ID` | Default OpenSpec change written to new configuration; optional |
+| `--tools TOOLS` | Tools passed to `openspec init` when OpenSpec is missing; defaults to `agents` |
+| `--refresh-schema` | Fork and patch the `stele` schema again, for example after an OpenSpec upgrade |
 | `--root PATH` | Consumer project root; defaults to the current directory |
+
+## `stele ids`
+
+Inserts a `Verification-ID` line below every requirement and scenario heading of the change's delta specs that has none. Existing IDs and every other byte, including line endings and a missing final newline, are preserved. Headings in `REMOVED` and `RENAMED` sections are skipped, and `MODIFIED` headings reuse their ID from `openspec/specs/<capability>/spec.md`.
+
+| Option | Meaning |
+|---|---|
+| `--change ID` | Override the configured change |
+| `--check` | Write nothing; exit with code `1` while an ID is missing |
+| `--json` | Print the inserted or missing IDs with their kind, title, file, and line |
 
 ## `stele verify`
 

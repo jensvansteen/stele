@@ -192,6 +192,25 @@ type Evidence struct {
 	Executions     []TestExecution   `json:"executions"`
 }
 
+// IdentityInsertion is one Verification-ID that was inserted or, when checking, is missing.
+type IdentityInsertion struct {
+	ID     string `json:"id"`
+	Kind   string `json:"kind"`
+	Title  string `json:"title"`
+	Path   string `json:"path"`
+	Line   int    `json:"line"`
+	Origin string `json:"origin"`
+}
+
+// IdentityResult reports the Verification-IDs assigned to a change's delta specs.
+type IdentityResult struct {
+	SchemaVersion int                 `json:"schemaVersion"`
+	ChangeID      string              `json:"changeId"`
+	Mode          string              `json:"mode"`
+	Verdict       string              `json:"verdict"`
+	Insertions    []IdentityInsertion `json:"insertions"`
+}
+
 // Config selects the adapter and default OpenSpec change for a project.
 type Config struct {
 	SchemaVersion int    `json:"schemaVersion"`

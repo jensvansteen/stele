@@ -11,6 +11,8 @@ Stele traces behavior through two identity types.
 
 An ID names behavior, not a heading, ticket, function, file, or test framework. Preserve it when the behavior is reworded, moved, or renamed. Create a new ID for new behavior and do not reuse a retired identity.
 
+`stele ids --change <change>` inserts the missing IDs of a change. It derives each new token from the change, capability, and heading, avoids every ID already declared under `openspec/` or named by an anchor, and reuses the current ID for headings in a `MODIFIED Requirements` section. `stele ids --check` only reports missing IDs.
+
 ```markdown
 ### Requirement: Delete a task
 Verification-ID: req.todo.ea4d4f29a1c7

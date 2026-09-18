@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "changeId": "authoring-workflow",
+  "requirements": {
+    "req.ids.320cb32c3b8a": "internal/stele/ids.go#deriveIdentity",
+    "req.ids.5cd09e44308f": "internal/stele/ids.go#AssignIdentities",
+    "req.ids.877eabdee0b4": "internal/stele/ids.go#loadBaseIdentities",
+    "req.init.eed35c447821": "internal/stele/init.go#Initialize",
+    "req.lifecycle.4c9232a6cf44": "internal/stele/init.go#installSkills",
+    "req.workflowschema.97dec0adc04d": "internal/stele/workflowschema.go#installWorkflowSchema",
+    "req.workflowschema.db5e762d55ea": "internal/stele/workflowschema.go#mergeOpenSpecGuidance"
+  },
+  "scenarios": {
+    "scn.ids.03c9b0ba7536": "internal/stele/ids_test.go#TestIdsSkipRemovedAndRenamedSections",
+    "scn.ids.0db6a666b9d4": "internal/stele/ids_test.go#TestIdsReportsJSON",
+    "scn.ids.11a49d3afd32": "internal/stele/ids_test.go#TestIdsReuseLivingSpecIdentities",
+    "scn.ids.1f44342aea82": "internal/stele/ids_test.go#TestIdsPreservesBytesAndExistingIdentities",
+    "scn.ids.83b2e0efd623": "internal/stele/ids_test.go#TestIdsInsertsMissingIdentities",
+    "scn.ids.9211a14a8ec9": "internal/stele/ids_test.go#TestIdsCheckWritesNothing",
+    "scn.ids.d83366faeaf7": "internal/stele/ids_test.go#TestIdsAvoidDeclaredAndAnchoredIdentities",
+    "scn.ids.ed0d3d9619a5": "internal/stele/ids_test.go#TestIdsAreReproducible",
+    "scn.init.754fd262e114": "internal/stele/cli_test.go#TestRunHandlesHelpVersionAndInitialization",
+    "scn.init.c8813c799047": "internal/stele/cli_test.go#TestInitPrintsDefaultWorkflow",
+    "scn.init.cbf5781012fa": "internal/stele/cli_test.go#TestInitializeWritesConfigAndSkills",
+    "scn.init.e841b29256e0": "internal/stele/init_test.go#TestInitializeIsIdempotent",
+    "scn.lifecycle.08814fe1e646": "internal/stele/init_test.go#TestArchiveSkillGatesOnValidation",
+    "scn.lifecycle.5a216e97cca6": "internal/stele/init_test.go#TestProposeSkillOrdersPlanningSteps",
+    "scn.lifecycle.5df1b597ff80": "internal/stele/init_test.go#TestLifecycleSkillsStayThin",
+    "scn.lifecycle.b91a6d6dd399": "internal/stele/init_test.go#TestApplySkillConfirmsBeforeDelegating",
+    "scn.workflowschema.270587f7a4c3": "internal/stele/workflowschema_test.go#TestVerificationInstructionsReachOpenSpec",
+    "scn.workflowschema.3aef78a653b4": "internal/stele/workflowschema_test.go#TestInitKeepsExistingSchemas",
+    "scn.workflowschema.61671da05c73": "internal/stele/workflowschema_test.go#TestMergeIsIdempotent",
+    "scn.workflowschema.6ffeeaa11cce": "internal/stele/workflowschema_test.go#TestMergeKeepsUserConfiguration",
+    "scn.workflowschema.779f1d7cebcb": "internal/stele/workflowschema_test.go#TestInitInitializesOpenSpecWhenMissing",
+    "scn.workflowschema.a444787573ca": "internal/stele/workflowschema_test.go#TestApplyWaitsForVerificationPlan",
+    "scn.workflowschema.b184c4d2986a": "internal/stele/workflowschema_test.go#TestOpenSpecInstructionsShowGuidance",
+    "scn.workflowschema.b4a054dbe512": "internal/stele/workflowschema_test.go#TestInitInstallsStelePipelineSchema"
+  }
+}

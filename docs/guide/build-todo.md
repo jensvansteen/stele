@@ -4,40 +4,43 @@ This walkthrough starts with a behavior idea, plans it in OpenSpec, adds Stele's
 
 For a shortcut to the finished browser application and evidence files, use [Inspect the finished Todo example](/guide/inspect-example).
 
-## 1. Create the project and OpenSpec change
+## 1. Create the project
 
 Start in a new TypeScript project:
 
 ```bash
 npm init -y
 npm install --save-dev stele-spec@next
-npx openspec init .
-npx openspec new change todo-basics
+npx stele init
 ```
 
-OpenSpec now owns the planning workflow under `openspec/changes/todo-basics/`. Do not write implementation code yet.
+`stele init` initializes OpenSpec with the bundled CLI, adds the `stele` workflow schema and guidance, and installs the Stele skills. See [Getting started](/guide/getting-started#set-up-a-project) for the details.
 
-## 2. Plan the behavior with OpenSpec
+## 2. Plan the behavior with your agent
 
-Ask your coding agent to create the OpenSpec artifacts from a plain-English request:
+Ask your coding agent to plan the change with the `stele-propose` skill:
 
 ```text
-Use OpenSpec to plan the change `todo-basics` for a small TypeScript Todo app.
-The first capability lets a user add a todo from non-empty text. Surrounding
-whitespace is removed, and blank text is rejected. Create the proposal, delta
-specification, design, and implementation tasks. Do not implement the feature yet.
+Use stele-propose to plan the change `todo-basics` for a small TypeScript Todo
+app. The first capability lets a user add a todo from non-empty text.
+Surrounding whitespace is removed, and blank text is rejected.
 ```
 
-You can also write the Markdown yourself. Either path should produce these artifacts:
+The skill uses OpenSpec to create the change under `openspec/changes/todo-basics/`, runs the Stele planning step, and stops with "Plan ready." without writing implementation code. The change contains:
 
 | Artifact | Question it answers |
 |---|---|
 | `proposal.md` | Why are we changing the product, and what is in scope? |
 | `specs/todo/spec.md` | What behavior must the product provide? |
-| `design.md` | How will the implementation satisfy that behavior? |
+| `design.md` | How will the implementation satisfy that behavior, and how will each scenario be proven? |
+| `linkage-plan.json` | Which declaration and test are planned for each ID? |
 | `tasks.md` | What work must be completed? |
 
-Review the generated files before continuing. The delta specification should contain behavior like this:
+The following steps show what to review in each artifact. You can also write them yourself.
+
+## 3. Review the behavior and its identities
+
+The delta specification should contain behavior like this, with a `Verification-ID` that `stele ids` inserted below every heading:
 
 ```markdown
 ## Purpose
@@ -46,44 +49,6 @@ Provide the basic creation behavior for a small Todo application.
 
 ## ADDED Requirements
 
-### Requirement: Create a todo
-
-The application SHALL create an open todo from non-empty text.
-
-#### Scenario: Add non-empty todo
-
-- **WHEN** the user submits non-empty todo text
-- **THEN** an open todo is added with surrounding whitespace removed
-
-#### Scenario: Reject blank todo
-
-- **WHEN** the user submits blank or whitespace-only text
-- **THEN** no todo is created and validation fails
-```
-
-Check the OpenSpec plan on its own:
-
-```bash
-npx openspec validate todo-basics --strict --no-interactive
-```
-
-Fix the proposal or specifications until OpenSpec accepts the change. At this point OpenSpec proves the plan has a valid shape; no implementation evidence exists yet.
-
-## 3. Add Stele to the planned change
-
-Initialize Stele after the OpenSpec change exists:
-
-```bash
-npx stele init --change todo-basics
-```
-
-This creates `stele.config.json`, installs the repository-local planning and verification skills, and remembers `todo-basics` as the default change. It does not rewrite the OpenSpec artifacts.
-
-## 4. Give the behavior stable identities
-
-Add one requirement ID and one ID to each scenario in `specs/todo/spec.md`:
-
-```markdown
 ### Requirement: Create a todo
 Verification-ID: req.todo.1a2b3c4d5e6f
 
@@ -102,11 +67,19 @@ Verification-ID: scn.todo.1b2c3d4e5f60
 - **THEN** no todo is created and validation fails
 ```
 
-These identities survive wording and file changes. They let Stele join the specification, implementation, tests, and evidence without guessing from titles.
+These identities survive wording and file changes. They let Stele join the specification, implementation, tests, and evidence without guessing from titles. Writing specs yourself? Run `npx stele ids --change todo-basics` instead of inventing tokens.
 
-## 5. Plan how each behavior will be proven
+## 4. Check the plan on its own
 
-Before implementation, add the verification strategy to `design.md`:
+```bash
+npx openspec validate todo-basics --strict --no-interactive
+```
+
+OpenSpec proves the plan has a valid shape; no implementation evidence exists yet.
+
+## 5. Review how each behavior will be proven
+
+The planning step adds a verification table to `design.md`:
 
 ```markdown
 ## Verification strategy
@@ -117,7 +90,7 @@ Before implementation, add the verification strategy to `design.md`:
 | `scn.todo.1b2c3d4e5f60` | unit | pure Todo creation | Blank-input rejection is deterministic logic. |
 ```
 
-Then create `openspec/changes/todo-basics/linkage-plan.json` with the exact declarations and tests you intend to write. The plan lives with the change, so `openspec archive` keeps it:
+It also writes `openspec/changes/todo-basics/linkage-plan.json` with the exact declarations and tests to write. The plan lives with the change, so `openspec archive` keeps it:
 
 ```json
 {
@@ -133,13 +106,15 @@ Then create `openspec/changes/todo-basics/linkage-plan.json` with the exact decl
 }
 ```
 
-Verify the proposal stage:
+The planning step verified the proposal stage:
 
 ```bash
-npx stele verify --stage proposal --json
+npx stele verify --stage proposal --change todo-basics --json
 ```
 
 This stage accepts targets that do not exist yet. It fails when an OpenSpec identity is missing from the plan or the target is malformed.
+
+When the levels look right, ask the agent to apply the change. `stele-apply` shows the levels again, asks you to confirm them, records your approval in `design.md`, and only then implements the next two steps.
 
 ## 6. Implement the planned declaration
 
@@ -193,7 +168,7 @@ Each title exactly matches the selector in the linkage plan. The `void` prefix s
 ## 8. Run the complete deterministic gate
 
 ```bash
-npx stele validate --json
+npx stele validate --change todo-basics --json
 ```
 
 Validation now combines three results:
@@ -206,9 +181,10 @@ The command exits with `0` only when every required check passes. It writes repr
 
 ## 9. Archive and keep verifying
 
-When the change is done, archive it:
+When the change is done, ask the agent to archive it with `stele-archive`. The skill runs `stele validate --change todo-basics`, archives the change with OpenSpec only when validation passes, and then verifies the current specifications. The manual equivalent is:
 
 ```bash
+npx stele validate --change todo-basics
 npx openspec archive todo-basics
 ```
 

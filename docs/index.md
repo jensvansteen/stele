@@ -42,13 +42,11 @@ Stele turns plain-English software behavior into a maintainable evidence graph. 
 
 ```bash
 npm install --save-dev stele-spec@next
-npx openspec init .
-npx openspec new change todo-basics
-npx stele init --change todo-basics
-npx stele verify --stage proposal
-npx stele validate --json
+npx stele init
+# Ask your agent: "Use stele-propose to plan <your change>."
+npx stele validate --change <your-change>
 ```
 
 ::: info Current scope
-The package ships a Go verification executable, TypeScript and Go consumer support, an OpenSpec adapter, and repository-local planning and verification skills.
+The package ships a Go verification executable, TypeScript and Go consumer support, an OpenSpec adapter with a Stele workflow schema, and repository-local skills to propose, apply, archive, plan, and verify changes.
 :::

@@ -19,7 +19,8 @@ const (
 const helpBody = ` — deterministic OpenSpec implementation verification
 
 Usage:
-  stele init [--change ID] [--root PATH]
+  stele init [--change ID] [--tools TOOLS] [--refresh-schema] [--root PATH]
+  stele ids [--change ID] [--root PATH] [--check] [--json]
   stele verify [--stage proposal|implementation] [--change ID | --specs] [--root PATH] [--report PATH] [--json]
   stele test [--change ID | --specs] [--root PATH] [--evidence PATH] [--json]
   stele validate [--change ID | --specs] [--root PATH] [--report PATH] [--evidence PATH] [--json]
@@ -31,13 +32,16 @@ Exit codes:
 `
 
 type options struct {
-	root         string
-	changeID     string
-	stage        string
-	reportPath   string
-	evidencePath string
-	json         bool
-	specs        bool
+	root          string
+	changeID      string
+	stage         string
+	reportPath    string
+	evidencePath  string
+	json          bool
+	specs         bool
+	check         bool
+	tools         string
+	refreshSchema bool
 }
 
 type validationResult struct {
@@ -71,7 +75,7 @@ func Run(arguments []string, stdout, stderr io.Writer) int {
 	case "version", "--version", "-v":
 		_, _ = fmt.Fprintln(stdout, Version)
 		return 0
-	case "init", "verify", "test", "validate":
+	case "init", "ids", "verify", "test", "validate":
 		break
 	default:
 		_, _ = fmt.Fprintf(stderr, "stele: unknown command: %s\n", command)
@@ -106,6 +110,8 @@ func routeCommand(command string, parsed options, stdout, stderr io.Writer) int 
 	switch command {
 	case "verify":
 		return verifyCommand(parsed, stdout, stderr)
+	case "ids":
+		return identitiesCommand(parsed, stdout, stderr)
 	case "test":
 		return testCommand(parsed, stdout, stderr)
 	default:
@@ -113,22 +119,74 @@ func routeCommand(command string, parsed options, stdout, stderr io.Writer) int 
 	}
 }
 
-func initCommand(parsed options, stdout, stderr io.Writer) int {
-	if parsed.changeID == "" {
-		return writeCommandError(stderr, errors.New("--change is required for init"))
-	}
+const initWorkflow = `
+Next steps:
+  Use the stele-propose, stele-apply, and stele-archive skills to plan,
+  implement, and archive changes.
 
+Using OpenSpec skills directly? The stele schema adds the planning step to
+new changes. Run these Stele commands around the OpenSpec steps:
+  after writing specs: stele ids, then stele verify --stage proposal
+  after applying:      stele validate --change <change>
+  after archiving:     stele validate --specs
+Enable OpenSpec's verify-change skill with: npx openspec config profile
+`
+
+func initCommand(parsed options, stdout, stderr io.Writer) int {
+	notes, err := setUpOpenSpec(parsed.root, openSpecSetup{tools: parsed.tools, refreshSchema: parsed.refreshSchema})
+	if err != nil {
+		return writeCommandError(stderr, err)
+	}
 	created, err := Initialize(parsed.root, parsed.changeID)
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
 	if len(created) == 0 {
 		_, _ = fmt.Fprintln(stdout, "Stele is already initialized.")
-		return 0
+	} else {
+		_, _ = fmt.Fprintf(stdout, "Initialized Stele: %s\n", strings.Join(created, ", "))
 	}
-
-	_, _ = fmt.Fprintf(stdout, "Initialized Stele: %s\n", strings.Join(created, ", "))
+	for _, note := range notes {
+		_, _ = fmt.Fprintln(stdout, note)
+	}
+	_, _ = fmt.Fprint(stdout, initWorkflow)
 	return 0
+}
+
+func identitiesCommand(parsed options, stdout, stderr io.Writer) int {
+	result, err := AssignIdentities(parsed.root, parsed.changeID, parsed.check)
+	if err != nil {
+		return writeCommandError(stderr, err)
+	}
+	if parsed.json {
+		writeMachineJSON(stdout, result)
+	} else {
+		renderIdentities(stdout, result)
+	}
+	return resultExitCode(result.Verdict == "pass")
+}
+
+func renderIdentities(stdout io.Writer, result IdentityResult) {
+	if len(result.Insertions) == 0 {
+		_, _ = fmt.Fprintln(stdout, "✓ every requirement and scenario has a Verification-ID")
+		return
+	}
+	if result.Mode == "check" {
+		_, _ = fmt.Fprintf(stdout, "✗ %d headings lack a Verification-ID\n", len(result.Insertions))
+	} else {
+		_, _ = fmt.Fprintf(stdout, "✓ inserted %d Verification-IDs\n", len(result.Insertions))
+	}
+	for _, insertion := range result.Insertions {
+		_, _ = fmt.Fprintf(
+			stdout,
+			"  %s:%d %s %s %q\n",
+			insertion.Path,
+			insertion.Line,
+			insertion.ID,
+			insertion.Kind,
+			insertion.Title,
+		)
+	}
 }
 
 func parseOptions(command string, arguments []string) (options, error) {
@@ -146,7 +204,13 @@ func parseOptions(command string, arguments []string) (options, error) {
 	flags.StringVar(&parsed.reportPath, "report", "", "report path")
 	flags.StringVar(&parsed.evidencePath, "evidence", "", "evidence path")
 	flags.BoolVar(&parsed.json, "json", false, "JSON output")
-	if command != "init" {
+	switch command {
+	case "init":
+		flags.StringVar(&parsed.tools, "tools", defaultOpenSpecTools, "OpenSpec tools to initialize")
+		flags.BoolVar(&parsed.refreshSchema, "refresh-schema", false, "re-fork the stele workflow schema")
+	case "ids":
+		flags.BoolVar(&parsed.check, "check", false, "report missing identities without writing")
+	default:
 		flags.BoolVar(&parsed.specs, "specs", false, "verify the current specifications")
 	}
 	if err := flags.Parse(arguments); err != nil {

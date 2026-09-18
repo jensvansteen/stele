@@ -97,18 +97,33 @@ func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 	)
 	requireCommandSuccess(t, "install packed Stele package", install)
 
+	// The consumer has no OpenSpec setup: stele init runs the bundled OpenSpec.
+	steleExecutable := packageExecutable(consumerRoot, "stele")
+	initResult := runCommand(consumerRoot, os.Environ(), steleExecutable, "init")
+	requireCommandSuccess(t, "initialize consumer project", initResult)
+
+	var config struct {
+		Change string `json:"change"`
+	}
+	readJSONFile(t, filepath.Join(consumerRoot, "stele.config.json"), &config)
+	if config.Change != "" {
+		t.Fatalf("expected no default change, got %q", config.Change)
+	}
+	for _, skill := range []string{
+		"stele-propose",
+		"stele-apply",
+		"stele-archive",
+		"stele-plan",
+		"stele-verify",
+		"openspec-propose",
+	} {
+		requireFile(t, filepath.Join(consumerRoot, ".agents", "skills", skill, "SKILL.md"))
+	}
+	requireFile(t, filepath.Join(consumerRoot, ".claude", "skills", "stele-propose", "SKILL.md"))
+	requireFile(t, filepath.Join(consumerRoot, "openspec", "schemas", "stele", "schema.yaml"))
+
 	openspecExecutable := packageExecutable(consumerRoot, "openspec")
 	requireFile(t, openspecExecutable)
-	requireCommandSuccess(t, "initialize OpenSpec workspace", runCommand(
-		consumerRoot,
-		os.Environ(),
-		openspecExecutable,
-		"init",
-		".",
-		"--tools",
-		"none",
-		"--no-animation",
-	))
 	requireCommandSuccess(t, "create OpenSpec change", runCommand(
 		consumerRoot,
 		os.Environ(),
@@ -117,27 +132,11 @@ func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 		"change",
 		"example",
 	))
-
-	steleExecutable := packageExecutable(consumerRoot, "stele")
-	initResult := runCommand(
-		consumerRoot,
-		os.Environ(),
-		steleExecutable,
-		"init",
-		"--change",
-		"example",
-	)
-	requireCommandSuccess(t, "initialize consumer project", initResult)
-
-	var config struct {
-		Change string `json:"change"`
+	status := runCommand(consumerRoot, os.Environ(), openspecExecutable, "status", "--change", "example")
+	requireCommandSuccess(t, "show OpenSpec status", status)
+	if !strings.Contains(status.stdout, "Schema: stele") || !strings.Contains(status.stdout, "verification") {
+		t.Fatalf("new change does not use the stele schema:\n%s", status.stdout)
 	}
-	readJSONFile(t, filepath.Join(consumerRoot, "stele.config.json"), &config)
-	if config.Change != "example" {
-		t.Fatalf("expected initialized change %q, got %q", "example", config.Change)
-	}
-	requireFile(t, filepath.Join(consumerRoot, ".agents", "skills", "stele-plan", "SKILL.md"))
-	requireFile(t, filepath.Join(consumerRoot, ".agents", "skills", "stele-verify", "SKILL.md"))
 
 	writeConsumerFixture(t, consumerRoot)
 
@@ -202,7 +201,7 @@ func writeConsumerFixture(t *testing.T, consumerRoot string) {
 	mustCreateDirectory(t, filepath.Join(consumerRoot, "tests"))
 
 	files := map[string]string{
-		filepath.Join(changeRoot, ".openspec.yaml"): "schema: spec-driven\n",
+		filepath.Join(changeRoot, ".openspec.yaml"): "schema: stele\n",
 		filepath.Join(changeRoot, "proposal.md"): "# Proposal: Package boundary\n\n" +
 			"## Why\n\nProve the installed package.\n\n" +
 			"## What Changes\n\n- Add a deterministic example.\n\n" +
