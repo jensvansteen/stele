@@ -48,4 +48,4 @@
 - [x] 7.1 Add `tests/cli.test.mts` tests for a full stdio session (including `serverInfo.version` equal to `stele --version`) and for byte equality between `stele/index` and `stele index --json --all` on a fixture with an unannotated spec; verify both pass in `npm run test:node`
 - [x] 7.2 Document `stele lsp` in the CLI reference, add the two `EXECUTION_*` codes to the diagnostics reference, add an "Editor integration" guide (capabilities and fallbacks, commands and their arguments, the run result, `stele/index`, diagnostics and stages, the quick fix) for client authors, and update the changelog; verify `npm run docs:build` passes
 - [x] 7.3 Add `@implements` and `@verifies` anchors for every requirement and approved evidence entry, then run `npm run verify`; verify it passes with exactly 100% core coverage and `./dist/stele check --change editor-language-server` passes
-- [ ] 7.4 After a release that contains this change, archive it with `stele-archive` and verify `npm run verify:self` passes
+- [x] 7.4 After a release that contains this change, archive it with `stele-archive` and verify `npm run verify:self` passes

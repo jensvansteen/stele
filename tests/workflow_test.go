@@ -51,7 +51,7 @@ func TestContinuousIntegrationRunsBothGates(t *testing.T) {
 	}
 	readJSONFile(t, filepath.Join(root, "package.json"), &manifest)
 	if manifest.Scripts["stele"] != "npm run build --silent && ./dist/stele" ||
-		manifest.Scripts["verify:self"] != "npm run build --silent && stele check --specs" {
+		manifest.Scripts["verify:self"] != "npm run build --silent && stele check --specs --annotations=never" {
 		t.Fatalf("package.json gate scripts: stele = %q, verify:self = %q",
 			manifest.Scripts["stele"], manifest.Scripts["verify:self"])
 	}

@@ -34,5 +34,5 @@
 ## 6. Gate
 
 - [x] 6.1 Add `@implements` and `@verifies` anchors for this change and run `npm run verify`. Verify that it passes with exactly 100% core coverage, and that `npm run stele -- check --all` passes with the local build.
-- [ ] 6.2 Open the implementing pull request. Verify in its CI log that the new step ran `check --all` over the current specifications and `ci-gates` and passed, that `verify:self` also passed, and that no fake `::error` annotations from test fixtures appear on the pull request.
-- [ ] 6.3 After a release containing this change: bump `stele-published`, pass `--annotations=never` to `verify:self` (open question 3, decided), archive this change with the `stele-archive` skill, and verify that `npm run verify:self` passes.
+- [x] 6.2 Open the implementing pull request. Verify in its CI log that the new step ran `check --all` over the current specifications and `ci-gates` and passed, that `verify:self` also passed, and that no fake `::error` annotations from test fixtures appear on the pull request.
+- [x] 6.3 After a release containing this change: bump `stele-published`, pass `--annotations=never` to `verify:self` (open question 3, decided), archive this change with the `stele-archive` skill, and verify that `npm run verify:self` passes.
