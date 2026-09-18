@@ -2,8 +2,8 @@ package stele
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -75,7 +75,7 @@ func parseScopeSpecs(root string, scope verificationScope) (ParsedSpecs, error) 
 
 // parseSpecFiles parses OpenSpec requirement and scenario blocks and each
 // file's annotation. fix names the command that adds missing annotations.
-func parseSpecFiles(root string, files []string, fix string) (ParsedSpecs, error) {
+func parseSpecFiles(repo repoFiles, root string, files []string, fix string) (ParsedSpecs, error) {
 	parsed := ParsedSpecs{
 		Requirements: []Requirement{},
 		Diagnostics:  []Diagnostic{},
@@ -92,7 +92,7 @@ func parseSpecFiles(root string, files []string, fix string) (ParsedSpecs, error
 		relative = filepath.ToSlash(relative)
 		parsed.Files = append(parsed.Files, relative)
 
-		requirements, diagnostics, annotation, removed, err := parseSpecFile(file, relative, fix)
+		requirements, diagnostics, annotation, removed, err := parseSpecFile(repo, file, relative, fix)
 		parsed.Requirements = append(parsed.Requirements, requirements...)
 		parsed.Removed = append(parsed.Removed, removed...)
 		parsed.Diagnostics = append(parsed.Diagnostics, diagnostics...)
@@ -109,18 +109,17 @@ func parseSpecFiles(root string, files []string, fix string) (ParsedSpecs, error
 	return parsed, nil
 }
 
-func parseSpecFile(path, relativePath, fix string) ([]Requirement, []Diagnostic, SpecAnnotation, []RemovedRequirement,
-	error,
+func parseSpecFile(repo repoFiles, path, relativePath, fix string) ([]Requirement, []Diagnostic, SpecAnnotation,
+	[]RemovedRequirement, error,
 ) {
 	classifier := newAnnotationClassifier(relativePath)
-	handle, err := os.Open(path)
+	content, err := repo.readFile(path)
 	if err != nil {
 		return nil, nil, classifier.result(), nil, err
 	}
-	defer func() { _ = handle.Close() }()
 
 	parser := specFileParser{path: relativePath, target: noIdentityTarget}
-	scanner := bufio.NewScanner(handle)
+	scanner := bufio.NewScanner(bytes.NewReader(content))
 	for scanner.Scan() {
 		parser.line++
 		classifier.line(parser.line, scanner.Text())

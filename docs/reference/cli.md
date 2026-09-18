@@ -15,6 +15,7 @@ stele validate [--change ID | --specs | --all] [--root PATH] [--report-file PATH
 stele index [--change ID | --specs | --all] [--root PATH] [--output-file PATH] [--json]
 stele approve [--change ID | --specs] [--evidence ID]... [--scenario ID]... [--all --yes | --confirmed-in-chat] [--by NAME] [--root PATH]
 stele plan migrate [--change ID | --specs] [--root PATH]
+stele lsp
 stele help
 stele version
 ```
@@ -221,6 +222,12 @@ In GitHub Actions, `check` also annotates each missing Verification-ID at its he
 Prints a deterministic JSON link index for editors and review tools: every requirement and scenario with its text, structured steps, and source location; every code and test anchor with its status; the planned evidence with its approval state; and the last execution outcome of each piece of evidence, marked `stale` when inputs changed since. It writes to standard output, or with `--output-file PATH` to that file. `--json` is accepted for symmetry; the output is always JSON. Identical inputs give identical bytes, without timestamps.
 
 With `--change`, the index also includes the current specifications, and every item is labelled with its scope. With `--specs`, only the current specifications are included, and with `--all`, the current specifications and every active change. See [Link index](/reference/link-index) for the document format.
+
+## `stele lsp`
+
+Runs the Stele language server: a Language Server Protocol server that reads JSON-RPC messages from standard input and writes them to standard output, for editors. Standard output carries only protocol messages; logs go to standard error. It takes no options; `stele lsp --help` prints its usage and exits with code `0`. It serves every workspace folder that contains `openspec/` or `stele.config.json`, with every scope, like `--all`. The session exits with code `0` on `exit` after `shutdown`, and with code `1` on `exit` or the end of input without `shutdown`.
+
+Editors start it through a client; see [Editor integration](/guide/editors) for the features, the capabilities they depend on, the commands, and the `stele/index` request.
 
 ## Every scope
 
@@ -436,6 +443,10 @@ Every code belongs to one stage, and the report prints its meaning and fix:
 | `LINK_CODE_MISSING`, `LINK_TEST_MISSING`, `LINK_EVIDENCE_MISSING`, `LINK_TARGET_MISMATCH` | Linkage | A requirement, scenario, or evidence entry has no matching anchor |
 | `LINK_REMOVED_BEHAVIOR_ANCHORED` | Linkage | Code or a test is still anchored to removed behavior |
 | `ANCHOR_DANGLING`, `ANCHOR_KIND`, `ANCHOR_TARGET_MISSING`, `ANCHOR_EVIDENCE_UNPLANNED` | Linkage | An anchor names an undeclared ID, has the wrong kind, is not above a declaration, or claims unplanned evidence |
+| `EXECUTION_FAILED` | Test execution | The last run of an evidence entry's tests failed (warning); only the [language server](/guide/editors#diagnostics) reports it |
+| `EXECUTION_STALE` | Test execution | The stored outcome was recorded before the verified inputs changed (information); only the [language server](/guide/editors#diagnostics) reports it |
+
+The command line reports test execution in the report's `verdicts` and its test list, never as these two codes; the editor shows the same outcomes as diagnostics on the scenario heading and the test.
 
 ## Common options
 

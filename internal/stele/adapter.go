@@ -77,8 +77,13 @@ func resolveBackend(adapter string) (specificationBackend, error) {
 // readConfig reads stele.config.json, returning an empty configuration when
 // the file does not exist.
 func readConfig(root string) (Config, error) {
+	return readConfigFrom(diskFiles{}, root)
+}
+
+// readConfigFrom reads stele.config.json through the repository files.
+func readConfigFrom(repo repoFiles, root string) (Config, error) {
 	var config Config
-	content, err := os.ReadFile(filepath.Join(root, "stele.config.json"))
+	content, err := repo.readFile(filepath.Join(root, "stele.config.json"))
 	if errors.Is(err, os.ErrNotExist) {
 		return config, nil
 	}
@@ -102,8 +107,35 @@ func configuredBackend(root string) (specificationBackend, error) {
 }
 
 // openSpecBackend reads and validates OpenSpec projects with the bundled,
-// pinned OpenSpec CLI.
-type openSpecBackend struct{}
+// pinned OpenSpec CLI. It reads specifications and plans through files, the
+// disk when nil.
+type openSpecBackend struct {
+	files repoFiles
+}
+
+// repo returns the files the backend reads.
+func (backend openSpecBackend) repo() repoFiles {
+	if backend.files == nil {
+		return diskFiles{}
+	}
+	return backend.files
+}
+
+// withFiles returns the backend reading through other files.
+func (openSpecBackend) withFiles(files repoFiles) specificationBackend {
+	return openSpecBackend{files: files}
+}
+
+// backendWithFiles returns a backend that reads through files, or the backend
+// itself when it cannot.
+func backendWithFiles(backend specificationBackend, files repoFiles) specificationBackend {
+	if reader, ok := backend.(interface {
+		withFiles(repoFiles) specificationBackend
+	}); ok {
+		return reader.withFiles(files)
+	}
+	return backend
+}
 
 func (openSpecBackend) Name() string {
 	return defaultAdapter
@@ -117,19 +149,19 @@ func (openSpecBackend) specsRoot(root string, scope verificationScope) string {
 }
 
 func (backend openSpecBackend) SpecFiles(root string, scope verificationScope) []string {
-	return walkFiles(backend.specsRoot(root, scope), isMarkdown)
+	return backend.repo().walk(backend.specsRoot(root, scope), isMarkdown)
 }
 
 func (backend openSpecBackend) ParseSpecs(root string, scope verificationScope) (ParsedSpecs, error) {
-	return parseSpecFiles(root, backend.SpecFiles(root, scope), annotationFix(scope))
+	return parseSpecFiles(backend.repo(), root, backend.SpecFiles(root, scope), annotationFix(scope))
 }
 
-func (openSpecBackend) DeclaredIdentities(root string) (map[string]bool, map[string]bool, error) {
-	return declaredIdentities(root)
+func (backend openSpecBackend) DeclaredIdentities(root string) (map[string]bool, map[string]bool, error) {
+	return declaredIdentities(backend.repo(), root)
 }
 
-func (openSpecBackend) IdentityFiles(root string) []string {
-	return walkFiles(filepath.Join(root, "openspec"), isMarkdown)
+func (backend openSpecBackend) IdentityFiles(root string) []string {
+	return backend.repo().walk(filepath.Join(root, "openspec"), isMarkdown)
 }
 
 // Capability returns "todo" for specs/todo/spec.md and "platform/auth" for
@@ -148,28 +180,28 @@ func (openSpecBackend) CurrentSpecFile(root, capability string) string {
 }
 
 // Changes lists the directories of openspec/changes except the archive.
-func (openSpecBackend) Changes(root string) []string {
-	entries, _ := os.ReadDir(filepath.Join(root, "openspec", "changes"))
-	changes := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() && entry.Name() != "archive" {
-			changes = append(changes, entry.Name())
+func (backend openSpecBackend) Changes(root string) []string {
+	_, directories := backend.repo().children(filepath.Join(root, "openspec", "changes"))
+	changes := make([]string, 0, len(directories))
+	for _, name := range directories {
+		if name != "archive" {
+			changes = append(changes, name)
 		}
 	}
 	return changes
 }
 
-func (openSpecBackend) PlanPaths(root string, scope verificationScope) []string {
+func (backend openSpecBackend) PlanPaths(root string, scope verificationScope) []string {
 	if scope.currentSpecs {
-		return walkFiles(filepath.Join(root, "openspec", "changes", "archive"), func(file string) bool {
+		return backend.repo().walk(filepath.Join(root, "openspec", "changes", "archive"), func(file string) bool {
 			return filepath.Base(file) == linkagePlanFile
 		})
 	}
 	return []string{filepath.Join(root, "openspec", "changes", scope.changeID, linkagePlanFile)}
 }
 
-func (openSpecBackend) ArchivedSpecFiles(_, planPath string) []string {
-	return walkFiles(filepath.Join(filepath.Dir(planPath), "specs"), isMarkdown)
+func (backend openSpecBackend) ArchivedSpecFiles(_, planPath string) []string {
+	return backend.repo().walk(filepath.Join(filepath.Dir(planPath), "specs"), isMarkdown)
 }
 
 func (openSpecBackend) Validate(root string, scope verificationScope) (bool, error) {

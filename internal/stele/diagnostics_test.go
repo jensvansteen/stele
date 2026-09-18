@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -53,7 +54,7 @@ func TestEveryDiagnosticCodeHasGuidance(t *testing.T) {
 			continue
 		}
 		if guide.meaning == "" || guide.fix == "" || guide.short == "" ||
-			(guide.stage != stageSpecifications && guide.stage != stagePlan && guide.stage != stageLinkage) {
+			!slices.Contains([]string{stageSpecifications, stagePlan, stageLinkage, stageExecution}, guide.stage) {
 			t.Errorf("diagnostic %s has incomplete guidance: %#v", code, guide)
 		}
 	}

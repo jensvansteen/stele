@@ -2,7 +2,6 @@ package stele
 
 import (
 	"fmt"
-	"os"
 	"sort"
 )
 
@@ -34,7 +33,7 @@ func removedBehavior(root string, scope verificationScope, parsed ParsedSpecs) (
 		capability := scope.spec().Capability(scope, item.Source.Path)
 		requirements, loaded := current[capability]
 		if !loaded {
-			requirements = currentRequirements(root, scope.spec().CurrentSpecFile(root, capability))
+			requirements = currentRequirements(scope.files(), root, scope.spec().CurrentSpecFile(root, capability))
 			current[capability] = requirements
 		}
 		requirement, found := requirementNamed(requirements, item.Name)
@@ -66,11 +65,11 @@ func addRemoved(removed map[string]removedIdentity, declared map[string]bool, id
 
 // currentRequirements parses one current specification, or returns nothing
 // when the capability has none.
-func currentRequirements(root, file string) []Requirement {
-	if _, err := os.Stat(file); err != nil {
+func currentRequirements(repo repoFiles, root, file string) []Requirement {
+	if !repo.isFile(file) {
 		return nil
 	}
-	parsed, _ := parseSpecFiles(root, []string{file}, "")
+	parsed, _ := parseSpecFiles(repo, root, []string{file}, "")
 	return parsed.Requirements
 }
 

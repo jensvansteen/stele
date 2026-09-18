@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -28,6 +27,15 @@ type verificationScope struct {
 
 func changeScope(changeID string) verificationScope {
 	return verificationScope{changeID: changeID}
+}
+
+// files returns the repository files the scope's backend reads, the disk
+// unless the backend reads through other files.
+func (scope verificationScope) files() repoFiles {
+	if backend, ok := scope.spec().(interface{ repo() repoFiles }); ok {
+		return backend.repo()
+	}
+	return diskFiles{}
 }
 
 // spec returns the scope's specification backend, OpenSpec by default.
@@ -82,13 +90,13 @@ func loadChangePlan(root string, scope verificationScope) (LinkagePlan, []Diagno
 	changeID := scope.changeID
 	file := filepath.Join(root, "artifacts", linkagePlanFile)
 	for _, candidate := range scope.spec().PlanPaths(root, scope) {
-		if fileExists(candidate) {
+		if scope.files().isFile(candidate) {
 			file = candidate
 			break
 		}
 	}
 	source := repositoryPath(root, file)
-	plan, err := readLinkagePlan(file)
+	plan, err := readLinkagePlanFrom(scope.files(), file)
 	if err != nil {
 		return emptyLinkagePlan(), nil
 	}
@@ -131,10 +139,10 @@ func loadArchivedPlans(root string, scope verificationScope) (LinkagePlan, []Dia
 	combined := emptyLinkagePlan()
 	combined.Evidence = map[string][]EvidenceEntry{}
 	diagnostics := make([]Diagnostic, 0)
-	current := identityTexts(root, scope.spec().SpecFiles(root, scope))
+	current := identityTexts(scope.files(), root, scope.spec().SpecFiles(root, scope))
 	plans := make([]archivedPlan, 0)
 	for _, file := range scope.spec().PlanPaths(root, scope) {
-		plan, err := readLinkagePlan(file)
+		plan, err := readLinkagePlanFrom(scope.files(), file)
 		if err != nil {
 			continue
 		}
@@ -145,7 +153,7 @@ func loadArchivedPlans(root string, scope verificationScope) (LinkagePlan, []Dia
 		plans = append(plans, archivedPlan{
 			plan:  plan,
 			name:  filepath.Base(filepath.Dir(file)),
-			texts: identityTexts(root, scope.spec().ArchivedSpecFiles(root, file)),
+			texts: identityTexts(scope.files(), root, scope.spec().ArchivedSpecFiles(root, file)),
 		})
 	}
 	sort.Slice(plans, func(i, j int) bool { return plans[i].name < plans[j].name })
@@ -253,8 +261,8 @@ var archiveDatePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-`)
 
 // identityTexts returns the whitespace-normalized text of every requirement
 // and scenario the files declare, the same text approvals fingerprint.
-func identityTexts(root string, files []string) map[string]string {
-	parsed, _ := parseSpecFiles(root, files, "")
+func identityTexts(repo repoFiles, root string, files []string) map[string]string {
+	parsed, _ := parseSpecFiles(repo, root, files, "")
 	texts := make(map[string]string)
 	for _, requirement := range parsed.Requirements {
 		texts[requirement.ID] = strings.Join(strings.Fields(requirement.Title+" "+requirement.Text), " ")
@@ -277,14 +285,14 @@ func repositoryPath(root, file string) string {
 // declare, which is behavior an archived change removed.
 //
 // @implements req.verificationscope.9c81618619df
-func declaredIdentities(root string) (map[string]bool, map[string]bool, error) {
+func declaredIdentities(repo repoFiles, root string) (map[string]bool, map[string]bool, error) {
 	declared := make(map[string]bool)
 	live := make(map[string]bool)
-	files := walkFiles(filepath.Join(root, "openspec"), func(path string) bool {
+	files := repo.walk(filepath.Join(root, "openspec"), func(path string) bool {
 		return strings.EqualFold(filepath.Ext(path), ".md")
 	})
 	for _, file := range files {
-		content, err := os.ReadFile(file)
+		content, err := repo.readFile(file)
 		if err != nil {
 			return nil, nil, err
 		}

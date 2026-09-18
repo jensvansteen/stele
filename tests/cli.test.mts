@@ -3,6 +3,7 @@ import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import test, { type TestContext } from "node:test";
 
 interface VerificationReport {
@@ -653,4 +654,100 @@ void test("keeps timing out of machine output", async (context: TestContext): Pr
   for (const output of [first.stdout, firstReport]) {
     assert.doesNotMatch(output, /duration|elapsed|\d+\.\ds|test execution:|progress/iv);
   }
+});
+
+interface LspMessage {
+  readonly id: unknown;
+  readonly method: unknown;
+  readonly result: unknown;
+  readonly body: string;
+}
+
+// Frames JSON-RPC messages with Content-Length headers, as an LSP client does.
+function lspInput(messages: readonly Readonly<Record<string, unknown>>[]): string {
+  return messages.map((message: Readonly<Record<string, unknown>>): string => {
+    const body: string = JSON.stringify({ jsonrpc: "2.0", ...message });
+    return `Content-Length: ${String(Buffer.byteLength(body))}\r\n\r\n${body}`;
+  }).join("");
+}
+
+// Splits the server's standard output into messages, failing on any byte
+// outside a Content-Length frame.
+function lspMessages(output: Buffer): LspMessage[] {
+  const messages: LspMessage[] = [];
+  let offset = 0;
+  while (offset < output.length) {
+    const end: number = output.indexOf("\r\n\r\n", offset);
+    assert.ok(end > offset, `unframed output: ${output.subarray(offset).toString("utf8")}`);
+    const match: RegExpExecArray | null = /^Content-Length: (?<length>\d+)$/v.exec(output.subarray(offset, end).toString("utf8"));
+    assert.ok(match?.groups?.length !== undefined, `unexpected header at ${String(offset)}`);
+    const start: number = end + 4;
+    offset = start + Number(match.groups.length);
+    const body: string = output.subarray(start, offset).toString("utf8");
+    const parsed: unknown = JSON.parse(body);
+    assert.ok(isRecord(parsed));
+    messages.push({ id: parsed.id, method: parsed.method, result: parsed.result, body });
+  }
+  return messages;
+}
+
+function lspSession(root: string, requests: readonly Readonly<Record<string, unknown>>[]): SpawnSyncReturns<Buffer> {
+  const rootUri: string = pathToFileURL(root).href;
+  return spawnSync("dist/stele", ["lsp"], {
+    cwd: ROOT,
+    input: lspInput([
+      { id: 1, method: "initialize", params: { processId: null, capabilities: { textDocument: { hover: { contentFormat: ["markdown"] } } }, workspaceFolders: [{ uri: rootUri, name: "project" }] } },
+      { method: "initialized", params: {} },
+      ...requests,
+      { id: 99, method: "shutdown", params: null },
+      { method: "exit", params: null },
+    ]),
+  });
+}
+
+function response(messages: readonly LspMessage[], id: number): LspMessage {
+  const found: LspMessage | undefined = messages.find((message: LspMessage): boolean => message.id === id && message.method === undefined);
+  assert.ok(found !== undefined, `no response ${String(id)}`);
+  return found;
+}
+
+// @verifies scn.languageserver.3a0c2fb46bad.e2e
+void test("serves a language server session through the installed binary", async (context: TestContext): Promise<void> => {
+  const root: string = await passingFixture(context);
+  const session: SpawnSyncReturns<Buffer> = lspSession(root, [
+    { id: 2, method: "textDocument/hover", params: { textDocument: { uri: pathToFileURL(path.join(root, "src/todo.mts")).href }, position: { line: 0, character: 20 } } },
+  ]);
+  assert.equal(session.status, 0, session.stderr.toString("utf8"));
+  const messages: LspMessage[] = lspMessages(session.stdout);
+  const initialized: unknown = response(messages, 1).result;
+  assert.ok(isRecord(initialized) && isRecord(initialized.capabilities) && isRecord(initialized.serverInfo));
+  const capabilities: Record<string, unknown> = initialized.capabilities;
+  for (const feature of ["hoverProvider", "definitionProvider", "referencesProvider", "codeLensProvider", "codeActionProvider", "executeCommandProvider"]) {
+    assert.ok(capabilities[feature] !== undefined && capabilities[feature] !== false, `${feature} is not advertised`);
+  }
+  assert.ok(isRecord(capabilities.experimental) && isRecord(capabilities.experimental.stele));
+  assert.equal(capabilities.experimental.stele.diagnostics, "publish");
+  assert.equal(initialized.serverInfo.name, "stele");
+  assert.equal(initialized.serverInfo.version, cli(["--version"]).stdout.trim());
+  assert.ok(messages.some((message: LspMessage): boolean => message.method === "textDocument/publishDiagnostics"));
+  const hover: unknown = response(messages, 2).result;
+  assert.ok(isRecord(hover) && isRecord(hover.contents));
+  assert.match(String(hover.contents.value), /\*\*Requirement:\*\* Add a todo · `example`/v);
+  assert.equal(response(messages, 99).result, null);
+});
+
+// @verifies scn.languageserver.bc6723089290.e2e
+void test("answers stele/index with the command-line index", async (context: TestContext): Promise<void> => {
+  const root: string = await passingFixture(context);
+  const session: SpawnSyncReturns<Buffer> = lspSession(root, [
+    { id: 2, method: "stele/index", params: { root: pathToFileURL(root).href } },
+  ]);
+  assert.equal(session.status, 0, session.stderr.toString("utf8"));
+  const body: string = response(lspMessages(session.stdout), 2).body;
+  const prefix = '{"jsonrpc":"2.0","id":2,"result":';
+  assert.ok(body.startsWith(prefix) && body.endsWith("}"), body);
+  const printed: SpawnSyncReturns<string> = cli(["index", "--json", "--all", "--root", root]);
+  assert.equal(printed.status, 0, printed.stderr);
+  assert.match(printed.stdout, /"annotation": "missing"/v);
+  assert.equal(body.slice(prefix.length, -1), printed.stdout);
 });
