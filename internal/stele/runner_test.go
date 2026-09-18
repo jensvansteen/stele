@@ -389,3 +389,52 @@ func TestRunScenarioTestsDependencyErrorsAndOrdering(t *testing.T) {
 		t.Fatalf("results were not sorted: %#v", evidence)
 	}
 }
+
+// @verifies scn.verificationstrategy.2f332f9ca4e2.unit
+func TestScenarioFailsWhenOneEvidenceFails(t *testing.T) {
+	root := evidenceFixture(t)
+	writeEvidenceTest(t, root, "tests/value.test.mts", evidenceScenarioID+".unit", "returns the value")
+	writeFixture(t, root, "tests/journey.test.mts", "import test from \"node:test\";\n"+
+		"// @verifies "+evidenceScenarioID+".e2e\n"+
+		"// @verifies "+otherScenarioID+".e2e\n"+
+		"void test(\"runs the journey\", () => {});\n")
+	writeEvidenceTest(t, root, "tests/other.test.mts", otherScenarioID+".unit", "reports a missing value")
+	original := runExactTest
+	t.Cleanup(func() { runExactTest = original })
+	runExactTest = func(_ string, path, _ string) (bool, bool, error) {
+		return path != "tests/journey.test.mts", true, nil
+	}
+	evidence, err := RunScenarioTests(root, "example", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []ScenarioOutcome{
+		{ID: evidenceScenarioID, Outcome: "failed", FailedEvidence: []string{evidenceScenarioID + ".e2e"}},
+		{ID: otherScenarioID, Outcome: "failed", FailedEvidence: []string{otherScenarioID + ".e2e"}},
+	}
+	if evidence.Outcome != "failed" || len(evidence.Scenarios) != 2 {
+		t.Fatalf("evidence = %#v", evidence)
+	}
+	for index, scenario := range want {
+		got := evidence.Scenarios[index]
+		if got.ID != scenario.ID || got.Outcome != scenario.Outcome ||
+			!slices.Equal(got.FailedEvidence, scenario.FailedEvidence) {
+			t.Fatalf("scenario %d = %#v, want %#v", index, got, scenario)
+		}
+	}
+	for _, execution := range evidence.Executions {
+		if execution.Path == "tests/journey.test.mts" &&
+			!slices.Equal(execution.EvidenceIDs, []string{evidenceScenarioID + ".e2e", otherScenarioID + ".e2e"}) {
+			t.Fatalf("journey execution = %#v", execution)
+		}
+		if execution.Path == "tests/value.test.mts" && execution.Outcome != "passed" {
+			t.Fatalf("unit evidence did not pass: %#v", execution)
+		}
+	}
+
+	runExactTest = func(string, string, string) (bool, bool, error) { return true, true, nil }
+	passed, err := RunScenarioTests(root, "example", "")
+	if err != nil || passed.Outcome != "passed" || passed.Scenarios[0].FailedEvidence != nil {
+		t.Fatalf("passing evidence = %#v, %v", passed, err)
+	}
+}

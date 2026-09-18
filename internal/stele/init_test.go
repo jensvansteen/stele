@@ -211,3 +211,66 @@ func assertNoCopiedText(t *testing.T, skillName, skill, openSpecName string) {
 		}
 	}
 }
+
+// @verifies scn.verificationstrategy.f60e81cbfa96.unit
+func TestPlanningSkillContainsStrategyGuidance(t *testing.T) {
+	skill := installedSkill(t, "stele-plan")
+	for _, guidance := range []string{
+		"**unit**: calls code directly, in process",
+		"**integration**: exercises the code together with one real outside tool or service",
+		"**e2e**: uses the real product through its user-facing entry point",
+		"rationale that names the risk it covers and why its level is the lowest convincing one",
+		"Add a second level only for a distinct risk",
+		"`AGENTS.md`, `CLAUDE.md`, installed skills, and existing code and test layout",
+		"Placement is advisory: Stele never checks it.",
+		`"schemaVersion": 2`,
+		`"evidence": [`,
+		`"id": "scn.todo.0a1b2c3d4e5f.unit"`,
+		"`.unit.2`",
+		"never write an `approval`",
+		"`stele plan migrate --change <change>`",
+	} {
+		if !strings.Contains(skill, guidance) {
+			t.Fatalf("stele-plan lacks %q:\n%s", guidance, skill)
+		}
+	}
+}
+
+// @verifies scn.verificationstrategy.17786fd23375.unit
+func TestPlanningSkillDescribesConversationalApproval(t *testing.T) {
+	skill := installedSkill(t, "stele-plan")
+	assertOrdered(t, skill,
+		"## Approval",
+		"`PLAN_UNAPPROVED` or `PLAN_APPROVAL_STALE`",
+		"scenario, level, why, and suggested placement",
+		`"Approve these levels and start implementing?"`,
+		"Only after an explicit yes, run `stele approve --change <change> --confirmed-in-chat`",
+		"`openspec-update-change` workflow",
+		"ask again",
+		"Never approve silently, and never treat a request to apply or implement as approval.",
+	)
+	verify := installedSkill(t, "stele-verify")
+	for _, rule := range []string{"LINK_EVIDENCE_MISSING", "ANCHOR_EVIDENCE_UNPLANNED", "PLAN_APPROVAL_STALE"} {
+		if !strings.Contains(verify, rule) {
+			t.Fatalf("stele-verify lacks %s", rule)
+		}
+	}
+}
+
+// @verifies scn.verificationstrategy.9dad8263a6c0.unit
+func TestInitializeKeepsProjectSkills(t *testing.T) {
+	root := fixtureRoot(t)
+	if _, err := Initialize(root, ""); err != nil {
+		t.Fatal(err)
+	}
+	writeFixture(t, root, ".agents/skills/team-placement/SKILL.md", "# Team placement\n")
+	writeFixture(t, root, ".agents/skills/stele-plan/SKILL.md", "# Customized plan skill\n")
+	created, err := Initialize(root, "")
+	if err != nil || len(created) != 0 {
+		t.Fatalf("second Initialize() = %#v, %v", created, err)
+	}
+	if readTestFile(t, root, ".agents/skills/team-placement/SKILL.md") != "# Team placement\n" ||
+		readTestFile(t, root, ".agents/skills/stele-plan/SKILL.md") != "# Customized plan skill\n" {
+		t.Fatal("Initialize changed existing skills")
+	}
+}

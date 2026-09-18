@@ -126,9 +126,15 @@ func validateLinkage(input linkageValidationInput) []Diagnostic {
 	diagnostics := append([]Diagnostic{}, input.Parsed.Diagnostics...)
 	known := knownIdentities(input.Parsed)
 	diagnostics = append(diagnostics, anchorDiagnostics(input.Mode, input.Anchors, known, input.Declared)...)
+	diagnostics = append(diagnostics, unknownPlanDiagnostics(input.Plan, scenarioIdentities(input.Parsed),
+		input.Plan.Source)...)
 	for _, requirement := range input.Parsed.Requirements {
 		diagnostics = append(diagnostics, requirementLinkDiagnostics(input, requirement)...)
 		for _, scenario := range requirement.Scenarios {
+			if input.Plan.usesEvidence(scenario.ID) {
+				diagnostics = append(diagnostics, evidenceDiagnostics(input, scenario)...)
+				continue
+			}
 			diagnostics = append(diagnostics, scenarioLinkDiagnostics(input, scenario)...)
 		}
 	}
@@ -151,6 +157,16 @@ func knownIdentities(parsed ParsedSpecs) map[string]bool {
 		}
 	}
 	return known
+}
+
+func scenarioIdentities(parsed ParsedSpecs) map[string]bool {
+	scenarios := make(map[string]bool)
+	for _, requirement := range parsed.Requirements {
+		for _, scenario := range requirement.Scenarios {
+			scenarios[scenario.ID] = true
+		}
+	}
+	return scenarios
 }
 
 func anchorDiagnostics(mode string, anchors []Anchor, known, declared map[string]bool) []Diagnostic {
@@ -197,8 +213,9 @@ func anchorDiagnostics(mode string, anchors []Anchor, known, declared map[string
 func requirementLinkDiagnostics(input linkageValidationInput, requirement Requirement) []Diagnostic {
 	links := anchorsFor(input.Anchors, requirement.ID, "code")
 	planned := input.Plan.Requirements[requirement.ID]
+	evidencePlan := input.Plan.requirementUsesEvidence(requirement)
 	if input.Mode == "proposal" {
-		if planned == "" {
+		if planned == "" && !evidencePlan {
 			return []Diagnostic{diagnostic(
 				"PLAN_CODE_MISSING",
 				"error",
@@ -407,6 +424,10 @@ func buildRequirementReport(
 ) (RequirementReport, reportContribution) {
 	codeAnchors := anchorsFor(input.Anchors, requirement.ID, "code")
 	codeLinks, linkage := linksForMode(input.Mode, "code", codeAnchors, input.Plan.Requirements[requirement.ID])
+	if input.Mode == "proposal" && input.Plan.requirementUsesEvidence(requirement) {
+		// A v2 plan does not list requirements; their anchors are checked later.
+		linkage = "planned"
+	}
 	report := RequirementReport{
 		ID:        requirement.ID,
 		Title:     requirement.Title,
@@ -438,6 +459,12 @@ func buildScenarioReport(
 ) (ScenarioReport, string) {
 	testAnchors := anchorsFor(input.Anchors, scenario.ID, "test")
 	testLinks, linkage := linksForMode(input.Mode, "test", testAnchors, input.Plan.Scenarios[scenario.ID])
+	var evidence []PlannedEvidence
+	if input.Plan.usesEvidence(scenario.ID) {
+		entries := input.Plan.Evidence[scenario.ID]
+		testLinks, linkage = evidenceLinks(input.Mode, testAnchors, entries)
+		evidence = plannedEvidence(scenario, entries)
+	}
 	outcome := outcomes[scenario.ID]
 	if outcome == "" {
 		outcome = "not-run"
@@ -449,6 +476,7 @@ func buildScenarioReport(
 		TestLinks: testLinks,
 		Linkage:   linkage,
 		Execution: executionState(outcome),
+		Evidence:  evidence,
 	}, outcome
 }
 
@@ -491,7 +519,7 @@ func executionState(outcome string) ExecutionState {
 
 func stageSummary(proposalDiagnostics []Diagnostic, mode string, errors int) (string, string) {
 	proposalStatus := "pass"
-	if len(proposalDiagnostics) > 0 {
+	if proposalErrors, _, _ := diagnosticSummary(proposalDiagnostics); proposalErrors > 0 {
 		proposalStatus = "fail"
 	}
 	switch {
@@ -514,6 +542,8 @@ func resolvedLink(anchor Anchor) Link {
 		Selector:        anchor.Selector,
 		DeclarationLine: anchor.DeclarationLine,
 		State:           "resolved",
+		EvidenceID:      anchor.EvidenceID,
+		Level:           anchor.Level,
 	}
 }
 

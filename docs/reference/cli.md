@@ -10,6 +10,8 @@ stele ids [--change ID] [--check] [--root PATH] [--json]
 stele verify [--stage proposal|implementation] [--change ID | --specs] [--root PATH] [--report PATH] [--json]
 stele test [--change ID | --specs] [--root PATH] [--evidence PATH] [--json]
 stele validate [--change ID | --specs] [--root PATH] [--report PATH] [--evidence PATH] [--json]
+stele approve [--change ID | --specs] [--evidence ID]... [--scenario ID]... [--all --yes | --confirmed-in-chat] [--by NAME] [--root PATH]
+stele plan migrate [--change ID | --specs] [--root PATH]
 stele help
 stele version
 ```
@@ -71,6 +73,64 @@ Runs scenario tests, OpenSpec strict validation, and implementation verification
 
 With `--specs`, OpenSpec validates all specifications with `openspec validate --specs --strict`.
 
+## `stele approve`
+
+Records approvals for the pending and stale evidence entries of a version 2 plan. Each approval stores the approver, the date, a digest of the entry and the scenario's whitespace-normalized wording, `via`, and the current revision when there is one.
+
+| Option | Meaning |
+|---|---|
+| (none) | In an interactive terminal, show each entry (scenario text, level, rationale, advisory placement) and ask approve, reject, or skip. Approvals use `via: cli`. |
+| `--all --yes` | Approve every selected entry without prompts, with `via: cli` |
+| `--confirmed-in-chat` | Record a confirmation that a human gave in an agent conversation, with `via: agent-confirmed`. An agent may pass it only after an explicit yes. The output names each approved entry. |
+| `--evidence ID`, `--scenario ID` | Limit the selection; repeat the option or separate IDs with commas |
+| `--by NAME` | Approver name; defaults to `git config user.name` |
+| `--specs` | Approve entries in the version 2 plans of archived changes |
+
+Without a terminal, `--all --yes`, or `--confirmed-in-chat`, the command approves nothing and exits with code `2`. It also exits with code `2` when no approver name is known or the plan is still version 1. Rejected and skipped entries stay unapproved and are offered again next time.
+
+## `stele plan migrate`
+
+Converts a version 1 plan to version 2 in place. Each scenario gets one unapproved entry per level its test anchors already name, such as `.unit` or `.e2e.2`, and otherwise one unapproved `unit` entry whose rationale asks you to choose the level. Targets and requirement entries are dropped. With `--specs`, every version 1 plan of an archived change is converted.
+
+## Linkage plan versions
+
+A **version 2** plan records decisions a person approves, not locations:
+
+```json
+{
+  "schemaVersion": 2,
+  "changeId": "todo-basics",
+  "scenarios": {
+    "scn.todo.20d9cd2785a4": {
+      "evidence": [
+        {
+          "id": "scn.todo.20d9cd2785a4.unit",
+          "level": "unit",
+          "rationale": "Pure logic; no I/O is needed.",
+          "placement": "tests/todo.test.ts",
+          "approval": {
+            "approver": "Jens",
+            "date": "2026-09-17",
+            "digest": "sha256:…",
+            "via": "agent-confirmed",
+            "revision": "16f57cf…"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+| Stage | Version 2 rules |
+|---|---|
+| Both | Every scenario lists at least one entry (`PLAN_EVIDENCE_MISSING`). Entries have a known level, an ID that matches their scenario and level, a rationale, and a unique ID (`PLAN_EVIDENCE_INVALID`). The plan lists only declared scenarios (`PLAN_UNKNOWN_ID`). Every entry is approved (`PLAN_UNAPPROVED`) and unchanged since approval (`PLAN_APPROVAL_STALE`). |
+| Implementation | Every approved entry has a `@verifies <evidence-id>` anchor on a named test (`LINK_EVIDENCE_MISSING`); no test claims an unplanned evidence ID or a bare scenario ID (`ANCHOR_EVIDENCE_UNPLANNED`); every requirement has an `@implements` anchor (`LINK_CODE_MISSING`). Locations are never compared. |
+
+A **version 1** plan maps each requirement and scenario to one `path#selector` target. It keeps its earlier rules until Stele 0.2.0 and adds a `PLAN_V1_DEPRECATED` warning, which does not change the verdict.
+
+Reports list each version 2 scenario's planned `evidence` with its approval state, and links carry `evidenceId` and `level`. Test evidence lists the `evidenceIds` of each execution and the `failedEvidence` of a failed scenario.
+
 ## Scopes and linkage plans
 
 Each run checks one scope: a change, selected with `--change` or the configured default, or the current specifications, selected with `--specs`. The two options cannot be combined.
@@ -78,7 +138,7 @@ Each run checks one scope: a change, selected with `--change` or the configured 
 | Scope | Specifications | Linkage plan |
 |---|---|---|
 | Change | `openspec/changes/<change>/specs/` | `openspec/changes/<change>/linkage-plan.json`, or `artifacts/linkage-plan.json` when the change has none |
-| Current specifications | `openspec/specs/` | Every `linkage-plan.json` under `openspec/changes/archive/`, combined in archive order; a later archive wins for the same ID |
+| Current specifications | `openspec/specs/` | Every `linkage-plan.json` under `openspec/changes/archive/`, combined in archive order; a later archive wins for the same ID, whatever its version |
 
 A plan whose `changeId` names a different change fails with `PLAN_CHANGE_MISMATCH`. Anchors for IDs declared elsewhere under `openspec/`, in another change or in the current specifications, do not affect the selected scope. An anchor fails with `ANCHOR_DANGLING` only when no specification declares its ID.
 

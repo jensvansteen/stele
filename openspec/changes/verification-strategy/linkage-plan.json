@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "changeId": "verification-strategy",
+  "requirements": {
+    "req.verificationstrategy.04519b98b8bb": "internal/stele/plan.go#parseLinkagePlan",
+    "req.verificationstrategy.ace39f5009c6": "internal/stele/init.go#Initialize",
+    "req.verificationstrategy.c09342159cf0": "internal/stele/approve.go#approveEvidence",
+    "req.verificationstrategy.c852cba36427": "internal/stele/evidence.go#evidenceDiagnostics",
+    "req.verificationstrategy.ef0c2440e601": "internal/stele/migrate.go#migrateV1Plan",
+    "req.verify.1d6031f2d3dd": "internal/stele/verify.go#RunVerification"
+  },
+  "scenarios": {
+    "scn.verificationstrategy.122427afc2f9": "internal/stele/approve_test.go#TestApproveReviewsEntriesInteractively",
+    "scn.verificationstrategy.17786fd23375": "internal/stele/init_test.go#TestPlanningSkillDescribesConversationalApproval",
+    "scn.verificationstrategy.1b1070d81978": "internal/stele/evidence_test.go#TestImplementationAcceptsEvidenceAnywhere",
+    "scn.verificationstrategy.1eaf664142c0": "internal/stele/approve_test.go#TestApproveRecordsConversationConfirmation",
+    "scn.verificationstrategy.2779f7f381d3": "internal/stele/plan_test.go#TestProposalAcceptsApprovedEvidencePlan",
+    "scn.verificationstrategy.2bcfb4ad1dbd": "internal/stele/evidence_test.go#TestImplementationReportsMissingEvidence",
+    "scn.verificationstrategy.2f332f9ca4e2": "internal/stele/runner_test.go#TestScenarioFailsWhenOneEvidenceFails",
+    "scn.verificationstrategy.45a816cfbf7f": "internal/stele/plan_test.go#TestProposalRejectsMalformedEvidence",
+    "scn.verificationstrategy.4e5b236cc0c8": "internal/stele/approve_test.go#TestApproveRefusesWithoutConfirmation",
+    "scn.verificationstrategy.509b8e9fab98": "internal/stele/plan_test.go#TestProposalRejectsUnknownPlanIDs",
+    "scn.verificationstrategy.5cb8e9ef14e7": "internal/stele/migrate_test.go#TestPlanMigrateConvertsV1Plans",
+    "scn.verificationstrategy.6d8dbaecdc2f": "internal/stele/evidence_test.go#TestImplementationRejectsUnplannedEvidence",
+    "scn.verificationstrategy.6eea05b9b024": "internal/stele/plan_test.go#TestV1PlanStillVerifiesWithWarning",
+    "scn.verificationstrategy.7efc234ae03e": "internal/stele/approve_test.go#TestProposalReportsUnapprovedEntries",
+    "scn.verificationstrategy.9dad8263a6c0": "internal/stele/init_test.go#TestInitializeKeepsProjectSkills",
+    "scn.verificationstrategy.9f94fdeabd16": "internal/stele/approve_test.go#TestProposalReportsStaleApprovals",
+    "scn.verificationstrategy.aef528d23484": "internal/stele/plan_test.go#TestProposalRequiresEvidencePerScenario",
+    "scn.verificationstrategy.f60e81cbfa96": "internal/stele/init_test.go#TestPlanningSkillContainsStrategyGuidance",
+    "scn.verify.14c6b4fe39bc": "internal/stele/verify_test.go#TestRunVerificationProposalPlans",
+    "scn.verify.1d0f8685d8c6": "internal/stele/evidence_test.go#TestV2VerificationIgnoresLocation",
+    "scn.verify.c4db6a432869": "internal/stele/verify_test.go#TestRunVerificationRejectsMismatchedTarget"
+  }
+}

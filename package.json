@@ -39,6 +39,7 @@
     "docs/.vitepress/",
     "docs/concepts/",
     "docs/guide/",
+    "docs/intent/",
     "docs/public/",
     "docs/reference/",
     "docs/index.md",

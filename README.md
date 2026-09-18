@@ -49,8 +49,8 @@ The independent [`stele-examples`](https://github.com/jensvansteen/stele-example
 
 1. Write the feature as OpenSpec requirements and concrete scenarios.
 2. Run `stele ids` to give each requirement an immutable `req.<namespace>.<token>` ID and each scenario an `scn.<namespace>.<token>` ID.
-3. Plan the source declaration and test selector for every ID.
-4. Put `@implements <requirement-id>` beside the code declaration and `@verifies <scenario-id>` beside the named test.
+3. Plan the evidence levels for every scenario, with a rationale, and have a person approve them.
+4. Put `@implements <requirement-id>` beside the code declaration and `@verifies <evidence-id>` beside the named test, such as `@verifies scn.todo.20d9cd2785a4.unit`.
 5. Run `stele validate`. Stele checks OpenSpec, resolves the anchors, runs every scenario test by its exact selector, and binds the result to the relevant input digest.
 
 A resolved anchor proves traceability. A passing execution proves the selected test ran. Human review still decides whether the code and test adequately satisfy the prose.

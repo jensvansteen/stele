@@ -12,7 +12,8 @@ import (
 
 var (
 	anchorPattern = regexp.MustCompile(
-		`@(implements|verifies)\s+((?:req|scn)\.[a-z0-9]+\.[a-f0-9]{12})`,
+		`@(implements|verifies)\s+((?:req|scn)\.[a-z0-9]+\.[a-f0-9]{12})` +
+			`((?:\.(?:unit|integration|e2e)(?:\.[0-9]+)?\b)?)`,
 	)
 	typeScriptTestPattern = regexp.MustCompile(
 		`^(?:(?:void|await)\s+)?(?:test|it)\(\s*["'\x60]([^"'\x60]+)["'\x60]`,
@@ -151,7 +152,10 @@ func scanAnchorFile(root string, file anchorFile) ([]Anchor, error) {
 	for lineIndex, comment := range typeScriptCommentText(lines) {
 		for _, match := range anchorPattern.FindAllStringSubmatch(comment, -1) {
 			selector, declarationLine := adjacentDeclaration(lines, lineIndex, file.kind)
+			evidence, level := anchorEvidence(match[2], match[3])
 			anchors = append(anchors, Anchor{
+				EvidenceID:      evidence,
+				Level:           level,
 				ID:              match[2],
 				Annotation:      match[1],
 				Kind:            file.kind,
@@ -294,8 +298,18 @@ func (lexer *typeScriptLexer) closeTemplateBrace() {
 	}
 }
 
+// anchorEvidence splits an anchor's level suffix, such as ".e2e.2", into the
+// full evidence ID and its level. A bare identity has neither.
+func anchorEvidence(identity, suffix string) (string, string) {
+	if suffix == "" {
+		return "", ""
+	}
+	level, _, _ := strings.Cut(suffix[1:], ".")
+	return identity + suffix, level
+}
+
 func anchorSortKey(anchor Anchor) string {
-	return fmt.Sprintf("%s:%s:%09d", anchor.ID, anchor.Path, anchor.Line)
+	return fmt.Sprintf("%s:%s:%09d:%s", anchor.ID, anchor.Path, anchor.Line, anchor.EvidenceID)
 }
 
 func adjacentDeclaration(lines []string, anchorIndex int, kind string) (*string, *int) {

@@ -9,14 +9,16 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
 
 type testGroup struct {
-	Key      testGroupKey
-	Selector *string
-	IDs      []string
+	Key         testGroupKey
+	Selector    *string
+	IDs         []string
+	EvidenceIDs []string
 }
 
 type testGroupKey struct {
@@ -117,9 +119,15 @@ func groupScenarioTests(anchors []Anchor) []testGroup {
 			groups = append(groups, testGroup{Key: key, Selector: anchor.Selector, IDs: []string{}})
 		}
 		groups[index].IDs = append(groups[index].IDs, anchor.ID)
+		if anchor.EvidenceID != "" {
+			groups[index].EvidenceIDs = append(groups[index].EvidenceIDs, anchor.EvidenceID)
+		}
 	}
 	for index := range groups {
 		sort.Strings(groups[index].IDs)
+		groups[index].IDs = slices.Compact(groups[index].IDs)
+		sort.Strings(groups[index].EvidenceIDs)
+		groups[index].EvidenceIDs = slices.Compact(groups[index].EvidenceIDs)
 	}
 	sort.Slice(groups, func(i, j int) bool {
 		if groups[i].Key.Path != groups[j].Key.Path {
@@ -143,6 +151,7 @@ func executeTestGroup(root string, group testGroup) TestExecution {
 		Path:        group.Key.Path,
 		Selector:    group.Selector,
 		ScenarioIDs: append([]string{}, group.IDs...),
+		EvidenceIDs: group.EvidenceIDs,
 		Outcome:     "failed",
 	}
 	if group.Selector == nil {
@@ -184,11 +193,15 @@ func assembleEvidence(root, inputDigest string, parsed ParsedSpecs, executions [
 
 func scenarioOutcomes(parsed ParsedSpecs, executions []TestExecution) []ScenarioOutcome {
 	outcomes := make(map[string]string)
+	failedEvidence := make(map[string][]string)
 	for _, execution := range executions {
 		for _, id := range execution.ScenarioIDs {
 			// A scenario passes only when every test linked to it passed.
 			if outcomes[id] == "" || outcomes[id] == "passed" {
 				outcomes[id] = execution.Outcome
+			}
+			if execution.Outcome != "passed" {
+				failedEvidence[id] = append(failedEvidence[id], evidenceOfScenario(execution.EvidenceIDs, id)...)
 			}
 		}
 	}
@@ -200,11 +213,24 @@ func scenarioOutcomes(parsed ParsedSpecs, executions []TestExecution) []Scenario
 			if outcome == "" {
 				outcome = "not-run"
 			}
-			scenarios = append(scenarios, ScenarioOutcome{ID: scenario.ID, Outcome: outcome})
+			failed := failedEvidence[scenario.ID]
+			sort.Strings(failed)
+			scenarios = append(scenarios, ScenarioOutcome{ID: scenario.ID, Outcome: outcome, FailedEvidence: failed})
 		}
 	}
 	sort.Slice(scenarios, func(i, j int) bool { return scenarios[i].ID < scenarios[j].ID })
 	return scenarios
+}
+
+// evidenceOfScenario returns the evidence IDs that belong to one scenario.
+func evidenceOfScenario(evidenceIDs []string, scenarioID string) []string {
+	result := make([]string, 0)
+	for _, evidence := range evidenceIDs {
+		if strings.HasPrefix(evidence, scenarioID+".") {
+			result = append(result, evidence)
+		}
+	}
+	return result
 }
 
 func aggregateScenarioOutcome(scenarios []ScenarioOutcome) string {

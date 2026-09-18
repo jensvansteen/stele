@@ -33,6 +33,8 @@ type specFileParser struct {
 	diagnostics        []Diagnostic
 	currentRequirement *Requirement
 	currentScenario    *Scenario
+	// scenarioText collects the lines of the open scenario block.
+	scenarioText *string
 }
 
 func diagnostic(code, severity, message, path string, line int, identity string) Diagnostic {
@@ -101,6 +103,10 @@ func parseSpecFile(path, relativePath string) ([]Requirement, []Diagnostic, erro
 }
 
 func (parser *specFileParser) parseLine(line string) {
+	if strings.HasPrefix(line, "#") {
+		// Any heading ends the text of the current scenario.
+		parser.scenarioText = nil
+	}
 	if match := requirementPattern.FindStringSubmatch(line); match != nil {
 		parser.beginRequirement(match[1])
 		return
@@ -111,6 +117,10 @@ func (parser *specFileParser) parseLine(line string) {
 	}
 	if match := verificationIDPattern.FindStringSubmatch(line); match != nil {
 		parser.assignIdentity(match[1])
+		return
+	}
+	if parser.scenarioText != nil {
+		*parser.scenarioText += "\n" + line
 	}
 }
 
@@ -136,6 +146,8 @@ func (parser *specFileParser) beginScenario(title string) {
 		Source: Source{Path: parser.path, Line: parser.line},
 	})
 	parser.currentScenario = &requirement.Scenarios[len(requirement.Scenarios)-1]
+	parser.currentScenario.Text = strings.TrimSpace(title)
+	parser.scenarioText = &parser.currentScenario.Text
 	parser.target = scenarioIdentityTarget
 }
 
@@ -255,5 +267,9 @@ func diagnosticKey(value Diagnostic) string {
 		path = value.Source.Path
 		line = value.Source.Line
 	}
-	return fmt.Sprintf("%s:%s:%09d", value.Code, path, line)
+	identity := ""
+	if value.IdentityID != nil {
+		identity = *value.IdentityID
+	}
+	return fmt.Sprintf("%s:%s:%09d:%s:%s", value.Code, path, line, identity, value.Message)
 }

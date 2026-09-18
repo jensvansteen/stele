@@ -312,3 +312,80 @@ void test("inserts and checks verification IDs", async (context: TestContext): P
   assert.equal(parseVerificationReport(proposal.stdout).schemaVersion.length > 0, true);
   assert.doesNotMatch(proposal.stdout, /ID_(?:REQUIREMENT|SCENARIO)_MISSING/v);
 });
+
+// @verifies scn.verificationstrategy.122427afc2f9.e2e
+// @verifies scn.verificationstrategy.1b1070d81978.e2e
+void test("runs the approved evidence workflow end to end", async (context: TestContext): Promise<void> => {
+  const root: string = await fs.mkdtemp(path.join(os.tmpdir(), "stele-cli-evidence-"));
+  context.after((): Promise<void> => fs.rm(root, { recursive: true }));
+  const change = "openspec/changes/todo-basics";
+  const scenario = "scn.todo.abcdef012345";
+  await writeProjectFile(root, "package.json", ['{ "type": "module" }', ""]);
+  await writeProjectFile(root, "openspec/config.yaml", ["schema: spec-driven", ""]);
+  await writeProjectFile(root, `${change}/proposal.md`, [
+    "## Why", "", "Users need to record todos before they can manage their work.", "",
+    "## What Changes", "", "- Add a todo from entered text.", "",
+  ]);
+  await writeProjectFile(root, `${change}/tasks.md`, ["## 1. Work", "", "- [x] 1.1 Add todos", ""]);
+  await writeProjectFile(root, `${change}/specs/todo/spec.md`, [
+    "## ADDED Requirements", "",
+    "### Requirement: Add a todo", "Verification-ID: req.todo.0123456789ab", "",
+    "The application SHALL add a todo from entered text.", "",
+    "#### Scenario: Save entered text", `Verification-ID: ${scenario}`, "",
+    "- **WHEN** a user enters a todo", "- **THEN** the todo is saved", "",
+  ]);
+  await writeProjectFile(root, `${change}/linkage-plan.json`, [JSON.stringify({
+    schemaVersion: 2,
+    changeId: "todo-basics",
+    scenarios: {
+      [scenario]: {
+        evidence: [
+          { id: `${scenario}.unit`, level: "unit", rationale: "Pure logic.", placement: "tests/todo.test.mts" },
+          { id: `${scenario}.e2e`, level: "e2e", rationale: "The user journey.", placement: "tests/e2e/todo.test.mts" },
+        ],
+      },
+    },
+  }, null, 2), ""]);
+  await writeProjectFile(root, "src/todo.mts", [
+    "// @" + "implements req.todo.0123456789ab",
+    "export function addTodo(text: string): { text: string } { return { text }; }",
+    "",
+  ]);
+  const testFile = (anchor: string, title: string): readonly string[] => [
+    'import assert from "node:assert/strict";',
+    'import test from "node:test";',
+    'import { addTodo } from "../../src/todo.mts";',
+    "// @" + `verifies ${anchor}`,
+    `void test("${title}", (): void => { assert.equal(addTodo("ship").text, "ship"); });`,
+    "",
+  ];
+  await writeProjectFile(root, "src/checks/todo.test.mts", testFile(`${scenario}.unit`, "saves entered text"));
+  await writeProjectFile(root, "scripts/journeys/todo.test.mts", testFile(`${scenario}.e2e`, "records a todo"));
+  const scope: readonly string[] = ["--root", root, "--change", "todo-basics"];
+
+  const pending: SpawnSyncReturns<string> = cli(["verify", ...scope, "--stage", "proposal", "--json"]);
+  assert.equal(pending.status, 1, pending.stderr);
+  assert.match(pending.stdout, /PLAN_UNAPPROVED/v);
+
+  const refused: SpawnSyncReturns<string> = cli(["approve", ...scope]);
+  assert.equal(refused.status, 2, refused.stdout);
+  assert.match(refused.stderr, /--confirmed-in-chat/v);
+
+  const approvedPlan: SpawnSyncReturns<string> = cli(["approve", ...scope, "--all", "--yes", "--by", "Tester"]);
+  assert.equal(approvedPlan.status, 0, approvedPlan.stderr);
+  assert.match(approvedPlan.stdout, /approved scn\.todo\.abcdef012345\.unit by Tester \(via cli\)/v);
+  assert.match(approvedPlan.stdout, /approved scn\.todo\.abcdef012345\.e2e by Tester \(via cli\)/v);
+
+  const planned: SpawnSyncReturns<string> = cli(["verify", ...scope, "--stage", "proposal"]);
+  assert.equal(planned.status, 0, planned.stdout);
+
+  const validated: SpawnSyncReturns<string> = cli(["validate", ...scope, "--json"]);
+  assert.equal(validated.status, 0, validated.stdout + validated.stderr);
+  const report: string = await fs.readFile(path.join(root, "artifacts/verification-report.json"), "utf8");
+  assert.match(report, /"evidenceId": "scn\.todo\.abcdef012345\.e2e",\n\s+"level": "e2e"/v);
+  assert.match(report, /"path": "scripts\/journeys\/todo\.test\.mts"/v);
+  const evidence: ScenarioEvidence = parseScenarioEvidence(
+    await fs.readFile(path.join(root, "artifacts/test-results.json"), "utf8"),
+  );
+  assert.deepEqual(evidence.scenarios, [{ id: scenario, outcome: "passed" }]);
+});

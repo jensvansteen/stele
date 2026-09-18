@@ -88,23 +88,42 @@ The planning step adds a verification table to `design.md`:
 |---|---|---|---|
 | `scn.todo.0a1b2c3d4e5f` | unit | pure Todo creation | No I/O is needed to prove normalization. |
 | `scn.todo.1b2c3d4e5f60` | unit | pure Todo creation | Blank-input rejection is deterministic logic. |
+
+Status: proposed, awaiting approval.
 ```
 
-It also writes `openspec/changes/todo-basics/linkage-plan.json` with the exact declarations and tests to write. The plan lives with the change, so `openspec archive` keeps it:
+It also writes `openspec/changes/todo-basics/linkage-plan.json`, which records the same decisions. The plan lives with the change, so `openspec archive` keeps it:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "changeId": "todo-basics",
-  "requirements": {
-    "req.todo.1a2b3c4d5e6f": "src/todo.mts#addTodo"
-  },
   "scenarios": {
-    "scn.todo.0a1b2c3d4e5f": "tests/todo.test.mts#adds a normalized todo",
-    "scn.todo.1b2c3d4e5f60": "tests/todo.test.mts#rejects blank todo text"
+    "scn.todo.0a1b2c3d4e5f": {
+      "evidence": [
+        {
+          "id": "scn.todo.0a1b2c3d4e5f.unit",
+          "level": "unit",
+          "rationale": "No I/O is needed to prove normalization.",
+          "placement": "tests/todo.test.mts"
+        }
+      ]
+    },
+    "scn.todo.1b2c3d4e5f60": {
+      "evidence": [
+        {
+          "id": "scn.todo.1b2c3d4e5f60.unit",
+          "level": "unit",
+          "rationale": "Blank-input rejection is deterministic logic.",
+          "placement": "tests/todo.test.mts"
+        }
+      ]
+    }
   }
 }
 ```
+
+The plan names no code or test locations. `placement` is a suggestion, and the anchors you write in step 6 and 7 decide where things live.
 
 The planning step verified the proposal stage:
 
@@ -112,9 +131,9 @@ The planning step verified the proposal stage:
 npx stele verify --stage proposal --change todo-basics --json
 ```
 
-This stage accepts targets that do not exist yet. It fails when an OpenSpec identity is missing from the plan or the target is malformed.
+At this point it reports `PLAN_UNAPPROVED` for both entries, and nothing else: a person has not approved the levels yet.
 
-When the levels look right, ask the agent to apply the change. `stele-apply` shows the levels again, asks you to confirm them, records your approval in `design.md`, and only then implements the next two steps.
+When the levels look right, ask the agent to apply the change. `stele-apply` shows the levels again and asks "Approve these levels and start implementing?". After your explicit yes, it runs `stele approve --change todo-basics --confirmed-in-chat`, which records you as the approver, and only then implements the next two steps. You can also approve in a terminal with `npx stele approve --change todo-basics`.
 
 ## 6. Implement the planned declaration
 
@@ -147,7 +166,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { addTodo } from "../src/todo.mts";
 
-// @verifies scn.todo.0a1b2c3d4e5f
+// @verifies scn.todo.0a1b2c3d4e5f.unit
 void test("adds a normalized todo", (): void => {
   assert.deepEqual(addTodo("  Ship it  "), {
     title: "Ship it",
@@ -155,7 +174,7 @@ void test("adds a normalized todo", (): void => {
   });
 });
 
-// @verifies scn.todo.1b2c3d4e5f60
+// @verifies scn.todo.1b2c3d4e5f60.unit
 void test("rejects blank todo text", (): void => {
   assert.throws((): void => {
     addTodo("   ");
@@ -163,7 +182,7 @@ void test("rejects blank todo text", (): void => {
 });
 ```
 
-Each title exactly matches the selector in the linkage plan. The `void` prefix satisfies typed lint rules for floating promises, and Stele still selects the test. Stele runs each linked scenario independently, so a broad test-file pass cannot hide a missing scenario.
+Each anchor names the approved evidence ID: the scenario ID plus its level. The `void` prefix satisfies typed lint rules for floating promises, and Stele still selects the test. Stele runs each linked scenario independently, so a broad test-file pass cannot hide a missing scenario.
 
 ## 8. Run the complete deterministic gate
 
@@ -174,7 +193,7 @@ npx stele validate --change todo-basics --json
 Validation now combines three results:
 
 1. OpenSpec strict validation confirms the behavioral change remains structurally valid.
-2. Stele implementation verification resolves every ID to its planned declaration or named test.
+2. Stele implementation verification finds an `@implements` anchor for the requirement and a `@verifies` anchor on a named test for every approved evidence entry.
 3. Exact test execution proves every linked scenario test was selected and passed.
 
 The command exits with `0` only when every required check passes. It writes reproducible evidence under `artifacts/`. A reviewer still decides whether the implementation and tests adequately satisfy the English behavior.

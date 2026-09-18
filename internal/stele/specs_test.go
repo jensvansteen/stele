@@ -77,7 +77,7 @@ Verification-ID: scn.demo.777777777777
 			t.Errorf("missing %s in %#v", code, parsed.Diagnostics)
 		}
 	}
-	if got := diagnosticKey(Diagnostic{Code: "A"}); got != "A::000000000" {
+	if got := diagnosticKey(Diagnostic{Code: "A"}); got != "A::000000000::" {
 		t.Fatalf("diagnosticKey without source = %q", got)
 	}
 }

@@ -23,6 +23,7 @@ var steleSkills = []string{"stele-propose", "stele-apply", "stele-archive", "ste
 // configuration without a default change.
 //
 // @implements req.init.eed35c447821
+// @implements req.verificationstrategy.ace39f5009c6
 func Initialize(root, changeID string) ([]string, error) {
 	created := make([]string, 0)
 	configPath := filepath.Join(root, "stele.config.json")

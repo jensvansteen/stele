@@ -34,7 +34,7 @@ const VERIFICATION_RULES = [
   "Stele: follow the stele-plan skill for levels, rationale, advisory placement, and the plan format.",
 ];
 const PLAN_TEMPLATE = `${JSON.stringify(
-  { schemaVersion: 1, changeId: "<change>", requirements: {}, scenarios: {} },
+  { schemaVersion: 2, changeId: "<change>", scenarios: {} },
   null,
   2,
 )}\n`;
