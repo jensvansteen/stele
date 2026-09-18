@@ -56,4 +56,6 @@ Release source changes through a reviewed pull request into `main`. The [release
 
 The workflow publishes through npm trusted publishing: its GitHub OIDC identity (`id-token: write`) is the trusted publisher configured on npmjs.com for `jensvansteen/stele` and the workflow filename `release.yml`, allowing staged publishing only. It stages the package with `npm stage publish` from npm 12, so no npm token is stored in GitHub. A staged version is not installable until a maintainer approves it with 2FA, on npmjs.com or with `npm stage list stele-spec` followed by `npm stage approve <stage-id>`.
 
+A release that changes the bundled OpenSpec version follows the [OpenSpec upgrade checklist](docs/reference/versions.md#upgrading-openspec-is-a-stele-release) first.
+
 Never reuse or move a published version tag. Update both `package.json` and `package-lock.json` for each new candidate or final release, merge the change, then create the matching tag on `main`. After the workflow succeeds, approve the staged version, then confirm the GitHub release and the npm `next` or `latest` dist-tag with `npm view stele-spec dist-tags`.

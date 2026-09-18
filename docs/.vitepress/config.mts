@@ -36,6 +36,7 @@ export default defineConfig({
         text: "Concepts",
         items: [
           { text: "Product intent", link: "/intent/vision" },
+          { text: "The Stele model", link: "/concepts/model" },
           { text: "OpenSpec and Stele", link: "/concepts/openspec-and-stele" },
           { text: "IDs and anchors", link: "/concepts/ids-and-anchors" },
           { text: "Verification evidence", link: "/concepts/verification-evidence" },
@@ -47,6 +48,7 @@ export default defineConfig({
         items: [
           { text: "CLI", link: "/reference/cli" },
           { text: "Package architecture", link: "/reference/architecture" },
+          { text: "Versions", link: "/reference/versions" },
           { text: "Examples", link: "/reference/examples" },
         ],
       },

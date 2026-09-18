@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "changeId": "specification-adapter",
+  "requirements": {
+    "req.backend.17e80d964275": "internal/stele/adapter.go#openSpecVersionDrift",
+    "req.backend.b5ff52883615": "internal/stele/adapter.go#resolveBackend"
+  },
+  "scenarios": {
+    "scn.backend.08f190c98ed9": "internal/stele/adapter_test.go#TestStrictVersionsFailOnDrift",
+    "scn.backend.0ee7b914816a": "internal/stele/adapter_test.go#TestDriftSilentWhenVersionsMatch",
+    "scn.backend.124f95bf55a3": "internal/stele/adapter_test.go#TestInitWarnsForOtherOpenSpecOnPath",
+    "scn.backend.17bc5c526b79": "internal/stele/adapter_test.go#TestBackendDefaultsToOpenSpec",
+    "scn.backend.ad74565b613f": "internal/stele/adapter_test.go#TestCommandsUseSelectedBackend",
+    "scn.backend.c077e67d1e58": "internal/stele/adapter_test.go#TestDriftWarnsForOtherSkillVersions",
+    "scn.backend.e20f52b594b9": "internal/stele/adapter_test.go#TestUnknownAdapterIsRejected"
+  }
+}

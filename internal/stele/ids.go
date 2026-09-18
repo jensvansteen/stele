@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -63,21 +62,22 @@ type plannedSpecFile struct {
 //
 // @implements req.ids.5cd09e44308f
 func AssignIdentities(root, changeID string, check bool) (IdentityResult, error) {
+	return assignScopeIdentities(root, changeScope(changeID), check)
+}
+
+func assignScopeIdentities(root string, scope verificationScope, check bool) (IdentityResult, error) {
 	result := IdentityResult{
 		SchemaVersion: 1,
-		ChangeID:      changeID,
+		ChangeID:      scope.changeID,
 		Mode:          choose(check, "check", "write"),
 		Verdict:       "pass",
 		Insertions:    []IdentityInsertion{},
 	}
-	scope := changeScope(changeID)
 	if err := requireScopeSpecs(root, scope); err != nil {
 		return result, err
 	}
-	files := walkFiles(scope.specsRoot(root), func(path string) bool {
-		return strings.EqualFold(filepath.Ext(path), ".md")
-	})
-	registry, err := newIdentityRegistry(root, files)
+	files := scope.spec().SpecFiles(root, scope)
+	registry, err := newIdentityRegistry(root, scope.spec().IdentityFiles(root), files)
 	if err != nil {
 		return result, err
 	}
@@ -88,7 +88,7 @@ func AssignIdentities(root, changeID string, check bool) (IdentityResult, error)
 		if err != nil {
 			return result, err
 		}
-		plan, insertions, err := planSpecFile(root, changeID, filepath.ToSlash(relative), file, registry, check)
+		plan, insertions, err := planSpecFile(root, scope, filepath.ToSlash(relative), file, registry, check)
 		if err != nil {
 			return result, err
 		}
@@ -111,15 +111,12 @@ func AssignIdentities(root, changeID string, check bool) (IdentityResult, error)
 	return result, nil
 }
 
-// newIdentityRegistry collects every identity token under openspec/ and every
-// anchored identity, so a new ID never silently links to existing behavior or to
-// a leftover anchor.
-func newIdentityRegistry(root string, changeFiles []string) (identityRegistry, error) {
+// newIdentityRegistry collects every identity token in the backend's files and
+// every anchored identity, so a new ID never silently links to existing behavior
+// or to a leftover anchor.
+func newIdentityRegistry(root string, identityFiles, changeFiles []string) (identityRegistry, error) {
 	registry := identityRegistry{taken: map[string]bool{}, change: map[string]bool{}}
-	openSpecFiles := walkFiles(filepath.Join(root, "openspec"), func(path string) bool {
-		return strings.EqualFold(filepath.Ext(path), ".md")
-	})
-	if err := collectIdentityTokens(openSpecFiles, registry.taken); err != nil {
+	if err := collectIdentityTokens(identityFiles, registry.taken); err != nil {
 		return registry, err
 	}
 	if err := collectIdentityTokens(changeFiles, registry.change); err != nil {
@@ -155,7 +152,7 @@ func (registry identityRegistry) reserve(identity string) {
 
 func planSpecFile(
 	root string,
-	changeID string,
+	scope verificationScope,
 	relative string,
 	file string,
 	registry identityRegistry,
@@ -165,13 +162,13 @@ func planSpecFile(
 	if err != nil {
 		return plannedSpecFile{}, nil, err
 	}
-	capability := specCapability(changeID, relative)
+	capability := scope.spec().Capability(scope, relative)
 	document := parseSpecDocument(string(content))
 	namespace := document.namespace
 	if namespace == "" {
 		namespace = capabilityNamespace(capability)
 	}
-	base, err := loadBaseIdentities(root, capability, document)
+	base, err := loadBaseIdentities(scope.spec().CurrentSpecFile(root, capability), document)
 	if err != nil {
 		return plannedSpecFile{}, nil, err
 	}
@@ -184,7 +181,7 @@ func planSpecFile(
 		}
 		identity, origin := base.reuse(slot, document.renames, registry)
 		if identity == "" {
-			identity = deriveIdentity(slot, changeID, capability, namespace, registry.taken)
+			identity = deriveIdentity(slot, scope.changeID, capability, namespace, registry.taken)
 		}
 		registry.reserve(identity)
 		insertAfter[slot.line] = identity
@@ -345,17 +342,6 @@ func insertIdentityLines(lines []string, insertAfter map[int]string) string {
 	return builder.String()
 }
 
-// specCapability returns the capability path of a delta spec, such as "todo" for
-// specs/todo/spec.md or "platform/auth" for specs/platform/auth/spec.md.
-func specCapability(changeID, relative string) string {
-	withinSpecs := strings.TrimPrefix(relative, "openspec/changes/"+changeID+"/specs/")
-	directory := path.Dir(withinSpecs)
-	if directory == "." {
-		return strings.TrimSuffix(withinSpecs, path.Ext(withinSpecs))
-	}
-	return directory
-}
-
 // capabilityNamespace reduces a capability path to the identity namespace grammar
 // [a-z0-9]+, so "platform/auth-tokens" becomes "platformauthtokens".
 func capabilityNamespace(capability string) string {
@@ -408,7 +394,7 @@ func baseKey(requirement, scenario string) string {
 // loadBaseIdentities reads the identities that a MODIFIED section must keep.
 //
 // @implements req.ids.877eabdee0b4
-func loadBaseIdentities(root, capability string, document specDocument) (baseIdentities, error) {
+func loadBaseIdentities(file string, document specDocument) (baseIdentities, error) {
 	base := baseIdentities{}
 	needed := false
 	for _, slot := range document.slots {
@@ -417,7 +403,6 @@ func loadBaseIdentities(root, capability string, document specDocument) (baseIde
 	if !needed {
 		return base, nil
 	}
-	file := filepath.Join(root, "openspec", "specs", filepath.FromSlash(capability), "spec.md")
 	content, err := readSpecFile(file)
 	if errors.Is(err, os.ErrNotExist) {
 		return base, nil

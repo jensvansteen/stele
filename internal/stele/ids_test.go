@@ -480,8 +480,8 @@ func TestIdentityHelpers(t *testing.T) {
 	if lineTerminator("x") != "" || lineTerminator("x\r\n") != "\r\n" || lineTerminator("x\n") != "\n" {
 		t.Fatal("lineTerminator returned an unexpected value")
 	}
-	if specCapability("c", "openspec/changes/c/specs/tasks.md") != "tasks" {
-		t.Fatal("specCapability did not strip a loose file's extension")
+	if (openSpecBackend{}).Capability(changeScope("c"), "openspec/changes/c/specs/tasks.md") != "tasks" {
+		t.Fatal("Capability did not strip a loose file's extension")
 	}
 	base := baseIdentities{}
 	base.record("a", "req.x.aaaaaaaaaaaa", "req.")
