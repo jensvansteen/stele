@@ -149,7 +149,8 @@ func writeBlockingTest(t *testing.T, root, relative, anchor, title, pidFile stri
 		"});\n")
 }
 
-// processGone waits until a process no longer exists.
+// processGone waits until a process, or with a negative pid a process group,
+// no longer exists.
 func processGone(pid int) bool {
 	for range 250 {
 		if err := syscall.Kill(pid, 0); errors.Is(err, syscall.ESRCH) {
@@ -215,8 +216,10 @@ func TestStopOnCancelKillsWhatIgnoresTerminate(t *testing.T) {
 	cancel()
 	_ = command.Wait()
 	stop()
-	if err := syscall.Kill(-command.Process.Pid, 0); !errors.Is(err, syscall.ESRCH) {
-		t.Fatalf("the process group survived: %v", err)
+	// The killed background child can linger as a zombie until init reaps it,
+	// and a zombie still belongs to the group, so wait for the group to go.
+	if !processGone(-command.Process.Pid) {
+		t.Fatalf("the process group survived: %v", syscall.Kill(-command.Process.Pid, 0))
 	}
 	for _, pid := range []int{0, command.Process.Pid} {
 		ctx, cancel := context.WithCancel(context.Background())
