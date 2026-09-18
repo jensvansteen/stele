@@ -232,3 +232,42 @@ func TestParseSpecsKeepsRequirementTextAndScenarioSteps(t *testing.T) {
 		t.Fatalf("the approval text changed: %q", scenarios[0].Text)
 	}
 }
+
+// @verifies scn.verify.9fb98ac252a0.unit
+func TestParseSpecsIgnoresRemovedRequirements(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `## ADDED Requirements
+### Requirement: Keep value
+Verification-ID: req.demo.aaaaaaaaaaaa
+#### Scenario: Value is kept
+Verification-ID: scn.demo.bbbbbbbbbbbb
+
+## REMOVED Requirements
+### Requirement: Drop value
+**Reason**: No longer needed.
+**Migration**: None.
+#### Scenario: Stray scenario under a removal
+* `+"`### Requirement: Forget value`"+`
+Verification-ID: req.demo.cccccccccccc
+`)
+	parsed, err := ParseSpecs(root, "example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(parsed.Requirements) != 1 || parsed.Requirements[0].Title != "Keep value" ||
+		len(parsed.Requirements[0].Scenarios) != 1 {
+		t.Fatalf("removed requirements were parsed as active: %#v", parsed.Requirements)
+	}
+	for _, code := range []string{"ID_REQUIREMENT_MISSING", "SCENARIO_MISSING", "ID_SCENARIO_MISSING"} {
+		if hasDiagnostic(parsed.Diagnostics, code) {
+			t.Fatalf("removed requirements reported %s: %#v", code, parsed.Diagnostics)
+		}
+	}
+	want := []RemovedRequirement{
+		{Name: "Drop value", Source: Source{"openspec/changes/example/specs/demo/spec.md", 8}},
+		{Name: "Forget value", Source: Source{"openspec/changes/example/specs/demo/spec.md", 12}},
+	}
+	if len(parsed.Removed) != 2 || parsed.Removed[0] != want[0] || parsed.Removed[1] != want[1] {
+		t.Fatalf("removed names = %#v", parsed.Removed)
+	}
+}

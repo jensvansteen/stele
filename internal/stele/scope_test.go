@@ -323,3 +323,86 @@ func TestRunRejectsEmptyCurrentSpecs(t *testing.T) {
 		t.Fatalf("verify --specs with a specification was still rejected: %q", stderr.String())
 	}
 }
+
+// sameDayArchives archives two changes on the same date that both plan
+// scn.demo.bbbbbbbbbbbb; alpha declares the scenario with the given text and
+// beta with an older one.
+func sameDayArchives(t *testing.T, alphaText, betaText string) string {
+	t.Helper()
+	root := archivedFixture(t)
+	spec := func(text string) string {
+		return "## ADDED Requirements\n### Requirement: Return value\nVerification-ID: req.demo.aaaaaaaaaaaa\n" +
+			"#### Scenario: " + text + "\nVerification-ID: scn.demo.bbbbbbbbbbbb\n"
+	}
+	plan := func(change, level string) string {
+		return `{"schemaVersion":2,"changeId":"` + change + `","scenarios":{"scn.demo.bbbbbbbbbbbb":{"evidence":[` +
+			`{"id":"scn.demo.bbbbbbbbbbbb.` + level + `","level":"` + level +
+			`","rationale":"Plan of ` + change + `."}]}}}`
+	}
+	writeFixture(t, root, "openspec/changes/archive/2026-09-18-alpha/specs/demo/spec.md", spec(alphaText))
+	writeFixture(t, root, "openspec/changes/archive/2026-09-18-alpha/linkage-plan.json", plan("alpha", "unit"))
+	writeFixture(t, root, "openspec/changes/archive/2026-09-18-beta/specs/demo/spec.md", spec(betaText))
+	writeFixture(t, root, "openspec/changes/archive/2026-09-18-beta/linkage-plan.json", plan("beta", "e2e"))
+	return root
+}
+
+// @verifies scn.verificationscope.4ad1b478a310.unit
+func TestArchivedPlanPrefersMatchingSpecification(t *testing.T) {
+	root := sameDayArchives(t, "Value is returned", "Value was returned")
+	plan, diagnostics := loadArchivedPlans(root, verificationScope{currentSpecs: true})
+	entries := plan.Evidence["scn.demo.bbbbbbbbbbbb"]
+	if len(entries) != 1 || entries[0].Level != "unit" || len(diagnostics) != 0 {
+		t.Fatalf("the plan whose specification matches did not win: %#v, %#v", entries, diagnostics)
+	}
+	if archiveDate("undated") != "undated" || archiveDate("2026-09-18-alpha") != "2026-09-18" {
+		t.Fatal("archive dates are not read from directory names")
+	}
+}
+
+// @verifies scn.verificationscope.1c6a44335f91.unit
+func TestArchivedPlanWarnsWhenOrderIsAmbiguous(t *testing.T) {
+	root := sameDayArchives(t, "Value is returned", "Value is returned")
+	plan, diagnostics := loadArchivedPlans(root, verificationScope{currentSpecs: true})
+	entries := plan.Evidence["scn.demo.bbbbbbbbbbbb"]
+	if len(entries) != 1 || entries[0].Level != "e2e" || len(diagnostics) != 1 ||
+		diagnostics[0].Code != "PLAN_ARCHIVE_ORDER_AMBIGUOUS" || diagnostics[0].Severity != "warning" ||
+		!strings.Contains(diagnostics[0].Message, "2026-09-18-alpha/linkage-plan.json") ||
+		!strings.Contains(diagnostics[0].Message, "2026-09-18-beta/linkage-plan.json") {
+		t.Fatalf("an ambiguous order was not reported: %#v, %#v", entries, diagnostics)
+	}
+	writeFixture(t, root, "openspec/changes/archive/2026-09-18-beta/linkage-plan.json",
+		`{"schemaVersion":2,"changeId":"beta","scenarios":{"scn.demo.bbbbbbbbbbbb":{"evidence":[`+
+			`{"id":"scn.demo.bbbbbbbbbbbb.unit","level":"unit","rationale":"Same."}]}}}`)
+	if _, diagnostics := loadArchivedPlans(root, verificationScope{currentSpecs: true}); len(diagnostics) != 0 {
+		t.Fatalf("agreeing plans were reported: %#v", diagnostics)
+	}
+}
+
+// @verifies scn.verificationscope.9c3ef2025b56.unit
+func TestSpecsReportAnchorsToRetiredBehavior(t *testing.T) {
+	root := archivedFixture(t)
+	writeFixture(t, root, "openspec/changes/archive/2026-01-01-example/linkage-plan.json", scopePlanForExample)
+	writeFixture(t, root, "openspec/changes/archive/2026-01-01-legacy/specs/legacy/spec.md",
+		"### Requirement: Legacy\nVerification-ID: req.legacy.111111111111\n"+
+			"#### Scenario: Legacy works\nVerification-ID: scn.legacy.222222222222\n")
+	writeFixture(t, root, "openspec/changes/active/specs/other/spec.md",
+		"### Requirement: Other\nVerification-ID: req.other.333333333333\n")
+	writeFixture(t, root, "src/legacy.mts", "// @implements "+"req.other.333333333333\nexport function other() {}\n")
+	writeEvidenceTest(t, root, "tests/legacy.test.mts", "scn.legacy.222222222222.unit", "legacy works")
+	report, err := verifyScope(verifyRequest{
+		root: root, scope: verificationScope{currentSpecs: true},
+		mode: "implementation",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := diagnosticsWithCode(report.Diagnostics, "LINK_REMOVED_BEHAVIOR_ANCHORED")
+	if len(found) != 1 || found[0].Source.Path != "tests/legacy.test.mts" ||
+		*found[0].IdentityID != "scn.legacy.222222222222.unit" || hasDiagnostic(report.Diagnostics, "ANCHOR_DANGLING") {
+		t.Fatalf("retired anchors = %#v", report.Diagnostics)
+	}
+	change, err := verifyScope(verifyRequest{root: root, scope: changeScope("active"), mode: "implementation"})
+	if err != nil || len(diagnosticsWithCode(change.Diagnostics, "LINK_REMOVED_BEHAVIOR_ANCHORED")) != 0 {
+		t.Fatalf("a change scope reported retired anchors: %v, %#v", err, change.Diagnostics)
+	}
+}

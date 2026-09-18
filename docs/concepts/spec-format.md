@@ -72,6 +72,8 @@ Stele keeps reading and verifying every specification file of a scope, annotated
 
 A missing annotation names the command that adds it: `stele annotate --specs` for current specifications, and `stele annotate --change <change>` or `stele ids --change <change>` for a change. Archived changes are never checked.
 
+Known limitation: detection is not yet aware of fenced code blocks. A line inside a ```` ``` ```` or `~~~` block that consists only of a Stele annotation, such as an example in the documentation of a specification, is still reported as `SPEC_ANNOTATION_MISPLACED`. A follow-up change makes the check fence-aware; until then, indent the example or add text to the line.
+
 ## The `unannotatedSpecs` policy
 
 The `unannotatedSpecs` field of `stele.config.json` sets the severity of missing and misplaced annotations:

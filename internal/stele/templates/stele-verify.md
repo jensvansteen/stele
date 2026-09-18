@@ -18,6 +18,10 @@ With a version 2 plan, implementation verification requires:
 
 Where the code and tests live never affects the result. A scenario passes only when every one of its evidence tests passes.
 
-Run `stele validate --change <change>` while a change is in progress, and `stele validate --specs` for archived behavior. Exit code `0` means pass, `1` means a policy or selected-test failure, and `2` means an invocation or tool failure.
+Run `stele check --change <change>` while a change is in progress, `stele check --specs` for archived behavior, and `stele check --all` in CI. It checks IDs and annotations, then runs `stele validate`, and exits with the worst code: `0` means pass, `1` means a policy or selected-test failure, and `2` means an invocation or tool failure.
+
+Read the report from top to bottom: each check line names its stage, and each problem group gives the diagnostic code, its meaning, a `→ Fix:` step, and the first findings with their location. Use `--details` to see every finding, and `--json` when a tool reads the result. Progress goes to standard error.
+
+A requirement removed under `## REMOVED Requirements` must leave nothing behind: remove its `@implements` and `@verifies` anchors with the code and tests (`LINK_REMOVED_BEHAVIOR_ANCHORED`) and its plan entries (`PLAN_REMOVED_BEHAVIOR_PLANNED`).
 
 Keep linkage, execution, and human review as separate states. Never report success unless every required scenario was selected and passed.

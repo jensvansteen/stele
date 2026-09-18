@@ -364,8 +364,8 @@ type failingDeclarations struct {
 	memoryBackend
 }
 
-func (failingDeclarations) DeclaredIdentities(string) (map[string]bool, error) {
-	return nil, errors.New("declarations failed")
+func (failingDeclarations) DeclaredIdentities(string) (map[string]bool, map[string]bool, error) {
+	return nil, nil, errors.New("declarations failed")
 }
 
 // @verifies scn.specannotation.4432e2c478c1.unit

@@ -414,6 +414,20 @@ func verdictInputs() (ParsedSpecs, []Anchor) {
 	return ParsedSpecs{Requirements: []Requirement{requirement}}, anchors
 }
 
+// renderVerification prints a report as `stele verify` does.
+func renderVerification(output *bytes.Buffer, report Report) {
+	input := humanReportInput{
+		command: "verify", scope: changeScope("example"), report: &report,
+		passed: report.Verdicts.Linkage == "pass",
+	}
+	if report.Mode == "implementation" {
+		input.testsRelevant = true
+		input.notes = []string{"overall " + report.Verdicts.Overall +
+			" (test execution " + report.Verdicts.Execution + ")"}
+	}
+	renderHumanReport(output, buildHumanReport(input), reportStyle{})
+}
+
 // @verifies scn.verify.140b21cbc3f0.unit
 func TestReportSeparatesExecutionVerdict(t *testing.T) {
 	parsed, anchors := verdictInputs()
@@ -430,10 +444,11 @@ func TestReportSeparatesExecutionVerdict(t *testing.T) {
 	var output bytes.Buffer
 	renderVerification(&output, report)
 	for _, line := range []string{
-		"✓ implementation verification pass",
-		"✗ execution failed: 1/2 scenarios passed",
-		"FAILED scn.demo.cccccccccccc Fails",
-		"✗ overall fail",
+		"✓ Linkage (anchors)",
+		"✗ Test execution",
+		"1/2 scenarios passed; failed",
+		"Fails\n      scn.demo.cccccccccccc",
+		"overall fail (test execution failed)",
 	} {
 		if !strings.Contains(output.String(), line) {
 			t.Fatalf("human summary lacks %q: %q", line, output.String())
@@ -447,7 +462,7 @@ func TestReportSeparatesExecutionVerdict(t *testing.T) {
 	}
 	output.Reset()
 	renderVerification(&output, proposal)
-	if strings.Contains(output.String(), "execution") {
+	if strings.Contains(output.String(), "Test execution") {
 		t.Fatalf("the proposal summary names execution: %q", output.String())
 	}
 	failing := BuildReport(t.TempDir(), "example", "implementation", "digest", parsed, anchors,

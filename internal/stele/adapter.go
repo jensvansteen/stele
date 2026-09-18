@@ -26,8 +26,9 @@ type specificationBackend interface {
 	SpecFiles(root string, scope verificationScope) []string
 	// ParseSpecs reads the requirements and scenarios of a scope.
 	ParseSpecs(root string, scope verificationScope) (ParsedSpecs, error)
-	// DeclaredIdentities returns every identity declared anywhere in the backend.
-	DeclaredIdentities(root string) (map[string]bool, error)
+	// DeclaredIdentities returns every identity declared anywhere in the
+	// backend, and the retired ones that only archived changes declare.
+	DeclaredIdentities(root string) (map[string]bool, map[string]bool, error)
 	// IdentityFiles lists the files whose identity tokens a new ID must avoid.
 	IdentityFiles(root string) []string
 	// Capability names the capability of a change's specification file.
@@ -38,6 +39,8 @@ type specificationBackend interface {
 	Changes(root string) []string
 	// PlanPaths lists the linkage plans of a scope, oldest first.
 	PlanPaths(root string, scope verificationScope) []string
+	// ArchivedSpecFiles lists the delta specs archived with a linkage plan.
+	ArchivedSpecFiles(root, planPath string) []string
 	// Validate runs the backend's own strict validation.
 	Validate(root string, scope verificationScope) (bool, error)
 	// Install prepares the backend's files for the Stele workflow.
@@ -121,7 +124,7 @@ func (backend openSpecBackend) ParseSpecs(root string, scope verificationScope) 
 	return parseSpecFiles(root, backend.SpecFiles(root, scope), annotationFix(scope))
 }
 
-func (openSpecBackend) DeclaredIdentities(root string) (map[string]bool, error) {
+func (openSpecBackend) DeclaredIdentities(root string) (map[string]bool, map[string]bool, error) {
 	return declaredIdentities(root)
 }
 
@@ -163,6 +166,10 @@ func (openSpecBackend) PlanPaths(root string, scope verificationScope) []string 
 		})
 	}
 	return []string{filepath.Join(root, "openspec", "changes", scope.changeID, linkagePlanFile)}
+}
+
+func (openSpecBackend) ArchivedSpecFiles(_, planPath string) []string {
+	return walkFiles(filepath.Join(filepath.Dir(planPath), "specs"), isMarkdown)
 }
 
 func (openSpecBackend) Validate(root string, scope verificationScope) (bool, error) {

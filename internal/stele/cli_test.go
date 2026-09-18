@@ -325,6 +325,9 @@ func TestValidateCommand(t *testing.T) {
 	runProjectScenarios = func(testRequest) (testRun, error) { return testRun{evidence: passEvidence}, nil }
 	verifyProject = func(verifyRequest) (Report, error) { return passReport, nil }
 	validateProjectOpenSpec = func(string, verificationScope) (bool, error) { return true, nil }
+	originalCheck := checkScopeSpecs
+	t.Cleanup(func() { checkScopeSpecs = originalCheck })
+	checkScopeSpecs = func(string, verificationScope) error { return nil }
 	for _, jsonOutput := range []bool{false, true} {
 		var stdout bytes.Buffer
 		if code := validateCommand(options{json: jsonOutput}, &stdout, io.Discard); code != 0 || stdout.Len() == 0 {
@@ -340,8 +343,8 @@ func TestValidateCommand(t *testing.T) {
 		&failure,
 		io.Discard,
 	)
-	if code != 1 || !strings.Contains(failure.String(), "✗ OpenSpec strict validation failed") ||
-		!strings.Contains(failure.String(), "✓ scenario execution passed") {
+	if code != 1 || !strings.Contains(failure.String(), "✗ OpenSpec strict validation  failed") ||
+		!strings.Contains(failure.String(), "✗ FAILED  change  — OpenSpec strict validation") {
 		t.Fatalf("validate OpenSpec failure = %d, %q", code, failure.String())
 	}
 	runProjectScenarios = func(testRequest) (testRun, error) {
@@ -466,14 +469,15 @@ func TestTestRejectsUnknownTargets(t *testing.T) {
 	}
 
 	code, stdout, _ := runCommand(t, "test", "scn.demo.bbbbbbbbbbbb.unit", "--root", root, "--change", "example")
-	if code != 0 || !strings.Contains(stdout, "✓ selected tests: 1/1 passed") ||
+	if code != 0 || !strings.Contains(stdout, "✓ Test execution              1/1 passed") ||
 		!fileExists(filepath.Join(root, defaultEvidencePath)) {
 		t.Fatalf("a valid target = %d, %q", code, stdout)
 	}
 	recordTests(t, "b e2e")
 	code, stdout, _ = runCommand(t, "test", "scn.demo.bbbbbbbbbbbb", "--root", root, "--change", "example")
-	if code != 1 || !strings.Contains(stdout, "FAILED tests/e2e/b.test.mts#b e2e (test-process-failed)") ||
-		!strings.Contains(stdout, "✗ selected tests: 1/2 passed") {
+	if code != 1 || !strings.Contains(stdout, "✗ tests/e2e/b.test.mts  b e2e") ||
+		!strings.Contains(stdout, "test-process-failed") ||
+		!strings.Contains(stdout, "✗ Test execution              1/2 passed · 1 failed") {
 		t.Fatalf("a failing target = %d, %q", code, stdout)
 	}
 	if selectedPassed(nil) {
@@ -515,10 +519,11 @@ func TestAllScopesReportSeparately(t *testing.T) {
 		t.Fatalf("verify --all = %d, %q, %q", code, stdout, stderr)
 	}
 	assertOrdered(t, stdout,
-		"== current specifications ==", "✓ implementation verification pass",
-		"== change broken ==", "✗ implementation verification fail", "LINK_CODE_MISSING",
-		"== change example ==", "✓ implementation verification pass",
-		"✗ 1 of 3 scopes failed: change broken",
+		"== current specifications ==", "✓ PASSED  current specifications",
+		"== change broken ==", "✗ Linkage (anchors)", "LINK_CODE_MISSING", "✗ FAILED  change broken",
+		"== change example ==", "✓ PASSED  change example",
+		"Scopes", "✓ PASSED  current specifications", "✗ FAILED  change broken", "✓ PASSED  change example",
+		"✗ FAILED  1 of 3 scopes failed: change broken",
 	)
 	var reports []Report
 	if !readJSON(filepath.Join(root, "out", "reports.json"), &reports) || len(reports) != 3 ||
@@ -542,7 +547,7 @@ func TestAllScopesReportSeparately(t *testing.T) {
 	}
 
 	code, stdout, _ = runCommand(t, "validate", "--all", "--root", root)
-	if code != 1 || !strings.Contains(stdout, "✗ 1 of 3 scopes failed: change broken") {
+	if code != 1 || !strings.Contains(stdout, "✗ FAILED  1 of 3 scopes failed: change broken") {
 		t.Fatalf("validate --all = %d, %q", code, stdout)
 	}
 	var evidence Evidence
@@ -560,7 +565,7 @@ func TestAllScopesReportSeparately(t *testing.T) {
 	}
 	code, stdout, _ = runCommand(t, "test", "--all", "--root", root, "--evidence-file", "out/evidence.json")
 	if code != 0 ||
-		!strings.Contains(stdout, "✓ all 2 scopes passed") {
+		!strings.Contains(stdout, "✓ PASSED  all 2 scopes passed") {
 		t.Fatalf("test --all = %d, %q", code, stdout)
 	}
 	if err := os.RemoveAll(filepath.Join(root, "openspec", "specs")); err != nil {
@@ -612,7 +617,7 @@ func TestOutputFileFlags(t *testing.T) {
 	recordTests(t)
 	code, _, stderr := runCommand(t, "validate", "--root", root, "--change", "example",
 		"--evidence-file", "out/evidence.json", "--report-file", "out/report.json")
-	if code != 0 || stderr != "" {
+	if code != 0 || strings.Contains(stderr, "deprecated") {
 		t.Fatalf("validate = %d, %q", code, stderr)
 	}
 	var evidence Evidence
@@ -692,7 +697,7 @@ func TestUnannotatedSpecificationWarnsByDefault(t *testing.T) {
 	validateProjectOpenSpec = func(string, verificationScope) (bool, error) { return true, nil }
 
 	code, stdout, stderr := runCommand(t, "validate", "--root", root, "--specs")
-	if code != 0 || !strings.Contains(stdout, "deterministic validation passed") {
+	if code != 0 || !strings.Contains(stdout, "✓ PASSED  current specifications") {
 		t.Fatalf("validate --specs = %d, %q, %q", code, stdout, stderr)
 	}
 	var report Report
@@ -787,5 +792,187 @@ func TestAnnotateCheckWritesNothing(t *testing.T) {
 	if code, stdout, _ := runAnnotate(t, "--root", root, "--specs", "--check", "--json"); code != 0 ||
 		!strings.Contains(stdout, `"verdict": "pass"`) {
 		t.Fatalf("check after annotating = %d, %q", code, stdout)
+	}
+}
+
+// stubValidation replaces the stages of validate with passing stubs that
+// return the given report.
+func stubValidation(t *testing.T, report Report) {
+	t.Helper()
+	originalVerify, originalScenarios := verifyProject, runProjectScenarios
+	originalOpenSpec, originalCheck := validateProjectOpenSpec, checkScopeSpecs
+	t.Cleanup(func() {
+		verifyProject, runProjectScenarios = originalVerify, originalScenarios
+		validateProjectOpenSpec, checkScopeSpecs = originalOpenSpec, originalCheck
+	})
+	passEvidence := Evidence{
+		Outcome: "passed", InputDigest: "now",
+		Scenarios: []ScenarioOutcome{{ID: "a", Outcome: "passed"}},
+	}
+	runProjectScenarios = func(testRequest) (testRun, error) { return testRun{evidence: passEvidence}, nil }
+	verifyProject = func(verifyRequest) (Report, error) { return report, nil }
+	validateProjectOpenSpec = func(string, verificationScope) (bool, error) { return true, nil }
+	checkScopeSpecs = func(string, verificationScope) error { return nil }
+}
+
+// @verifies scn.terminalreport.a76da19c3313.unit
+func TestValidateShowsWarnings(t *testing.T) {
+	report := reportFixture()
+	report.Diagnostics = []Diagnostic{
+		deprecatedPlanDiagnostic("openspec/changes/archive/2026-01-01-a/linkage-plan.json"),
+	}
+	stubValidation(t, report)
+	var stdout bytes.Buffer
+	code := validateCommand(options{specs: true}, &stdout, io.Discard)
+	if code != 0 {
+		t.Fatalf("warnings changed the exit code: %d\n%s", code, stdout.String())
+	}
+	assertOrdered(t, stdout.String(),
+		"! Plan approval",
+		"Warnings",
+		"PLAN_V1_DEPRECATED ×1",
+		"→ Fix: run `stele plan migrate --specs`",
+		"openspec/changes/archive/2026-01-01-a/linkage-plan.json:1",
+		"✓ PASSED  current specifications · 1 warning",
+	)
+}
+
+// @verifies scn.terminalreport.9f3cb9c00f42.unit
+func TestJSONOutputStaysCleanWithProgress(t *testing.T) {
+	root := allScopesFixture(t)
+	recordTests(t)
+	code, stdout, stderr := runCommand(t, "validate", "--root", root, "--change", "example", "--json")
+	var result validationResult
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil || code != 0 || result.Verdict != "pass" {
+		t.Fatalf("validate --json = %d, %v, %q", code, err, stdout)
+	}
+	encoded, _ := MarshalDeterministic(result)
+	if string(encoded) != stdout {
+		t.Fatalf("standard output is not exactly the JSON document: %q", stdout)
+	}
+	if !strings.Contains(stderr, "test execution: 1 tests in 1 files") || strings.Contains(stdout, "test execution") {
+		t.Fatalf("progress is not on standard error only: %q", stderr)
+	}
+	for _, flags := range [][]string{{"--details"}, {"--color=always"}, {"--quiet"}} {
+		_, again, quietErrors := runCommand(t, append([]string{
+			"validate", "--root", root, "--change", "example",
+			"--json",
+		}, flags...)...)
+		if again != stdout {
+			t.Fatalf("%v changed the JSON output: %q", flags, again)
+		}
+		if flags[0] == "--quiet" && quietErrors != "" {
+			t.Fatalf("--quiet printed progress: %q", quietErrors)
+		}
+	}
+}
+
+// @verifies scn.terminalreport.6678ddf5a27f.unit
+func TestQuietPrintsOnlyTheVerdict(t *testing.T) {
+	root := allScopesFixture(t)
+	recordTests(t)
+	code, stdout, stderr := runCommand(t, "validate", "--root", root, "--change", "broken", "--quiet")
+	if code != 1 || stderr != "" || strings.Count(stdout, "\n") != 1 ||
+		!strings.HasPrefix(stdout, "✗ FAILED  change broken — linkage (anchors) (") {
+		t.Fatalf("validate --quiet = %d, %q, %q", code, stdout, stderr)
+	}
+	code, stdout, _ = runCommand(t, "validate", "--root", root, "--all", "--quiet")
+	if code != 1 || stdout != "✗ FAILED  1 of 3 scopes failed: change broken\n" {
+		t.Fatalf("validate --all --quiet = %d, %q", code, stdout)
+	}
+}
+
+// @verifies scn.terminalreport.14b3f3d729fb.unit
+func TestUnknownColorModeIsRejected(t *testing.T) {
+	root := allScopesFixture(t)
+	ran := recordTests(t)
+	code, stdout, stderr := runCommand(t, "validate", "--root", root, "--change", "example", "--color=sometimes")
+	if code != 2 || stdout != "" || !strings.Contains(stderr, "accepted values: auto, always, never") ||
+		len(*ran) != 0 {
+		t.Fatalf("validate --color=sometimes = %d, %q, %q", code, stdout, stderr)
+	}
+	code, stdout, _ = runCommand(t, "validate", "--root", root, "--change", "example", "--color=always")
+	if code != 0 || !strings.Contains(stdout, "\x1b[32m✓\x1b[0m") {
+		t.Fatalf("validate --color=always = %d, %q", code, stdout)
+	}
+}
+
+// @verifies scn.terminalreport.42e58de06dfa.unit
+func TestAllScopesSummary(t *testing.T) {
+	root := allScopesFixture(t)
+	recordTests(t)
+	code, stdout, stderr := runCommand(t, "validate", "--all", "--root", root)
+	if code != 1 {
+		t.Fatalf("validate --all = %d, %q", code, stdout)
+	}
+	assertOrdered(t, stdout,
+		"== current specifications ==", "stele "+Version+" · validate · current specifications",
+		"== change broken ==", "stele "+Version+" · validate · change broken",
+		"== change example ==", "stele "+Version+" · validate · change example",
+		"Scopes\n",
+		"  ✓ PASSED  current specifications · 1 warning\n",
+		"  ✗ FAILED  change broken — linkage (anchors) (1 unimplemented requirement, 1 untested scenario) · 2 warnings",
+		"  ✓ PASSED  change example · 1 warning\n",
+		"✗ FAILED  1 of 3 scopes failed: change broken\n",
+	)
+	assertOrdered(t, stderr, "[current specifications] OpenSpec strict validation: passed",
+		"[change broken] OpenSpec strict validation: passed", "[change example] test execution:")
+
+	writeFixture(t, root, "openspec/changes/draft/proposal.md", "## Why\n")
+	_, stdout, _ = runCommand(t, "validate", "--all", "--root", root)
+	if !strings.Contains(stdout, "  ✗ FAILED  change draft — could not be checked\n") {
+		t.Fatalf("an unverifiable scope is missing from the summary:\n%s", stdout)
+	}
+}
+
+// @verifies scn.terminalreport.026c6192674a.unit
+func TestVersionIsUsedEverywhere(t *testing.T) {
+	original := Version
+	t.Cleanup(func() { Version = original })
+	Version = "9.9.9-test"
+	if _, stdout, _ := runCommand(t, "--version"); stdout != "9.9.9-test\n" {
+		t.Fatalf("--version = %q", stdout)
+	}
+	if _, stdout, _ := runCommand(t, "--help"); !strings.HasPrefix(stdout, "stele 9.9.9-test —") {
+		t.Fatalf("help = %q", stdout)
+	}
+	root := allScopesFixture(t)
+	_, stdout, _ := runCommand(t, "verify", "--root", root, "--change", "example", "--report-file", "out/r.json")
+	var report Report
+	if !strings.HasPrefix(stdout, "stele 9.9.9-test · verify · change example\n") ||
+		!readJSON(filepath.Join(root, "out", "r.json"), &report) || report.Verifier.Version != "9.9.9-test" {
+		t.Fatalf("report header or verifier version = %q, %#v", stdout, report.Verifier)
+	}
+}
+
+func TestStoredAndStaleExecutions(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, defaultEvidencePath, `{"inputDigest":"stored","executions":[
+{"path":"a.test.mts","scenarioIds":["scn.demo.bbbbbbbbbbbb"],"outcome":"passed"},
+{"path":"b.test.mts","scenarioIds":["scn.other.cccccccccccc"],"outcome":"passed","inputDigest":"x"}]}`)
+	report := Report{Requirements: []RequirementReport{{Scenarios: []ScenarioReport{{ID: "scn.demo.bbbbbbbbbbbb"}}}}}
+	executions := storedExecutions(root, report)
+	if len(executions) != 1 || executions[0].InputDigest != "stored" {
+		t.Fatalf("stored executions = %#v", executions)
+	}
+	if storedExecutions(fixtureRoot(t), report) != nil {
+		t.Fatal("a missing evidence file has executions")
+	}
+	run := testRun{evidence: Evidence{InputDigest: "now", Executions: []TestExecution{
+		{Path: "a", InputDigest: "now"}, {Path: "b", InputDigest: "old"},
+	}}}
+	if stale := staleExecutions(run); len(stale) != 1 || stale[0].Path != "b" {
+		t.Fatalf("stale executions = %#v", stale)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "openspec", "specs", "demo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "missing.md"), filepath.Join(root, "openspec", "specs", "demo",
+		"spec.md")); err != nil {
+		t.Fatal(err)
+	}
+	if summary, step := checkAnnotations(root, []verificationScope{{currentSpecs: true}}); summary.code != 2 ||
+		step.Error == "" {
+		t.Fatalf("an unreadable specification = %#v", summary)
 	}
 }

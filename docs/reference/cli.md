@@ -8,15 +8,18 @@ The npm package exposes the compiled Go executable directly as the `stele` comma
 stele init [--change ID] [--tools TOOLS] [--refresh-schema] [--strict-versions] [--root PATH]
 stele ids [--change ID] [--check] [--root PATH] [--json]
 stele annotate [--change ID | --specs | --all] [--check] [--root PATH] [--json]
-stele verify [--stage proposal|implementation] [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--json] [--strict-versions]
-stele test [targets...] [--change ID | --specs | --all] [--root PATH] [--evidence-file PATH] [--json]
-stele validate [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--evidence-file PATH] [--json] [--strict-versions]
+stele check [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--evidence-file PATH] [--json] [--strict-versions] [OUTPUT]
+stele verify [--stage proposal|implementation] [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--json] [--strict-versions] [OUTPUT]
+stele test [targets...] [--change ID | --specs | --all] [--root PATH] [--evidence-file PATH] [--json] [OUTPUT]
+stele validate [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--evidence-file PATH] [--json] [--strict-versions] [OUTPUT]
 stele index [--change ID | --specs | --all] [--root PATH] [--output-file PATH] [--json]
 stele approve [--change ID | --specs] [--evidence ID]... [--scenario ID]... [--all --yes | --confirmed-in-chat] [--by NAME] [--root PATH]
 stele plan migrate [--change ID | --specs] [--root PATH]
 stele help
 stele version
 ```
+
+`OUTPUT` is `[--details] [--quiet] [--color auto|always|never]`; see [Terminal output](#terminal-output). `stele --version` prints the version of the npm package that contains the binary, such as `0.1.0-rc.4`; a binary built outside the package build prints `0.0.0-dev`.
 
 ## `stele init`
 
@@ -93,13 +96,17 @@ Parses the selected OpenSpec change and validates identities, the linkage plan, 
 | `--report-file PATH` | Write the deterministic verification report to this path |
 | `--json` | Print canonical machine-readable JSON to standard output |
 
-The exit code follows the linkage verdict, so a proposal gate or a verify-only CI step keeps its meaning. In the implementation stage the human output adds an execution line, names failed scenarios, and names the overall verdict:
+The exit code follows the linkage verdict, so a proposal gate or a verify-only CI step keeps its meaning. The [human report](#terminal-output) shows the specification, plan approval, and linkage check lines; in the implementation stage it adds a test execution line from the stored evidence, lists failed and stale tests, and names the overall verdict on the final line:
 
 ```text
-✓ implementation verification pass: 3 requirements, 7 scenarios, 0 errors
-✗ execution failed: 6/7 scenarios passed
-  FAILED scn.todo.20d9cd2785a4 Non-empty title
-✗ overall fail
+  ✓ Linkage (anchors)           3/3 requirements and 7/7 scenarios linked
+  ✗ Test execution              6/7 passed · 1 failed · unit 6 · e2e 1
+
+Failed tests
+  ✗ tests/todo.test.mts:14  rejects an empty title
+      scn.todo.20d9cd2785a4.unit · Non-empty title · test-process-failed
+
+✓ PASSED  change todo-basics · overall fail (test execution failed)
 ```
 
 ### Report verdicts
@@ -151,7 +158,38 @@ Evidence files have schema version `3`. Every execution records the `inputDigest
 
 ## `stele validate`
 
-Runs scenario tests, OpenSpec strict validation, and implementation verification as one gate. Default outputs are `artifacts/test-results.json` and `artifacts/verification-report.json`; `--evidence-file` and `--report-file` choose others. The implementation verification uses the evidence of this run. Its JSON output has the same `verdicts` as the report.
+Runs OpenSpec strict validation, scenario tests, and implementation verification as one gate. Default outputs are `artifacts/test-results.json` and `artifacts/verification-report.json`; `--evidence-file` and `--report-file` choose others. The implementation verification uses the evidence of this run. Its JSON output has the same `verdicts` as the report.
+
+The fast stages run first: OpenSpec strict validation, then a check of the specifications, plan approval, and linkage without evidence, whose result appears in the progress output, so an unapproved plan shows before the tests start. The tests run next, and the final verification uses their evidence. The files written and the exit code do not depend on this order. The report lists warnings as well as errors.
+
+## `stele check`
+
+One CI gate for a scope. It runs three steps and always runs all of them, even when an earlier one fails:
+
+1. **Verification-IDs**, as `stele ids --check` does, for every selected scope, including the current specifications.
+2. **Annotations**, as `stele annotate --check` does.
+3. **Validation**, as `stele validate` does, with `--all`, `--report-file`, `--evidence-file`, `--strict-versions`, and the output options passed through.
+
+```bash
+npx stele check --change todo-basics   # while a change is in progress
+npx stele check --specs                # after archiving
+npx stele check --all                  # CI: current specifications and every active change
+```
+
+The output starts with one line per step, lists missing IDs and annotations below their step, prints the validation report, and ends with one verdict line:
+
+```text
+stele 0.1.0-rc.4 · check · change todo-basics
+
+  ✗ Verification-IDs    1 heading without a Verification-ID; run `stele ids`
+      openspec/changes/todo-basics/specs/todo/spec.md:18 scenario "Trim whitespace"
+  ✓ Annotations         1 file annotated
+  ✓ Validation          passed
+  …
+✗ FAILED  check · change todo-basics — verification-ids
+```
+
+The exit code is the worst of the steps: `2` when a step could not run, else `1` when a step failed, else `0`. With `--json`, standard output is `{schemaVersion, verdict, exitCode, steps}`, where each step has `step` (`ids`, `annotate`, `validate`), `exitCode`, `result` (the step's own JSON: one `stele ids --json` document per scope, the `stele annotate --json` document, and the `stele validate --json` document or `--all` array), and `error` when it could not run.
 
 With `--specs`, OpenSpec validates all specifications with `openspec validate --specs --strict`.
 
@@ -165,15 +203,23 @@ With `--change`, the index also includes the current specifications, and every i
 
 `--all` on `verify`, `test`, `validate`, and `index` covers the current specifications and then every active change in `openspec/changes/` (archived changes excluded), in directory order. When there are no current specifications, that scope is skipped. `--all` cannot be combined with `--change`, `--specs`, or test targets; such a command exits with code `2` and checks nothing.
 
-`verify`, `test`, and `validate` check each scope separately and print its result under a heading, then a summary that names the failing scopes:
+`verify`, `test`, and `validate` check each scope separately and print its report under a heading, then a summary with every scope's verdict and one final line that names the failing scopes. Progress lines name the scope being checked.
 
 ```text
 == current specifications ==
-✓ implementation verification pass: 12 requirements, 30 scenarios, 0 errors
+stele 0.1.0-rc.4 · validate · current specifications
+…
+✓ PASSED  current specifications
+
 == change todo-basics ==
-✗ implementation verification fail: 1 requirements, 2 scenarios, 1 errors
-  ERROR LINK_CODE_MISSING: No code anchor resolves for req.todo.22b616c90f42.
-✗ 1 of 2 scopes failed: change todo-basics
+stele 0.1.0-rc.4 · validate · change todo-basics
+…
+✗ FAILED  change todo-basics — linkage (anchors) (1 unimplemented requirement)
+
+Scopes
+  ✓ PASSED  current specifications
+  ✗ FAILED  change todo-basics — linkage (anchors) (1 unimplemented requirement)
+✗ FAILED  1 of 2 scopes failed: change todo-basics
 ```
 
 The exit code is the worst of the scopes: `2` when a scope could not be checked, else `1` when a scope failed, else `0`. With `--json`, standard output is an array with one `{scope, kind, exitCode, result}` entry per scope. An output file receives every scope in one file: `--report-file` an array of reports, and `--evidence-file` one evidence document that merges the scopes. `stele index --all` prints one index with every scope.
@@ -247,11 +293,107 @@ Each run checks one scope: a change, selected with `--change` or the configured 
 | Scope | Specifications | Linkage plan |
 |---|---|---|
 | Change | `openspec/changes/<change>/specs/` | `openspec/changes/<change>/linkage-plan.json`, or `artifacts/linkage-plan.json` when the change has none |
-| Current specifications | `openspec/specs/` | Every `linkage-plan.json` under `openspec/changes/archive/`, combined in archive order; a later archive wins for the same ID, whatever its version |
+| Current specifications | `openspec/specs/` | Every `linkage-plan.json` under `openspec/changes/archive/`, combined per ID; see below |
+
+For the current specifications, each ID takes its entries from the archived change whose archived delta spec declares the ID with the same text as the current specification: in practice, the change that last modified it. When several archived changes qualify, or none does, the one archived last wins, ordered by the archive folder's date prefix and then by change name, whatever the plan's version. OpenSpec records only the date of an archive, so when two changes archived on the same date still compete with different entries, the one whose name sorts last wins and `PLAN_ARCHIVE_ORDER_AMBIGUOUS` warns, naming both plans.
 
 A plan whose `changeId` names a different change fails with `PLAN_CHANGE_MISMATCH`. Anchors for IDs declared elsewhere under `openspec/`, in another change or in the current specifications, do not affect the selected scope. An anchor fails with `ANCHOR_DANGLING` only when no specification declares its ID.
 
+### Removed requirements
+
+A delta spec can remove a requirement under `## REMOVED Requirements`, as a `### Requirement:` header or as a bullet such as ``- `### Requirement: Export todos` ``. Neither form is an active requirement of the change, so it needs no Verification-ID and no scenarios. Stele checks that the removed behavior is actually gone:
+
+- Each removed name is resolved against the current specification of the same capability, matching the name exactly after trimming, as OpenSpec does. A name that matches nothing fails with `SPEC_REMOVED_UNMATCHED`, because nothing would be checked.
+- The removed IDs are the matched requirement's ID and its scenarios' IDs, except IDs the change declares again in another requirement: that behavior moved, as when a requirement is removed and added under a new name to rename a scenario.
+- In the implementation stage, every `@implements` or `@verifies` anchor that still names a removed ID, including evidence IDs such as `<scenario>.unit.2`, fails with `LINK_REMOVED_BEHAVIOR_ANCHORED` at the anchor's location.
+- In both stages, a plan entry that still names a removed ID fails with `PLAN_REMOVED_BEHAVIOR_PLANNED`, instead of `PLAN_UNKNOWN_ID`.
+
+After the change is archived, `--specs` continues the check: an anchor whose ID only archived changes declare names behavior an archived change removed, and fails with `LINK_REMOVED_BEHAVIOR_ANCHORED`. `ANCHOR_DANGLING` would not catch it, because the archived change that once added the requirement still declares its ID. Requirements under `## RENAMED Requirements` keep their Verification-IDs and are not checked as removed.
+
 A scope must contain specifications. When the selected change has no delta specs, or `--specs` finds none in `openspec/specs/`, `verify`, `test`, and `validate` stop with exit code `2` before running tests or OpenSpec. A repository without archived changes therefore verifies with `--change` until its first `openspec archive`.
+
+## Terminal output
+
+Without `--json`, `validate`, `verify`, `test`, and `check` print a report for people to standard output. Its layout, top to bottom:
+
+- **Header**: the Stele version, the command, and the scope.
+- **Overview**: one row per capability in specification order, with its scenario count, its test outcomes, its plan approval, and a status mark (`✓` passed, `✗` failed, `!` warnings, stale, or not run).
+- **Check lines**: one per stage, each named for what it checks: OpenSpec strict validation (`validate`), Specifications (IDs and annotations), Plan approval, Linkage (anchors), and Test execution with passed and total tests, counts by level, and the duration. A problem fails only the line of its own stage, so an unapproved plan never reads as a linkage failure. `test` shows only the test execution line.
+- **Errors, then Warnings**: grouped by diagnostic code, with the number of findings, the code's meaning, a `→ Fix:` line with the next step for this scope, and the first five findings with their ID, title, and `file:line`; `… N more (--details)` counts the rest.
+- **Failed tests and Stale tests**: by name and location, with their evidence IDs and reason; a stale test names the `stele test` command that runs it again.
+- **Verdict**: `✓ PASSED` or `✗ FAILED`, the scope, the failing stages, and the number of warnings.
+
+```text
+stele 0.1.0-rc.4 · validate · current specifications
+
+  Capability  Scenarios  Tests     Plan          Status
+  todo                3  3 passed  1/3 approved  ✗
+
+  ✓ OpenSpec strict validation  passed
+  ✓ Specifications              1 requirement, 3 scenarios
+  ✗ Plan approval               1/3 evidence entries approved; 2 unapproved
+  ✓ Linkage (anchors)           1/1 requirements and 3/3 scenarios linked
+  ✓ Test execution              3/3 passed · unit 2 · e2e 1 · 1.8s
+
+Errors
+  PLAN_UNAPPROVED ×2  Planned evidence has no human approval yet.
+    → Fix: review the levels in design.md, then run `stele approve --specs` (agents: after an explicit yes in chat, `stele approve --specs --confirmed-in-chat`)
+    scn.todo.591a3b429cf0.e2e   Save entered text  openspec/specs/todo/spec.md:12
+    scn.todo.7c2d91e0b4a5.unit  Reject empty text  openspec/specs/todo/spec.md:18
+
+✗ FAILED  current specifications — plan approval (2 unapproved)
+```
+
+| Option | Meaning |
+|---|---|
+| `--details` | List every finding and every failed and stale test, without truncation |
+| `--quiet` | Print only the verdict line, and no progress; errors that stop the command still go to standard error |
+| `--color auto` | Default. Color a stream only when it is a terminal, `NO_COLOR` is unset or empty, and `TERM` is not `dumb` |
+| `--color always`, `--color never` | Force color on or off, whatever `NO_COLOR` and the terminal say |
+
+Any other `--color` value exits with code `2`. `--json` output is the same whatever these options say.
+
+### Progress
+
+While a command runs, progress goes to standard error, never to standard output:
+
+- **On a terminal**, one line is updated in place: the stage, or during tests the test counter, the current scenario and evidence level, the passed and failed counts, and the elapsed time. A failed test is printed on its own line as soon as it fails, and the progress line is cleared before the report.
+- **Otherwise**, as in CI, progress is plain append-only lines without escape sequences: one per stage, one per test file when its tests finish, and one per failed test.
+
+```text
+OpenSpec strict validation: passed (0.2s)
+specifications: passed; plan approval: 2 unapproved; linkage (anchors): passed (0.0s)
+test execution: 3 tests in 2 files
+  ✓ tests/todo.test.mts  2/2 (0.8s) [2/3]
+  ✓ tests/cli.test.mts  1/1 (0.9s) [3/3]
+test execution: 3/3 passed (1.8s)
+```
+
+`TERM=dumb` gets plain lines. `--quiet` turns progress off.
+
+### Determinism in CI
+
+For identical inputs, the report is byte-identical apart from its durations. JSON output, report files, and evidence files never contain durations or progress. Gate on the exit code and read JSON for automation; the human report may change between releases.
+
+### Diagnostics
+
+Every code belongs to one stage, and the report prints its meaning and fix:
+
+| Code | Stage | Meaning |
+|---|---|---|
+| `ID_REQUIREMENT_MISSING`, `ID_SCENARIO_MISSING` | Specifications | A requirement or scenario has no Verification-ID; run `stele ids` |
+| `ID_FORMAT`, `ID_MULTIPLE`, `ID_DUPLICATE` | Specifications | A malformed, repeated, or duplicated Verification-ID |
+| `SCENARIO_MISSING` | Specifications | A requirement has no scenarios |
+| `SPEC_ANNOTATION_MISSING`, `SPEC_ANNOTATION_MISPLACED`, `SPEC_ANNOTATION_MALFORMED`, `SPEC_ANNOTATION_UNSUPPORTED`, `SPEC_ANNOTATION_FIELD_IGNORED` | Specifications | See [Specification format](/concepts/spec-format) |
+| `SPEC_REMOVED_UNMATCHED` | Specifications | A removed requirement name matches no current requirement |
+| `PLAN_UNAPPROVED`, `PLAN_APPROVAL_STALE` | Plan approval | An entry is not approved, or changed since approval; run `stele approve` |
+| `PLAN_EVIDENCE_MISSING`, `PLAN_EVIDENCE_INVALID`, `PLAN_UNKNOWN_ID`, `PLAN_CHANGE_MISMATCH` | Plan approval | The plan misses, misstates, or does not belong to its scenarios |
+| `PLAN_CODE_MISSING`, `PLAN_TEST_MISSING`, `PLAN_V1_DEPRECATED` | Plan approval | Version 1 plans; run `stele plan migrate` |
+| `PLAN_ARCHIVE_ORDER_AMBIGUOUS` | Plan approval | Two same-day archives plan an ID differently (warning) |
+| `PLAN_REMOVED_BEHAVIOR_PLANNED` | Plan approval | The plan still lists removed behavior |
+| `LINK_CODE_MISSING`, `LINK_TEST_MISSING`, `LINK_EVIDENCE_MISSING`, `LINK_TARGET_MISMATCH` | Linkage | A requirement, scenario, or evidence entry has no matching anchor |
+| `LINK_REMOVED_BEHAVIOR_ANCHORED` | Linkage | Code or a test is still anchored to removed behavior |
+| `ANCHOR_DANGLING`, `ANCHOR_KIND`, `ANCHOR_TARGET_MISSING`, `ANCHOR_EVIDENCE_UNPLANNED` | Linkage | An anchor names an undeclared ID, has the wrong kind, is not above a declaration, or claims unplanned evidence |
 
 ## Common options
 

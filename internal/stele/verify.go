@@ -55,6 +55,10 @@ type linkageValidationInput struct {
 	Anchors  []Anchor
 	Plan     LinkagePlan
 	Declared map[string]bool
+	// Removed holds the identities the change removes, and Retired, for the
+	// current specifications, the identities only archived changes declare.
+	Removed map[string]removedIdentity
+	Retired map[string]bool
 }
 
 type reportBuildInput struct {
@@ -107,10 +111,15 @@ func verifyScope(request verifyRequest) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	declared, err := scope.spec().DeclaredIdentities(root)
+	declared, retired, err := scope.spec().DeclaredIdentities(root)
 	if err != nil {
 		return Report{}, err
 	}
+	if !scope.currentSpecs {
+		retired = nil
+	}
+	removed, removedDiagnostics := removedBehavior(root, scope, parsed)
+	parsed.Diagnostics = append(parsed.Diagnostics, removedDiagnostics...)
 	plan, planDiagnostics := loadScopePlan(root, scope)
 	parsed.Diagnostics = append(parsed.Diagnostics, planDiagnostics...)
 	diagnostics := validateLinkage(linkageValidationInput{
@@ -119,6 +128,8 @@ func verifyScope(request verifyRequest) (Report, error) {
 		Anchors:  anchors,
 		Plan:     plan,
 		Declared: declared,
+		Removed:  removed,
+		Retired:  retired,
 	})
 	inputDigest, err := ComputeInputDigest(root)
 	if err != nil {
@@ -143,8 +154,13 @@ func validateLinkage(input linkageValidationInput) []Diagnostic {
 	diagnostics := append([]Diagnostic{}, input.Parsed.Diagnostics...)
 	known := knownIdentities(input.Parsed)
 	diagnostics = append(diagnostics, anchorDiagnostics(input.Mode, input.Anchors, known, input.Declared)...)
+	if input.Mode == "implementation" {
+		diagnostics = append(diagnostics, removedAnchorDiagnostics(input.Anchors, input.Removed)...)
+	}
+	diagnostics = append(diagnostics, retiredAnchorDiagnostics(input.Anchors, input.Retired)...)
+	diagnostics = append(diagnostics, removedPlanDiagnostics(input.Plan, input.Removed)...)
 	diagnostics = append(diagnostics, unknownPlanDiagnostics(input.Plan, scenarioIdentities(input.Parsed),
-		input.Plan.Source)...)
+		input.Removed, input.Plan.Source)...)
 	for _, requirement := range input.Parsed.Requirements {
 		diagnostics = append(diagnostics, requirementLinkDiagnostics(input, requirement)...)
 		for _, scenario := range requirement.Scenarios {

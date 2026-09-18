@@ -85,6 +85,8 @@ type testRequest struct {
 	targets []string
 	// merge keeps the stored evidence of tests that do not run now.
 	merge bool
+	// observer receives progress; nil shows none.
+	observer testObserver
 }
 
 // testRun is the result of running a scope's tests: the scope's evidence and,
@@ -93,6 +95,8 @@ type testRun struct {
 	evidence Evidence
 	selected []TestExecution
 	targeted bool
+	// parsed holds the scope's specifications, for the human report.
+	parsed ParsedSpecs
 }
 
 // @implements req.execution.f9056cdc6fe6
@@ -130,7 +134,12 @@ func runScopeTests(request testRequest) (testRun, error) {
 		}
 		selectedGroups = groupsOf(groups, selected)
 	}
-	executions := executeTestGroups(root, selectedGroups, inputDigest)
+	observer := request.observer
+	if observer == nil {
+		observer = silentProgress{}
+	}
+	executions := executeTestGroups(root, selectedGroups, inputDigest, observer, parsed)
+	run.parsed = parsed
 	if run.targeted {
 		run.selected = executions
 	}
@@ -390,12 +399,43 @@ func groupScenarioTests(anchors []Anchor) []testGroup {
 	return groups
 }
 
-func executeTestGroups(root string, groups []testGroup, inputDigest string) []TestExecution {
+// executeTestGroups runs the groups one at a time and reports each test to
+// the observer as it starts and finishes.
+func executeTestGroups(
+	root string,
+	groups []testGroup,
+	inputDigest string,
+	observer testObserver,
+	parsed ParsedSpecs,
+) []TestExecution {
+	titles := make(map[string]string)
+	for _, requirement := range parsed.Requirements {
+		for _, scenario := range requirement.Scenarios {
+			titles[scenario.ID] = scenario.Title
+		}
+	}
+	files := make(map[string]int)
+	for _, group := range groups {
+		files[group.Key.Path]++
+	}
+	observer.planned(len(groups), files)
 	executions := make([]TestExecution, 0, len(groups))
 	for _, group := range groups {
+		event := progressEvent{
+			group:       "default",
+			path:        group.Key.Path,
+			selector:    group.Key.Selector,
+			evidenceIDs: group.EvidenceIDs,
+			scenarioIDs: group.IDs,
+			title:       titles[firstOf(group.IDs, "")],
+			level:       levelOf(firstOf(group.EvidenceIDs, "")),
+		}
+		observer.started(event)
 		execution := executeTestGroup(root, group)
 		execution.InputDigest = inputDigest
 		executions = append(executions, execution)
+		event.outcome, event.reason = execution.Outcome, pointerValue(execution.Reason)
+		observer.finished(event)
 	}
 	return executions
 }

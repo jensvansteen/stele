@@ -5,6 +5,7 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,6 +23,8 @@ type commandResult struct {
 
 // @verifies scn.init.cbf5781012fa.e2e
 // @verifies scn.validate.10388560c2dc.e2e
+// @verifies scn.terminalreport.cd40642c50e6.e2e
+// @verifies scn.validate.ddff25a243df.e2e
 func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 	repositoryRoot := testRepositoryRoot(t)
 	temporaryRoot, err := os.MkdirTemp("", "stele-package-")
@@ -174,6 +177,50 @@ func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 	if report.Verdict != "pass" {
 		t.Fatalf("expected validation verdict %q, got %q", "pass", report.Verdict)
 	}
+
+	requirePackageVersion(t, repositoryRoot, runCommand(consumerRoot, os.Environ(), steleExecutable, "--version"))
+	requireCheckGate(t, consumerRoot, validateEnvironment, steleExecutable)
+}
+
+// requirePackageVersion checks that the installed binary names the version of
+// the package it was packed from.
+func requirePackageVersion(t *testing.T, repositoryRoot string, result commandResult) {
+	t.Helper()
+	requireCommandSuccess(t, "print the installed version", result)
+	var manifest struct {
+		Version string `json:"version"`
+	}
+	readJSONFile(t, filepath.Join(repositoryRoot, "package.json"), &manifest)
+	if strings.TrimSpace(result.stdout) != manifest.Version || manifest.Version == "" {
+		t.Fatalf("installed stele --version = %q, package version %q", result.stdout, manifest.Version)
+	}
+}
+
+// requireCheckGate runs `stele check --all` as CI does, without a terminal,
+// after the change gets a plan that nobody approved.
+func requireCheckGate(t *testing.T, consumerRoot string, environment []string, steleExecutable string) {
+	t.Helper()
+	mustWriteFile(t, filepath.Join(consumerRoot, "openspec", "changes", "example", "linkage-plan.json"),
+		`{"schemaVersion":2,"changeId":"example","scenarios":{"scn.example.abcdef012345":{"evidence":[`+
+			`{"id":"scn.example.abcdef012345.unit","level":"unit","rationale":"Pure function."}]}}}`)
+	check := runCommand(consumerRoot, environment, steleExecutable, "check", "--all")
+	var exitError *exec.ExitError
+	if !errors.As(check.err, &exitError) || exitError.ExitCode() != 1 {
+		t.Fatalf("stele check --all: %v\nstderr:\n%s\nstdout:\n%s", check.err, check.stderr, check.stdout)
+	}
+	if !strings.Contains(check.stdout, "PLAN_UNAPPROVED") ||
+		!strings.HasSuffix(check.stdout, "\n") ||
+		!strings.HasPrefix(lastLine(check.stdout), "✗ FAILED  check · all scopes — ") {
+		t.Fatalf("stele check --all summary:\n%s", check.stdout)
+	}
+	if strings.Contains(check.stdout+check.stderr, "\x1b") || !strings.Contains(check.stderr, "test execution:") {
+		t.Fatalf("stele check --all progress without a terminal:\n%q", check.stderr)
+	}
+}
+
+func lastLine(text string) string {
+	lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
+	return lines[len(lines)-1]
 }
 
 func packageExecutable(consumerRoot, name string) string {
