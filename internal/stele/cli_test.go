@@ -657,3 +657,135 @@ func TestDeprecatedOutputFlagsWarn(t *testing.T) {
 		t.Fatalf("ids accepted --report: %d", code)
 	}
 }
+
+// unannotatedFixture returns a project whose current specification and whose
+// change "example" pass linkage but have no annotation.
+func unannotatedFixture(t *testing.T, config string) string {
+	t.Helper()
+	root := completeFixture(t, false)
+	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `### Requirement: Return value
+Verification-ID: req.demo.aaaaaaaaaaaa
+#### Scenario: Value is returned
+Verification-ID: scn.demo.bbbbbbbbbbbb
+`)
+	writeFixture(t, root, "openspec/specs/demo/spec.md", `### Requirement: Return value
+Verification-ID: req.demo.aaaaaaaaaaaa
+#### Scenario: Value is returned
+Verification-ID: scn.demo.bbbbbbbbbbbb
+`)
+	if config != "" {
+		writeFixture(t, root, "stele.config.json", config)
+	}
+	return root
+}
+
+// @verifies scn.specannotation.0f1fab2a02b8.unit
+func TestUnannotatedSpecificationWarnsByDefault(t *testing.T) {
+	root := unannotatedFixture(t, "")
+	originalScenarios, originalOpenSpec := runProjectScenarios, validateProjectOpenSpec
+	t.Cleanup(func() { runProjectScenarios, validateProjectOpenSpec = originalScenarios, originalOpenSpec })
+	runProjectScenarios = func(testRequest) (testRun, error) {
+		return testRun{evidence: Evidence{Outcome: "passed", Scenarios: []ScenarioOutcome{
+			{ID: "scn.demo.bbbbbbbbbbbb", Outcome: "passed"},
+		}}}, nil
+	}
+	validateProjectOpenSpec = func(string, verificationScope) (bool, error) { return true, nil }
+
+	code, stdout, stderr := runCommand(t, "validate", "--root", root, "--specs")
+	if code != 0 || !strings.Contains(stdout, "deterministic validation passed") {
+		t.Fatalf("validate --specs = %d, %q, %q", code, stdout, stderr)
+	}
+	var report Report
+	if !readJSON(filepath.Join(root, "artifacts", "verification-report.json"), &report) {
+		t.Fatal("validate wrote no report")
+	}
+	warnings := diagnosticsWithCode(report.Diagnostics, "SPEC_ANNOTATION_MISSING")
+	if len(warnings) != 1 || warnings[0].Severity != "warning" ||
+		!strings.Contains(warnings[0].Message, "openspec/specs/demo/spec.md") ||
+		!strings.Contains(warnings[0].Message, "stele annotate --specs") {
+		t.Fatalf("missing annotation warning = %#v", report.Diagnostics)
+	}
+	if report.Summary.Requirements != 1 || report.Summary.LinkedRequirements != 1 ||
+		report.Requirements[0].Linkage != "linked" {
+		t.Fatalf("the unannotated requirement was not verified: %#v", report.Requirements)
+	}
+}
+
+// @verifies scn.specannotation.3c8b5da99a7e.unit
+func TestUnannotatedSpecificationFailsUnderTheErrorPolicy(t *testing.T) {
+	root := unannotatedFixture(t, `{"change":"example","unannotatedSpecs":"error"}`)
+	code, stdout, stderr := runCommand(t, "verify", "--root", root, "--change", "example", "--json")
+	var report Report
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatalf("verify output: %v, %q", err, stderr)
+	}
+	errors := diagnosticsWithCode(report.Diagnostics, "SPEC_ANNOTATION_MISSING")
+	if code != 1 || len(errors) != 1 || errors[0].Severity != "error" ||
+		!strings.Contains(errors[0].Message, "openspec/changes/example/specs/demo/spec.md") ||
+		!strings.Contains(errors[0].Message, "stele annotate --change example") {
+		t.Fatalf("verify under the error policy = %d, %#v", code, report.Diagnostics)
+	}
+
+	writeFixture(t, root, "stele.config.json", `{"change":"example","unannotatedSpecs":"warn"}`)
+	if code, stdout, _ := runCommand(t, "verify", "--root", root); code != 0 {
+		t.Fatalf("verify under the warn policy = %d, %q", code, stdout)
+	}
+}
+
+// @verifies scn.specannotation.ee994e1a42b9.unit
+func TestUnknownAnnotationPolicyIsRejected(t *testing.T) {
+	root := unannotatedFixture(t, `{"change":"example","unannotatedSpecs":"ignore"}`)
+	originalVerify := verifyProject
+	t.Cleanup(func() { verifyProject = originalVerify })
+	verified := false
+	verifyProject = func(request verifyRequest) (Report, error) {
+		verified = true
+		return originalVerify(request)
+	}
+	for _, command := range []string{"verify", "ids", "annotate", "index", "init"} {
+		code, stdout, stderr := runCommand(t, command, "--root", root)
+		if code != 2 || !strings.Contains(stderr, `unannotatedSpecs "ignore"`) ||
+			!strings.Contains(stderr, "warn, error") {
+			t.Fatalf("%s with an unknown policy = %d, %q, %q", command, code, stdout, stderr)
+		}
+	}
+	if verified {
+		t.Fatal("verify ran with an unknown policy")
+	}
+}
+
+// @verifies scn.specannotation.a518efc1ddd8.unit
+func TestAnnotateCheckWritesNothing(t *testing.T) {
+	root := annotateFixture(t)
+	before := readTestFile(t, root, "openspec/specs/plain/spec.md")
+	code, stdout, stderr := runAnnotate(t, "--root", root, "--specs", "--check", "--json")
+	var result AnnotationResult
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("check output: %v, %q, %q", err, stdout, stderr)
+	}
+	if code != 1 || result.Mode != "check" || result.Verdict != "fail" || len(result.Files) != 2 {
+		t.Fatalf("check = %d, %#v", code, result)
+	}
+	marked, plain := result.Files[0], result.Files[1]
+	if marked.Path != "openspec/specs/marked/spec.md" || marked.State != annotationAnnotated ||
+		marked.Scope != "specs" || *marked.Version != "v1" ||
+		plain.Path != "openspec/specs/plain/spec.md" || plain.State != annotationMissing ||
+		plain.Version != nil || plain.Changed {
+		t.Fatalf("check files = %#v", result.Files)
+	}
+	if readTestFile(t, root, "openspec/specs/plain/spec.md") != before {
+		t.Fatal("check wrote a file")
+	}
+	if code, stdout, _ := runAnnotate(t, "--root", root, "--specs", "--check"); code != 1 ||
+		!strings.Contains(stdout, "MISSING openspec/specs/plain/spec.md") {
+		t.Fatalf("human check = %d, %q", code, stdout)
+	}
+
+	if code, _, _ := runAnnotate(t, "--root", root, "--specs"); code != 0 {
+		t.Fatalf("annotate = %d", code)
+	}
+	if code, stdout, _ := runAnnotate(t, "--root", root, "--specs", "--check", "--json"); code != 0 ||
+		!strings.Contains(stdout, `"verdict": "pass"`) {
+		t.Fatalf("check after annotating = %d, %q", code, stdout)
+	}
+}

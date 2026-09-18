@@ -89,9 +89,13 @@ func openSpecFailure(action, output string, err error) error {
 }
 
 // mergeOpenSpecGuidance patches a freshly forked schema and merges the Stele
-// guidance into openspec/config.yaml without removing user configuration.
+// guidance into openspec/config.yaml without removing user configuration. The
+// patch starts the schema's specification template with the Stele annotation,
+// and the archive guidance names the annotation repair step.
 //
 // @implements req.workflowschema.db5e762d55ea
+// @implements req.specannotation.0784be141698
+// @implements req.specannotation.1707277552af
 func mergeOpenSpecGuidance(root string, patchSchema bool) ([]string, error) {
 	cli, err := openSpecCLI(root)
 	if err != nil {

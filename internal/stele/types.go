@@ -51,6 +51,8 @@ type ParsedSpecs struct {
 	Requirements []Requirement
 	Diagnostics  []Diagnostic
 	Files        []string
+	// Annotations holds the annotation of each file, in the order of Files.
+	Annotations []SpecAnnotation
 }
 
 // Anchor is a source or test declaration linked to a verification identity.
@@ -287,6 +289,7 @@ type IdentityResult struct {
 	Mode          string              `json:"mode"`
 	Verdict       string              `json:"verdict"`
 	Insertions    []IdentityInsertion `json:"insertions"`
+	Annotations   []AnnotationFile    `json:"annotations"`
 }
 
 // Config selects the adapter and default OpenSpec change for a project.
@@ -294,4 +297,6 @@ type Config struct {
 	SchemaVersion int    `json:"schemaVersion"`
 	Adapter       string `json:"adapter"`
 	Change        string `json:"change"`
+	// UnannotatedSpecs is warn or error; empty means the release default.
+	UnannotatedSpecs string `json:"unannotatedSpecs,omitempty"`
 }

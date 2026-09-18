@@ -1,3 +1,4 @@
+<!-- stele: spec v1 -->
 # ids Specification
 
 ## Purpose

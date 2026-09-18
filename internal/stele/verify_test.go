@@ -367,7 +367,8 @@ func TestRunScenarioTestsMapsPassAndFailure(t *testing.T) {
 func completeFixture(t *testing.T, failing bool) string {
 	t.Helper()
 	root := fixtureRoot(t)
-	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `### Requirement: Return value
+	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `<!-- stele: spec v1 -->
+### Requirement: Return value
 Verification-ID: req.demo.aaaaaaaaaaaa
 #### Scenario: Value is returned
 Verification-ID: scn.demo.bbbbbbbbbbbb

@@ -149,8 +149,79 @@ func TestArchiveSkillGatesOnValidation(t *testing.T) {
 		"`stele validate --change <change>`",
 		"If it fails, stop",
 		"`openspec-archive-change` skill",
+		"`stele annotate --specs`",
 		"`stele validate --specs`",
 	)
+}
+
+// @verifies scn.specannotation.3baa32066f7a.unit
+func TestArchiveSkillRestoresTheAnnotation(t *testing.T) {
+	skill := installedSkill(t, "stele-archive")
+	assertOrdered(t, skill,
+		"1. Run `stele validate --change <change>`. If it fails, stop",
+		"2. Use the `openspec-archive-change` skill",
+		"3. Run `stele annotate --specs`",
+		"4. Run `stele validate --specs`",
+	)
+	if strings.Count(skill, "stele annotate") != 1 || strings.Count(skill, "stele validate --specs") != 1 {
+		t.Fatalf("the repair step is not run exactly once between archiving and validation:\n%s", skill)
+	}
+}
+
+// @verifies scn.specannotation.dfe775967c44.unit
+func TestInitAnnotatesExistingSpecificationsOnce(t *testing.T) {
+	stubOpenSpecSetup(t, nil, nil)
+	root := fixtureRoot(t)
+	archived := "openspec/changes/archive/2026-01-01-old/specs/old/spec.md"
+	writeFixture(t, root, "openspec/specs/demo/spec.md", "# demo Specification\n")
+	writeFixture(t, root, "openspec/changes/active/specs/demo/spec.md", "## ADDED Requirements\n")
+	writeFixture(t, root, "openspec/changes/active/specs/other/spec.md", "## ADDED Requirements\r\n")
+	writeFixture(t, root, archived, "## ADDED Requirements\n")
+
+	code, stdout, stderr := runCommand(t, "init", "--root", root)
+	if code != 0 {
+		t.Fatalf("init = %d, %q, %q", code, stdout, stderr)
+	}
+	for _, path := range []string{
+		"openspec/specs/demo/spec.md",
+		"openspec/changes/active/specs/demo/spec.md",
+		"openspec/changes/active/specs/other/spec.md",
+	} {
+		if !strings.Contains(stdout, path) || !strings.HasPrefix(readTestFile(t, root, path), annotationCanonical) {
+			t.Fatalf("init did not annotate and list %s: %q", path, stdout)
+		}
+	}
+	if readTestFile(t, root, archived) != "## ADDED Requirements\n" || strings.Contains(stdout, "2026-01-01-old") {
+		t.Fatalf("init changed the archived change: %q", stdout)
+	}
+	before := readTestFile(t, root, "openspec/changes/active/specs/other/spec.md")
+	code, stdout, _ = runCommand(t, "init", "--root", root)
+	if code != 0 || !strings.Contains(stdout, "Stele is already initialized.") ||
+		readTestFile(t, root, "openspec/changes/active/specs/other/spec.md") != before {
+		t.Fatalf("second init = %d, %q", code, stdout)
+	}
+
+	created, err := Initialize(root, "")
+	if err != nil || len(created) != 0 {
+		t.Fatalf("Initialize after init = %#v, %v", created, err)
+	}
+}
+
+func TestInitWarnsAboutBrokenAnnotations(t *testing.T) {
+	stubOpenSpecSetup(t, nil, nil)
+	root := fixtureRoot(t)
+	writeFixture(t, root, "openspec/specs/demo/spec.md", "<!-- stele: spec v1 --> oops\n")
+	code, stdout, stderr := runCommand(t, "init", "--root", root)
+	if code != 0 || !strings.Contains(stderr, "warning: openspec/specs/demo/spec.md has a malformed") {
+		t.Fatalf("init with a malformed annotation = %d, %q, %q", code, stdout, stderr)
+	}
+
+	original := readSpecFile
+	t.Cleanup(func() { readSpecFile = original })
+	readSpecFile = func(string) ([]byte, error) { return nil, errors.New("read failed") }
+	if _, err := Initialize(root, ""); err == nil || !strings.Contains(err.Error(), "read failed") {
+		t.Fatalf("Initialize with an unreadable spec = %v", err)
+	}
 }
 
 // lifecycleDelegates maps each lifecycle skill to the OpenSpec skill it uses.

@@ -13,7 +13,8 @@ The `stele-propose`, `stele-apply`, and `stele-archive` skills are the default e
 | OpenSpec setup | `openspec/`, `.agents/skills/`, `.claude/skills` | Only when the project has no `openspec/` directory. `--tools` selects OpenSpec's tools. |
 | `stele` workflow schema | `openspec/schemas/stele/` | A fork of `spec-driven` with a `verification` artifact between `design` and `tasks`. It generates `linkage-plan.json`, and `tasks` and apply require it. |
 | Default schema | `schema:` in `openspec/config.yaml` | Switched from `spec-driven` to `stele`. Any other default stays selected, and init prints how to switch. |
-| Apply and archive guidance | `operations` in `openspec/config.yaml` | Reminders to confirm the verification levels, add anchors, and run the Stele gates. |
+| Apply and archive guidance | `operations` in `openspec/config.yaml` | Reminders to confirm the verification levels, add anchors, run the Stele gates, and restore the annotation after archiving. An archive entry written by an earlier Stele is replaced, not duplicated. |
+| Annotated specification template | `openspec/schemas/stele/templates/spec.md` | Starts new delta specs with the [`<!-- stele: spec v1 -->` annotation](/concepts/spec-format). |
 | Planning rule | `rules.verification` in `openspec/config.yaml` | Points the `verification` artifact to the `stele-plan` skill. |
 
 Your own configuration and comments are kept, and init only adds entries that are missing.
@@ -31,10 +32,12 @@ OpenSpec shows the apply and archive guidance to the agent, but cannot enforce i
 | After `openspec-apply-change` | `stele validate --change <change>` |
 | OpenSpec's `openspec-verify-change` | Run it after `stele validate` passes; it reviews the implementation, Stele proves the links and tests |
 | Before `openspec-archive-change` | `stele validate --change <change>` must pass |
-| After archiving | `stele validate --specs` |
+| After archiving | `stele annotate --specs`, then `stele validate --specs` |
 | `openspec-explore`, `openspec-sync-specs` | No Stele step is needed |
 
 `openspec-verify-change` is not in OpenSpec's core profile. Enable it with `npx openspec config profile`.
+
+When archiving a change creates a new current specification, OpenSpec writes it without the Stele annotation. `stele annotate --specs` restores it and changes nothing else, which is why it runs before `stele validate --specs`.
 
 ## Move an existing change to the `stele` schema
 

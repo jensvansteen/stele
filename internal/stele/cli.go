@@ -22,6 +22,7 @@ const helpBody = ` — deterministic OpenSpec implementation verification
 Usage:
   stele init [--change ID] [--tools TOOLS] [--refresh-schema] [--strict-versions] [--root PATH]
   stele ids [--change ID] [--root PATH] [--check] [--json]
+  stele annotate [--change ID | --specs | --all] [--root PATH] [--check] [--json]
   stele verify [--stage proposal|implementation] [--change ID | --specs | --all] [--root PATH]
                [--report-file PATH] [--json] [--strict-versions]
   stele test [targets...] [--change ID | --specs | --all] [--root PATH] [--evidence-file PATH] [--json]
@@ -70,6 +71,8 @@ type options struct {
 	deprecated []deprecatedFlag
 	// every is set while one scope of an --all run executes.
 	every *everyScopeRun
+	// unannotated is the unannotatedSpecs policy from stele.config.json.
+	unannotated string
 }
 
 type validationResult struct {
@@ -133,7 +136,7 @@ func Run(arguments []string, stdout, stderr io.Writer) int {
 			return writeCommandError(stderr, errUnknownPlanCommand)
 		}
 		command, rest = "plan migrate", rest[1:]
-	case "init", "ids", "verify", "test", "validate", "approve", "index":
+	case "init", "ids", "annotate", "verify", "test", "validate", "approve", "index":
 	default:
 		_, _ = fmt.Fprintf(stderr, "stele: unknown command: %s\n", command)
 		return 2
@@ -168,12 +171,14 @@ func writeCommandError(stderr io.Writer, err error) int {
 }
 
 func routeCommand(command string, parsed options, stdout, stderr io.Writer) int {
-	if parsed.allScopes && command != "index" {
+	if parsed.allScopes && command != "index" && command != "annotate" {
 		return runEveryScope(command, parsed, stdout, stderr)
 	}
 	switch command {
 	case "index":
 		return indexCommand(parsed, stdout, stderr)
+	case "annotate":
+		return annotateCommand(parsed, stdout, stderr)
 	case "verify":
 		return verifyCommand(parsed, stdout, stderr)
 	case "ids":
@@ -198,7 +203,7 @@ Using OpenSpec skills directly? The stele schema adds the planning step to
 new changes. Run these Stele commands around the OpenSpec steps:
   after writing specs: stele ids, then stele verify --stage proposal
   after applying:      stele validate --change <change>
-  after archiving:     stele validate --specs
+  after archiving:     stele annotate --specs, then stele validate --specs
 Enable OpenSpec's verify-change skill with: npx openspec config profile
 `
 
@@ -212,9 +217,12 @@ func initCommand(parsed options, stdout, stderr io.Writer) int {
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
-	created, err := initializeBackend(parsed.root, parsed.changeID, backend)
+	created, warnings, err := initializeBackend(parsed.root, parsed.changeID, backend)
 	if err != nil {
 		return writeCommandError(stderr, err)
+	}
+	for _, warning := range warnings {
+		_, _ = fmt.Fprintf(stderr, "stele: warning: %s\n", warning)
 	}
 	if len(created) == 0 {
 		_, _ = fmt.Fprintln(stdout, "Stele is already initialized.")
@@ -242,6 +250,11 @@ func identitiesCommand(parsed options, stdout, stderr io.Writer) int {
 }
 
 func renderIdentities(stdout io.Writer, result IdentityResult) {
+	renderIdentityInsertions(stdout, result)
+	renderAnnotationFiles(stdout, result.Annotations)
+}
+
+func renderIdentityInsertions(stdout io.Writer, result IdentityResult) {
 	if len(result.Insertions) == 0 {
 		_, _ = fmt.Fprintln(stdout, "✓ every requirement and scenario has a Verification-ID")
 		return
@@ -384,6 +397,9 @@ func registerCommandFlags(flags *flag.FlagSet, command string, parsed *options) 
 	case "ids":
 		flags.BoolVar(&parsed.check, "check", false, "report missing identities without writing")
 		return
+	case "annotate":
+		flags.BoolVar(&parsed.check, "check", false, "report missing annotations without writing")
+		flags.BoolVar(&parsed.allScopes, "all", false, "annotate the current specifications and every active change")
 	case "approve":
 		flags.Var(listFlag{&parsed.evidenceIDs}, "evidence", "evidence IDs to approve")
 		flags.Var(listFlag{&parsed.scenarioIDs}, "scenario", "scenario IDs to approve")
@@ -430,6 +446,7 @@ func withConfig(parsed options) (options, error) {
 	if parsed.changeID == "" {
 		parsed.changeID = config.Change
 	}
+	parsed.unannotated = config.UnannotatedSpecs
 	parsed.backend, err = resolveBackend(config.Adapter)
 	if err != nil {
 		return options{}, err

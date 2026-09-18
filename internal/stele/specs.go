@@ -60,13 +60,22 @@ func ParseSpecs(root, changeID string) (ParsedSpecs, error) {
 }
 
 // parseScopeSpecs reads a scope's specifications through its backend.
+// It applies the scope's policy to missing and misplaced annotations.
 func parseScopeSpecs(root string, scope verificationScope) (ParsedSpecs, error) {
-	return scope.spec().ParseSpecs(root, scope)
+	parsed, err := scope.spec().ParseSpecs(root, scope)
+	applyAnnotationPolicy(parsed.Diagnostics, scope.unannotated)
+	return parsed, err
 }
 
-// parseSpecFiles parses OpenSpec requirement and scenario blocks.
-func parseSpecFiles(root string, files []string) (ParsedSpecs, error) {
-	parsed := ParsedSpecs{Requirements: []Requirement{}, Diagnostics: []Diagnostic{}, Files: []string{}}
+// parseSpecFiles parses OpenSpec requirement and scenario blocks and each
+// file's annotation. fix names the command that adds missing annotations.
+func parseSpecFiles(root string, files []string, fix string) (ParsedSpecs, error) {
+	parsed := ParsedSpecs{
+		Requirements: []Requirement{},
+		Diagnostics:  []Diagnostic{},
+		Files:        []string{},
+		Annotations:  []SpecAnnotation{},
+	}
 
 	for _, file := range files {
 		relative, err := relativePath(root, file)
@@ -76,9 +85,10 @@ func parseSpecFiles(root string, files []string) (ParsedSpecs, error) {
 		relative = filepath.ToSlash(relative)
 		parsed.Files = append(parsed.Files, relative)
 
-		requirements, diagnostics, err := parseSpecFile(file, relative)
+		requirements, diagnostics, annotation, err := parseSpecFile(file, relative, fix)
 		parsed.Requirements = append(parsed.Requirements, requirements...)
 		parsed.Diagnostics = append(parsed.Diagnostics, diagnostics...)
+		parsed.Annotations = append(parsed.Annotations, annotation)
 		if err != nil {
 			return parsed, err
 		}
@@ -91,10 +101,11 @@ func parseSpecFiles(root string, files []string) (ParsedSpecs, error) {
 	return parsed, nil
 }
 
-func parseSpecFile(path, relativePath string) ([]Requirement, []Diagnostic, error) {
+func parseSpecFile(path, relativePath, fix string) ([]Requirement, []Diagnostic, SpecAnnotation, error) {
+	classifier := newAnnotationClassifier(relativePath)
 	handle, err := os.Open(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, classifier.result(), err
 	}
 	defer func() { _ = handle.Close() }()
 
@@ -102,13 +113,12 @@ func parseSpecFile(path, relativePath string) ([]Requirement, []Diagnostic, erro
 	scanner := bufio.NewScanner(handle)
 	for scanner.Scan() {
 		parser.line++
+		classifier.line(parser.line, scanner.Text())
 		parser.parseLine(scanner.Text())
 	}
 	finishSpecText(parser.requirements)
-	if err := scanner.Err(); err != nil {
-		return parser.requirements, parser.diagnostics, err
-	}
-	return parser.requirements, parser.diagnostics, nil
+	parser.diagnostics = append(parser.diagnostics, classifier.diagnostics(fix)...)
+	return parser.requirements, parser.diagnostics, classifier.result(), scanner.Err()
 }
 
 // finishSpecText trims the collected requirement text and derives each

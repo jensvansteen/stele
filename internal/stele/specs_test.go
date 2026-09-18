@@ -12,7 +12,8 @@ import (
 // @verifies scn.verify.6c22483ab3c3.unit
 func TestParseSpecsPreservesRelationships(t *testing.T) {
 	root := fixtureRoot(t)
-	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `## ADDED Requirements
+	writeFixture(t, root, "openspec/changes/example/specs/demo/spec.md", `<!-- stele: spec v1 -->
+## ADDED Requirements
 
 ### Requirement: Store value
 Verification-ID: req.demo.aaaaaaaaaaaa

@@ -325,6 +325,7 @@ func TestMergeKeepsUserConfiguration(t *testing.T) {
 		"schema: stele",
 		"confirm the verification levels",
 		"must pass before archiving",
+		"run `stele annotate --specs`, then",
 		"verification:",
 	} {
 		if !strings.Contains(config, added) {
@@ -333,6 +334,80 @@ func TestMergeKeepsUserConfiguration(t *testing.T) {
 	}
 	if strings.Index(config, "Run the linters first") > strings.Index(config, "confirm the verification levels") {
 		t.Fatalf("Stele guidance was not appended after the user's:\n%s", config)
+	}
+}
+
+// @verifies scn.specannotation.23d533778e10.integration
+func TestArchiveGuidanceNamesTheRepairStep(t *testing.T) {
+	root := openSpecOnlyProject(t)
+	// A project initialized by an earlier Stele has the older archive entry.
+	writeFixture(t, root, "openspec/config.yaml", userConfiguration+`  archive:
+    guidance:
+      - Summarize first
+      - "Stele: after archiving, run `+"`stele validate --specs`"+`."
+`)
+	steleInit(t, root)
+	config := readTestFile(t, root, "openspec/config.yaml")
+	repair := "Stele: after archiving, run `stele annotate --specs`, then `stele validate --specs`."
+	if strings.Contains(config, "Stele: after archiving, run `stele validate --specs`.") ||
+		strings.Count(config, "stele annotate --specs") != 1 {
+		t.Fatalf("the older entry was not replaced by one repair entry:\n%s", config)
+	}
+	writeReadyChange(t, root, "demo", true)
+	var instructions struct {
+		OperationGuidance []string `json:"operationGuidance"`
+	}
+	openSpecJSON(t, root, &instructions, "instructions", "archive", "--change", "demo")
+	if !slices.Contains(instructions.OperationGuidance, repair) ||
+		slices.Index(instructions.OperationGuidance, "Summarize first") >
+			slices.Index(instructions.OperationGuidance, repair) {
+		t.Fatalf("archive guidance = %#v", instructions.OperationGuidance)
+	}
+	assertOrdered(t, strings.Join(instructions.OperationGuidance, "\n"),
+		"stele annotate --specs", "stele validate --specs")
+
+	// With both entries present, the older one is removed, and a rerun changes nothing.
+	writeFixture(t, root, "openspec/config.yaml", userConfiguration+`  archive:
+    guidance:
+      - "`+repair+`"
+      - "Stele: after archiving, run `+"`stele validate --specs`"+`."
+`)
+	steleInit(t, root)
+	converged := readTestFile(t, root, "openspec/config.yaml")
+	if strings.Contains(converged, "run `stele validate --specs`.") ||
+		strings.Count(converged, "stele annotate --specs") != 1 {
+		t.Fatalf("the merge did not converge:\n%s", converged)
+	}
+	steleInit(t, root)
+	if readTestFile(t, root, "openspec/config.yaml") != converged {
+		t.Fatal("the merge is not idempotent")
+	}
+}
+
+// @verifies scn.specannotation.83d1cca317e3.integration
+func TestSpecTemplateStartsWithTheAnnotation(t *testing.T) {
+	root := openSpecOnlyProject(t)
+	steleInit(t, root)
+	openSpec(t, root, "new", "change", "demo")
+	var instructions struct {
+		Template string `json:"template"`
+	}
+	openSpecJSON(t, root, &instructions, "instructions", "specs", "--change", "demo")
+	if !strings.HasPrefix(instructions.Template, annotationCanonical+"\n## Purpose") {
+		t.Fatalf("spec template = %q", instructions.Template)
+	}
+	templatePath := "openspec/schemas/stele/templates/spec.md"
+	template := readTestFile(t, root, templatePath)
+	steleInit(t, root, "--refresh-schema")
+	if readTestFile(t, root, templatePath) != template || strings.Count(template, "stele: spec") != 1 {
+		t.Fatalf("refreshing the schema changed the template:\n%s", readTestFile(t, root, templatePath))
+	}
+	writeFixture(t, root, "openspec/schemas/stele/templates/spec.md", byteOrderMark+" <!--stele: spec v1-->\n# own\n")
+	if err := os.Remove(filepath.Join(root, "openspec", "schemas", "stele", "schema.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mergeOpenSpecGuidance(root, true); err == nil {
+		t.Fatal("expected an error for a schema without schema.yaml")
 	}
 }
 

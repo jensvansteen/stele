@@ -318,6 +318,59 @@ void test("inserts and checks verification IDs", async (context: TestContext): P
   assert.doesNotMatch(proposal.stdout, /ID_(?:REQUIREMENT|SCENARIO)_MISSING/v);
 });
 
+interface AnnotationFile {
+  readonly path: string;
+  readonly state: string;
+  readonly version: string | null;
+  readonly changed: boolean;
+}
+
+function isList(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
+
+function parseAnnotationFiles(value: string): readonly AnnotationFile[] {
+  const parsed: unknown = JSON.parse(value);
+  assert.ok(isRecord(parsed) && isList(parsed.files));
+  return parsed.files.map((file: unknown): AnnotationFile => {
+    assert.ok(isRecord(file));
+    assert.ok(typeof file.path === "string" && typeof file.state === "string");
+    assert.ok(typeof file.changed === "boolean");
+    assert.ok(file.version === null || typeof file.version === "string");
+    return { path: file.path, state: file.state, version: file.version, changed: file.changed };
+  });
+}
+
+// @verifies scn.specannotation.a518efc1ddd8.e2e
+void test("checks and adds Stele annotations", async (context: TestContext): Promise<void> => {
+  const root: string = await fs.mkdtemp(path.join(os.tmpdir(), "stele-cli-annotate-"));
+  context.after((): Promise<void> => fs.rm(root, { recursive: true }));
+  const plain: string = path.join(root, "openspec/specs/plain/spec.md");
+  const marked: string = path.join(root, "openspec/specs/marked/spec.md");
+  await fs.mkdir(path.dirname(plain), { recursive: true });
+  await fs.mkdir(path.dirname(marked), { recursive: true });
+  await fs.writeFile(plain, "# plain Specification\r\n");
+  await fs.writeFile(marked, "<!-- stele: spec v1 -->\n# marked Specification\n");
+  const scope: readonly string[] = ["--root", root, "--specs"];
+
+  const missing: SpawnSyncReturns<string> = cli(["annotate", ...scope, "--check", "--json"]);
+  assert.equal(missing.status, 1, missing.stderr);
+  assert.deepEqual(parseAnnotationFiles(missing.stdout), [
+    { path: "openspec/specs/marked/spec.md", state: "annotated", version: "v1", changed: false },
+    { path: "openspec/specs/plain/spec.md", state: "missing", version: null, changed: false },
+  ]);
+  assert.equal(await fs.readFile(plain, "utf8"), "# plain Specification\r\n");
+
+  const written: SpawnSyncReturns<string> = cli(["annotate", ...scope]);
+  assert.equal(written.status, 0, written.stderr);
+  assert.match(written.stdout, /annotated openspec\/specs\/plain\/spec\.md/v);
+  assert.equal(await fs.readFile(plain, "utf8"), "<!-- stele: spec v1 -->\r\n# plain Specification\r\n");
+
+  const checked: SpawnSyncReturns<string> = cli(["annotate", ...scope, "--check", "--json"]);
+  assert.equal(checked.status, 0, checked.stdout);
+  assert.ok(parseAnnotationFiles(checked.stdout).every((file: AnnotationFile): boolean => file.state === "annotated"));
+});
+
 // @verifies scn.verificationstrategy.122427afc2f9.e2e
 // @verifies scn.verificationstrategy.1b1070d81978.e2e
 void test("runs the approved evidence workflow end to end", async (context: TestContext): Promise<void> => {
