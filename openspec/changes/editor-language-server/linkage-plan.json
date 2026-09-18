@@ -226,17 +226,10 @@
     "scn.languageserver.3c56123372c1": {
       "evidence": [
         {
-          "id": "scn.languageserver.3c56123372c1.unit",
-          "level": "unit",
-          "rationale": "Risk: orphaned test processes, a leaked group environment, or a half-written evidence file. A real child process started through the scheduler's process-group code, in process, with the evidence file's bytes compared before and after; no editor is involved.",
-          "placement": "lsp_run_test.go, with a helper process that blocks until killed and a recording teardown",
-          "approval": {
-            "approver": "jensvansteen",
-            "date": "2026-09-18",
-            "digest": "sha256:27d566bcf2a23d5402083b795dcb915c6d3241ba2ce01a7d4c396c1b413d4740",
-            "via": "cli",
-            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
-          }
+          "id": "scn.languageserver.3c56123372c1.integration",
+          "level": "integration",
+          "rationale": "Risk: an orphaned test process (go test leaves its test binary running when only the go command is killed) or a half-written evidence file. Only a real batch process with a real child, started through the batch runner in process and cancelled mid-run, shows the process group is gone, the next batch never starts, and the evidence file bytes are unchanged; no editor is involved.",
+          "placement": "internal/stele/lsp_run_test.go, with a helper test process that starts a child and blocks until killed"
         }
       ]
     },
@@ -271,6 +264,16 @@
             "via": "cli",
             "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
           }
+        }
+      ]
+    },
+    "scn.languageserver.40c7e3ae9243": {
+      "evidence": [
+        {
+          "id": "scn.languageserver.40c7e3ae9243.unit",
+          "level": "unit",
+          "rationale": "Risk: a crashed batch reads as a clean run in the editor, or its unreported test is silently dropped. The existing fake batch output seam (startBatchProcess) produces a stream that stops after one result, deterministically; real crash handling is covered by fast-runs' evidence.",
+          "placement": "internal/stele/lsp_run_test.go, with a fake batch process and an in-process session"
         }
       ]
     },
@@ -591,23 +594,6 @@
             "approver": "jensvansteen",
             "date": "2026-09-18",
             "digest": "sha256:894ebefee2041c08fef78ac72c3140e0faa3d35c859fc48ce2d716b71da4d71a",
-            "via": "cli",
-            "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
-          }
-        }
-      ]
-    },
-    "scn.languageserver.cbace7f5db1a": {
-      "evidence": [
-        {
-          "id": "scn.languageserver.cbace7f5db1a.unit",
-          "level": "unit",
-          "rationale": "Risk: the server builds its own run path and skips groups, setup, or worker IDs, so container tests collide. The seams record the job count, setup, teardown, and environment; real processes are covered by fast-runs.",
-          "placement": "lsp_run_test.go, with fast-runs' batch and group-command seams",
-          "approval": {
-            "approver": "jensvansteen",
-            "date": "2026-09-18",
-            "digest": "sha256:f17d1d314bd5ee830a9c756182bdd6068d184df96063e452cdd88fb684f95069",
             "via": "cli",
             "revision": "6bbb599096f4187855ea86a11bd2027994ec0a8c"
           }

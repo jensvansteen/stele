@@ -2,7 +2,7 @@
 
 - [x] 0.1 Get the reviewer's explicit approval of the verification levels in design.md (Verification strategy, proposed, awaiting approval), the decisions, and the open questions. Only after an explicit yes run `stele approve --change editor-language-server --confirmed-in-chat` and mark the design table approved; verify `stele verify --stage proposal --change editor-language-server` reports no `PLAN_UNAPPROVED`. Never approve silently, and never treat a request to implement as approval. Start no task in sections 1 to 7 before this.
 - [x] 0.2 Rebase on the current `main`, re-run `stele ids --change editor-language-server`, `stele annotate --change editor-language-server --check`, and `npx openspec validate --all --strict`, and re-check the merged rows of the dependency table in design.md against the code (`BuildIndex`, `insertAnnotation`, `diagnosticGuides`, `reportVerdicts`, `aggregateExecution`, `testObserver`, `Version`); re-approve any entry that `stele verify --stage proposal` reports as `PLAN_APPROVAL_STALE`
-- [ ] 0.3 Before section 6: confirm `fast-runs` is merged on `main` (`git log origin/main`), re-check the `fast-runs` row of the dependency table against its final design (run context, scheduler seams, observer events, interruption behavior and exit code), update design Decision 8 if it changed, and re-approve stale entries
+- [x] 0.3 Before section 6: confirm `fast-runs` is merged on `main` (`git log origin/main`), re-check the `fast-runs` row of the dependency table against its final design (run context, scheduler seams, observer events, interruption behavior and exit code), update design Decision 8 if it changed, and re-approve stale entries
 - [x] 0.4 Record the answers to the open questions in design.md. If references are dropped from v1 (open question 2), remove their requirement and scenarios with `openspec-update-change` and re-run the proposal check
 
 ## 1. Transport and lifecycle
@@ -34,15 +34,14 @@
 - [x] 5.1 Diagnostics from `verifyLoaded` per served scope at the stage chosen from the plan, without `PLAN_UNAPPROVED`, with the catalogue meaning and scope-specific fix in the message, deduplicated across scopes, plus `EXECUTION_FAILED` and `EXECUTION_STALE`, cleared when fixed; verify the diagnostics tests pass
 - [x] 5.2 The "Add Stele annotation" quick fix from `insertAnnotation`, with `documentChanges` or `changes`, not offered for broken annotations, and the `stele.addAnnotation` command with `workspace/applyEdit` for clients without code action literals; verify the code action tests, including the byte comparison with `insertAnnotation`, pass
 
-## 6. Running tests (after `fast-runs`, task 0.3) — held back pending re-plan after fast-runs
+## 6. Running tests (re-planned 2026-09-18 against the merged batching runner; awaiting approval)
 
-Held back by the scope decision of 2026-09-18 (design.md): `fast-runs` was trimmed to batching only, so this section, Decision 8, and the run lenses are re-planned and re-approved after `fast-runs` merges.
-
-
-- [ ] 6.1 `stele.runTests` through `runScopeTests` with targets and merge, a server-owned run context, target validation, and a one-run-per-project guard; verify the run, unknown-target, concurrent-run, and execution-settings tests pass
-- [ ] 6.2 A progress adapter implementing `testObserver` and the `fast-runs` events, with a client or server-created work-done token; verify the progress test passes
-- [ ] 6.3 Cancellation through `$/cancelRequest` and `window/workDoneProgress/cancel` into the scheduler's interruption path (process groups killed, teardowns run, no evidence written, `RequestCancelled`); verify the cancel test passes under `-race`
-- [ ] 6.4 The command result with sorted executions, per-scope `verdicts` from `verifyLoaded` and `reportVerdicts`, and `problems`, followed by CodeLens refresh and republished diagnostics; verify the verdict test passes
+- [ ] 6.0 Get the reviewer's explicit approval of the re-planned entries (`….3c56123372c1.integration`, `….40c7e3ae9243.unit`) and of Decision 8; only after an explicit yes run `stele approve --change editor-language-server --confirmed-in-chat` for them, and verify `stele verify --stage proposal --change editor-language-server` reports no `PLAN_UNAPPROVED` or `PLAN_APPROVAL_STALE`
+- [ ] 6.1 `stele.runTests` through `runScopeTests` with targets and merge, one call per affected scope, target validation (`-32602` naming the target, nothing runs), and a one-run-per-project guard (`-32803` naming the running targets); verify the run, unknown-target, concurrent-run, and verdict tests pass
+- [ ] 6.2 A progress adapter implementing `testObserver` and `batchObserver`, with a client or server-created work-done token; verify the progress test and the incomplete-batch test pass
+- [ ] 6.3 An opt-in `cancel` context on `testRequest`: batch commands in their own process group only when it is set, the group killed on cancellation, no further batch, `errRunCancelled` before evidence is assembled or written, and `RequestCancelled` for `$/cancelRequest` and `window/workDoneProgress/cancel`; verify the integration cancel test passes under `-race` and the CLI runner tests pass unchanged
+- [ ] 6.4 The command result with sorted executions, `incomplete` batches, and per-scope `verdicts` from `verifyLoaded` and `reportVerdicts`, followed by a rebuild, CodeLens refresh, and republished diagnostics; verify the verdict test passes
+- [ ] 6.5 The run lenses (`▶ Run all`, one per level, `▶ Run` on test anchors) with `stele test` targets; verify the three run-lens CodeLens tests pass, and update the editor guide and changelog
 
 ## 7. Contract tests, documentation, and gate
 

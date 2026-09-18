@@ -127,7 +127,7 @@ Verification-ID: scn.languageserver.53ed0e506ce6
 
 ### Requirement: Run selected tests and merge their results
 Verification-ID: req.languageserver.e3ab377dc59f
-Executing a run command SHALL run the selected tests through the same runner as `stele test <targets...>`, with the same selection, merging, batching, job count, execution groups, and group setup and teardown that the command uses without `--jobs`: only the selected tests run, their outcomes are merged into the stored evidence without discarding other outcomes, and the command's result reports each selected evidence entry's outcome and the verdicts `linkage`, `execution`, and `overall` of each affected scope, as `stele verify` computes them after the run. While tests run, the server SHALL report progress when the client supports it: a start with the number of selected tests, one report per finished test with the counts run, passed, and failed, the percentage, and the failed test's name, and an end with the summary. When the client cancels, the server SHALL stop the run as `stele test` stops when interrupted: it stops the running test processes, runs the teardown of every started group, writes no evidence, and ends the command as cancelled. After a run, the server SHALL refresh its CodeLens items and diagnostics. An unknown target SHALL fail the command with an error that names it before any test runs. While one run is in progress in a project, another run command for that project SHALL fail with an error that names the running targets.
+Executing a run command SHALL run the selected tests through the same runner as `stele test <targets...>`, with the same selection, batching, and merging: only the selected tests run, in the batches the command uses (one test process per Go package and build tag set, or per Node test file, one batch after another), their outcomes are merged into the stored evidence without discarding other outcomes, and the command's result reports each selected evidence entry's outcome, every batch that did not complete, and the verdicts `linkage`, `execution`, and `overall` of each affected scope, as `stele verify` computes them after the run. While tests run, the server SHALL report progress when the client supports it: a start with the number of selected tests, one report per finished test with the counts run, passed, and failed, the percentage, and the failed test's name, one report for each batch that did not complete naming it and how its process ended, and an end with the summary. When the client cancels, the server SHALL stop the run: it stops the running test process and every process that process started, starts no further batch, writes no evidence, and ends the command as cancelled. After a run, the server SHALL refresh its CodeLens items and diagnostics. An unknown target SHALL fail the command with an error that names it before any test runs. While one run is in progress in a project, another run command for that project SHALL fail with an error that names the running targets.
 
 #### Scenario: Run a scenario from its heading
 Verification-ID: scn.languageserver.074136f1f47f
@@ -141,8 +141,8 @@ Verification-ID: scn.languageserver.a12e36dfdfb8
 
 #### Scenario: Cancel a running command
 Verification-ID: scn.languageserver.3c56123372c1
-- **WHEN** the client cancels a run while a test process of an execution group with a teardown is still running
-- **THEN** the test process is stopped, the group's teardown runs, the command ends as cancelled, and the stored evidence file is unchanged
+- **WHEN** the client cancels a run while a batch's test process, which has started a child process of its own, is still running and another batch has not started yet
+- **THEN** the test process and its child are stopped, the other batch never starts, the command ends as cancelled, and the stored evidence file is unchanged
 
 #### Scenario: Refuse a second concurrent run
 Verification-ID: scn.languageserver.ddba3d8c9626
@@ -159,10 +159,10 @@ Verification-ID: scn.languageserver.dfffd1e421b4
 - **WHEN** the client runs one scenario whose tests pass, in a scope whose other tests passed before and that has approved evidence without a test anchor
 - **THEN** the command's result lists the scenario's outcomes as passed and the scope's verdicts as linkage `fail`, execution `passed`, and overall `fail`
 
-#### Scenario: Use the project's execution settings
-Verification-ID: scn.languageserver.cbace7f5db1a
-- **WHEN** the project configuration defines an execution group with a setup and a teardown that matches the selected test, and a job count
-- **THEN** the run uses the configured job count, runs the group's setup once before the test and its teardown after it, and gives the test process its worker identity, exactly as `stele test` with the same target does
+#### Scenario: Report a batch that did not complete
+Verification-ID: scn.languageserver.40c7e3ae9243
+- **WHEN** the client runs two tests of one batch whose process exits after reporting the first test's result and before the second's
+- **THEN** progress reports the batch with how its process ended, the result lists the first test's outcome and the second test as failed because its process failed, and the result names the batch as not completed
 
 ### Requirement: Report Stele findings as diagnostics
 Verification-ID: req.languageserver.c4e7f3210359
