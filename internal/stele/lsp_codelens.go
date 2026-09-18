@@ -19,48 +19,105 @@ const (
 )
 
 // lspLens is a CodeLens before it gets a range: a one-based line, a title,
-// and the command with the identity it acts on.
+// and the command with the identity it shows, or the targets it runs in a
+// scope.
 type lspLens struct {
 	line    int
 	title   string
 	command string
 	id      string
+	targets []string
+	scope   string
 }
 
-// lspLenses returns a file's CodeLens items, ordered by line: a status lens
-// on each requirement and scenario heading with planned evidence or tests,
-// and a summary lens on each anchor. Run actions are held back until the run
-// feature is planned again after fast-runs.
+// lspLenses returns a file's CodeLens items, ordered by line and then
+// summary, run all, unit, integration, e2e, and status: on each requirement
+// and scenario heading with planned evidence or tests, run actions and a
+// status lens; on each anchor a summary lens, and on a test anchor a run
+// action for its own evidence entry.
 //
 // @implements req.languageserver.a798154d936e
 func lspLenses(index Index, path string) []lspLens {
 	lenses := make([]lspLens, 0)
 	for _, requirement := range index.Requirements {
-		if requirement.Source.Path != path || requirement.ID == "" {
-			continue
-		}
-		if status, planned := requirementStatus(index, requirement); planned {
-			lenses = append(lenses, lspLens{requirement.Source.Line, status, commandShowStatus, requirement.ID})
+		if requirement.Source.Path == path && requirement.ID != "" {
+			lenses = append(lenses, requirementLenses(index, requirement)...)
 		}
 	}
 	for _, scenario := range index.Scenarios {
 		if scenario.Source.Path == path && scenario.ID != "" && len(scenario.Evidence) > 0 {
-			status := scenarioStatus(scenario)
-			lenses = append(lenses, lspLens{scenario.Source.Line, status, commandShowStatus, scenario.ID})
+			lenses = append(lenses, headingLenses(scenario.Source.Line, scenario.ID, scenario.Scope,
+				scenario.Evidence, scenarioStatus(scenario))...)
 		}
 	}
+	lenses = append(lenses, anchorLenses(index, path)...)
+	slices.SortStableFunc(lenses, func(left, right lspLens) int { return left.line - right.line })
+	return lenses
+}
+
+// requirementLenses are a requirement heading's lenses, when any of its
+// scenarios has planned evidence or tests.
+func requirementLenses(index Index, requirement IndexRequirement) []lspLens {
+	status, planned := requirementStatus(index, requirement)
+	if !planned {
+		return nil
+	}
+	evidence := make([]IndexEvidence, 0)
+	for _, scenario := range index.Scenarios {
+		if scenario.Requirement == requirement.ID && scenario.Scope == requirement.Scope {
+			evidence = append(evidence, scenario.Evidence...)
+		}
+	}
+	return headingLenses(requirement.Source.Line, requirement.ID, requirement.Scope, evidence, status)
+}
+
+// anchorLenses are a summary lens on each anchor of a file, in the first
+// scope that declares it, and a run action on each test anchor.
+func anchorLenses(index Index, path string) []lspLens {
+	lenses := make([]lspLens, 0)
 	seen := make(map[string]bool)
 	for _, anchor := range index.Anchors {
-		key := fmt.Sprintf("%d\x00%s", anchor.Line, anchor.ID)
+		name := anchorName(Anchor{ID: anchor.ID, EvidenceID: anchor.EvidenceID})
+		key := fmt.Sprintf("%d\x00%s", anchor.Line, name)
 		if anchor.Path != path || anchor.Scope == "" || seen[key] {
 			continue
 		}
 		seen[key] = true
 		summary := summaryTitle(index, anchor.ID)
-		lenses = append(lenses, lspLens{anchor.Line, summary, commandShowSpecification, anchor.ID})
+		lenses = append(lenses, lspLens{
+			line: anchor.Line, title: summary, command: commandShowSpecification,
+			id: anchor.ID,
+		})
+		if anchor.Kind == "test" {
+			lenses = append(lenses, lspLens{
+				line: anchor.Line, title: "▶ Run", command: commandRunTests, targets: []string{name},
+				scope: anchor.Scope,
+			})
+		}
 	}
-	slices.SortStableFunc(lenses, func(left, right lspLens) int { return left.line - right.line })
 	return lenses
+}
+
+// headingLenses are a heading's run actions, "Run all" and one per evidence
+// level present, and its status lens.
+func headingLenses(line int, id, scope string, evidence []IndexEvidence, status string) []lspLens {
+	lenses := []lspLens{{
+		line: line, title: "▶ Run all", command: commandRunTests, targets: []string{id}, scope: scope,
+	}}
+	for _, level := range evidenceLevels {
+		targets := make([]string, 0)
+		for _, entry := range evidence {
+			if entry.Level == level {
+				targets = append(targets, entry.ID)
+			}
+		}
+		if len(targets) > 0 {
+			lenses = append(lenses, lspLens{
+				line: line, title: "▶ Run " + level, command: commandRunTests, targets: targets, scope: scope,
+			})
+		}
+	}
+	return append(lenses, lspLens{line: line, title: status, command: commandShowStatus, id: id})
 }
 
 // evidenceValue is one evidence entry's outcome for the combined status:
@@ -233,7 +290,7 @@ func (server *lspServer) codeLens(raw json.RawMessage) ([]byte, error) {
 		lenses = append(lenses, lspCodeLens{
 			Range: lspLineRange(lines, lens.line, server.encoding),
 			Command: lspCommand{Title: lens.title, Command: lens.command, Arguments: []any{
-				lspCommandArguments{Root: fileURI(project.root), ID: lens.id},
+				lspCommandArguments{Root: fileURI(project.root), ID: lens.id, Targets: lens.targets, Scope: lens.scope},
 			}},
 		})
 	}
@@ -263,6 +320,8 @@ func (server *lspServer) executeCommand(raw json.RawMessage) ([]byte, error) {
 		return server.showSpecification(project, argument.ID)
 	case commandAddAnnotation:
 		return server.addAnnotation(argument.URI)
+	case commandRunTests:
+		return server.runTests(argument, params.WorkDoneToken)
 	default:
 		return nil, newRPCError(rpcInvalidParams, "unknown command %s", params.Command)
 	}

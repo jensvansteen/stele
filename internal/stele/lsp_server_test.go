@@ -51,7 +51,9 @@ func startLSP(t *testing.T, after func(time.Duration) <-chan time.Time) *lspTest
 		logs: &bytes.Buffer{}, raw: &bytes.Buffer{},
 	}
 	logs := &bytes.Buffer{}
+	finished := make(chan struct{})
 	go func() {
+		defer close(finished)
 		code := runLanguageServer(inputReader, outputWriter, logs, after)
 		_ = outputWriter.Close()
 		client.logs.Write(logs.Bytes())
@@ -75,7 +77,10 @@ func startLSP(t *testing.T, after func(time.Duration) <-chan time.Time) *lspTest
 		}
 	}()
 	t.Cleanup(func() {
+		// Ending the input ends the session, which stops its runs; wait for it,
+		// so no run outlives its test.
 		_ = inputWriter.Close()
+		<-finished
 	})
 	return client
 }

@@ -29,6 +29,10 @@ type lspFinding struct {
 type lspBuild struct {
 	index    Index
 	findings map[string][]lspFinding
+	// verdicts are each checked scope's verdicts, and backend the project's
+	// specification backend on disk, for runs.
+	verdicts map[string]ReportVerdicts
+	backend  specificationBackend
 }
 
 // lspScopeCheck is one served scope's verification report.
@@ -56,6 +60,7 @@ func buildLSPViews(root string, view, saved repoFiles) (*lspBuild, error) {
 	if err != nil {
 		return nil, err
 	}
+	onDisk := backend
 	backend = backendWithFiles(backend, view)
 	shared, err := loadSharedVerifyInput(root, verificationScope{currentSpecs: true, backend: backend}, saved)
 	if err != nil {
@@ -82,8 +87,11 @@ func buildLSPViews(root string, view, saved repoFiles) (*lspBuild, error) {
 		loaded.linkage.Mode = lspStage(scope, loaded.linkage.Plan)
 		checks = append(checks, lspScopeCheck{name: name, flag: scopeFlag(scope, name), report: verifyLoaded(loaded)})
 	}
-	build := &lspBuild{index: BuildIndex(input)}
+	build := &lspBuild{index: BuildIndex(input), verdicts: map[string]ReportVerdicts{}, backend: onDisk}
 	build.findings = lspFindings(build.index, checks)
+	for _, check := range checks {
+		build.verdicts[check.name] = check.report.Verdicts
+	}
 	return build, nil
 }
 

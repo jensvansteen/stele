@@ -227,7 +227,7 @@ With `--change`, the index also includes the current specifications, and every i
 
 Runs the Stele language server: a Language Server Protocol server that reads JSON-RPC messages from standard input and writes them to standard output, for editors. Standard output carries only protocol messages; logs go to standard error. It takes no options; `stele lsp --help` prints its usage and exits with code `0`. It serves every workspace folder that contains `openspec/` or `stele.config.json`, with every scope, like `--all`. The session exits with code `0` on `exit` after `shutdown`, and with code `1` on `exit` or the end of input without `shutdown`.
 
-Editors start it through a client; see [Editor integration](/guide/editors) for the features, the capabilities they depend on, the commands, and the `stele/index` request.
+Editors start it through a client, and can run tests through it with the same runner as `stele test`; see [Editor integration](/guide/editors) for the features, the capabilities they depend on, the commands, and the `stele/index` request.
 
 ## Every scope
 

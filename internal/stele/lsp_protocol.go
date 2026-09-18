@@ -120,14 +120,17 @@ type lspCodeActionParams struct {
 
 // lspCommandArguments are the arguments of the server's commands.
 type lspCommandArguments struct {
-	Root string `json:"root,omitempty"`
-	ID   string `json:"id,omitempty"`
-	URI  string `json:"uri,omitempty"`
+	Root    string   `json:"root,omitempty"`
+	ID      string   `json:"id,omitempty"`
+	URI     string   `json:"uri,omitempty"`
+	Targets []string `json:"targets,omitempty"`
+	Scope   string   `json:"scope,omitempty"`
 }
 
 type lspExecuteCommandParams struct {
-	Command   string                `json:"command"`
-	Arguments []lspCommandArguments `json:"arguments"`
+	Command       string                `json:"command"`
+	Arguments     []lspCommandArguments `json:"arguments"`
+	WorkDoneToken json.RawMessage       `json:"workDoneToken"`
 }
 
 // lspClientCapabilities is the part of the client's capabilities the server
@@ -159,6 +162,7 @@ type lspClientCapabilities struct {
 		ShowDocument struct {
 			Support bool `json:"support"`
 		} `json:"showDocument"`
+		WorkDoneProgress bool `json:"workDoneProgress"`
 	} `json:"window"`
 }
 

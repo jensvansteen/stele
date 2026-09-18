@@ -229,7 +229,14 @@
           "id": "scn.languageserver.3c56123372c1.integration",
           "level": "integration",
           "rationale": "Risk: an orphaned test process (go test leaves its test binary running when only the go command is killed) or a half-written evidence file. Only a real batch process with a real child, started through the batch runner in process and cancelled mid-run, shows the process group is gone, the next batch never starts, and the evidence file bytes are unchanged; no editor is involved.",
-          "placement": "internal/stele/lsp_run_test.go, with a helper test process that starts a child and blocks until killed"
+          "placement": "internal/stele/lsp_run_test.go, with a helper test process that starts a child and blocks until killed",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:2e30d75e929bcd3321512dbf2cf05aa9aad29fc793a0b04493647b52abfe5b95",
+            "via": "cli",
+            "revision": "7913300bb9b5782a909d1f8db6c68c83f737229b"
+          }
         }
       ]
     },
@@ -273,7 +280,14 @@
           "id": "scn.languageserver.40c7e3ae9243.unit",
           "level": "unit",
           "rationale": "Risk: a crashed batch reads as a clean run in the editor, or its unreported test is silently dropped. The existing fake batch output seam (startBatchProcess) produces a stream that stops after one result, deterministically; real crash handling is covered by fast-runs' evidence.",
-          "placement": "internal/stele/lsp_run_test.go, with a fake batch process and an in-process session"
+          "placement": "internal/stele/lsp_run_test.go, with a fake batch process and an in-process session",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:5fd5ebd023cf49dc897a92f78b37f78ff74a8e02389cc1a00f91400aa7923fc5",
+            "via": "cli",
+            "revision": "7913300bb9b5782a909d1f8db6c68c83f737229b"
+          }
         }
       ]
     },

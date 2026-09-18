@@ -106,7 +106,7 @@ Verification-ID: scn.todo.222222222222
 	if diagnostics, found := published(t, client, root, "tests/todo.test.mts"); !found || len(diagnostics) != 0 {
 		t.Fatalf("after the new spec = %#v", diagnostics)
 	}
-	lenses := lensesOf(t, client, root, "openspec/changes/todo/specs/todo/spec.md")
+	lenses := withCommand(lensesOf(t, client, root, "openspec/changes/todo/specs/todo/spec.md"), "stele.showStatus")
 	if !slices.Equal(lenses, []string{
 		"4: not run · 1 not run (stele.showStatus)", "9: tests – not run (stele.showStatus)",
 	}) {

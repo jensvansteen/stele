@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -56,6 +57,13 @@ type lspServer struct {
 	poll      <-chan time.Time
 	// refresh asks for a CodeLens refresh after the next rebuild.
 	refresh bool
+	// runs are the running stele.runTests commands by project root, done
+	// receives their end, and requestID is the ID of the request in hand.
+	runs      map[string]*lspRun
+	done      chan lspRunDone
+	requestID json.RawMessage
+	// writing serializes output: runs report progress from their goroutine.
+	writing sync.Mutex
 }
 
 // lspInput is where `stele lsp` reads messages.
@@ -86,7 +94,9 @@ func runLanguageServer(input io.Reader, output, logs io.Writer, after func(time.
 	server := &lspServer{
 		output: output, logs: logs, after: after, encoding: encodingUTF16,
 		documents: map[string]*lspDocument{}, published: map[string]string{},
+		runs: map[string]*lspRun{}, done: make(chan lspRunDone),
 	}
+	defer server.cancelRuns()
 	for {
 		select {
 		case incoming, open := <-messages:
@@ -101,7 +111,21 @@ func runLanguageServer(input io.Reader, output, logs io.Writer, after func(time.
 			server.flush()
 		case <-server.poll:
 			server.pollFiles()
+		case done := <-server.done:
+			server.runFinished(done)
 		}
+	}
+}
+
+// cancelRuns cancels every running command when the session ends, and waits
+// for them to stop.
+func (server *lspServer) cancelRuns() {
+	for len(server.runs) > 0 {
+		for _, run := range server.runs {
+			run.cancel()
+		}
+		done := <-server.done
+		delete(server.runs, done.run.project.root)
 	}
 }
 
@@ -144,6 +168,10 @@ func (server *lspServer) notify(message rpcMessage) bool {
 		return false
 	}
 	switch message.Method {
+	case "$/cancelRequest":
+		server.cancelRun(message.Params, "id")
+	case "window/workDoneProgress/cancel":
+		server.cancelRun(message.Params, "token")
 	case "initialized":
 		server.initialized()
 	case "textDocument/didOpen", "textDocument/didChange", "textDocument/didClose", "textDocument/didSave":
@@ -178,9 +206,11 @@ func (server *lspServer) request(message rpcMessage) {
 		return
 	}
 	server.flush()
+	server.requestID = message.ID
 	result, err := handler(server, message.Params)
 	var failure *rpcError
 	switch {
+	case errors.Is(err, errRespondLater):
 	case errors.As(err, &failure):
 		server.respondError(message.ID, failure)
 	case err != nil:
@@ -245,7 +275,9 @@ func (server *lspServer) initialize(raw json.RawMessage) any {
 			"codeLensProvider":   map[string]any{"resolveProvider": false},
 			"codeActionProvider": codeActions,
 			"executeCommandProvider": map[string]any{
-				"commands": []string{commandAddAnnotation, commandShowSpecification, commandShowStatus},
+				"commands": []string{
+					commandAddAnnotation, commandRunTests, commandShowSpecification, commandShowStatus,
+				},
 			},
 			"experimental": map[string]any{"stele": map[string]any{
 				"diagnostics": "publish", "requests": []string{"stele/index"},
@@ -282,21 +314,28 @@ func (server *lspServer) respond(id json.RawMessage, result any) {
 }
 
 func (server *lspServer) respondRaw(id json.RawMessage, result []byte) {
-	writeFrame(server.output, responseBody(id, result))
+	server.write(responseBody(id, result))
 }
 
 func (server *lspServer) respondError(id json.RawMessage, err *rpcError) {
-	writeFrame(server.output, errorBody(id, err))
+	server.write(errorBody(id, err))
 }
 
 func (server *lspServer) sendNotification(method string, params any) {
-	writeFrame(server.output, messageBody("", method, params))
+	server.write(messageBody("", method, params))
 }
 
 // sendRequest sends a request to the client. Its answer is not awaited.
 func (server *lspServer) sendRequest(method string, params any) {
 	server.requests++
-	writeFrame(server.output, messageBody(fmt.Sprintf("stele-%d", server.requests), method, params))
+	server.write(messageBody(fmt.Sprintf("stele-%d", server.requests), method, params))
+}
+
+// write sends one message; a run's progress may write from its goroutine.
+func (server *lspServer) write(body []byte) {
+	server.writing.Lock()
+	defer server.writing.Unlock()
+	writeFrame(server.output, body)
 }
 
 // projectOf returns the project that contains a path, and the path relative

@@ -8,6 +8,7 @@ In the editor you can:
 - jump from an anchor to its specification, and from a requirement or scenario heading to its implementations and tests;
 - find every implementation and test of a behavior;
 - see each heading's test status, and a summary of the linked behavior above every anchor;
+- run a requirement's, a scenario's, or one test's tests, with progress, and cancel the run;
 - see the findings of `stele check` while you type, with the same meaning and fix;
 - add the Stele annotation to a specification with a quick fix.
 
@@ -69,7 +70,28 @@ A scenario heading shows each level's combined outcome, unapproved levels, and a
 
 Above each anchor, a summary lens shows the linked behavior, cut to 120 characters: `Scenario: Save entered text — WHEN a user enters "milk" · THEN the list shows "milk"`, or `Requirement: Add a todo — <first line of its text>`. It runs `stele.showSpecification`, which opens the heading.
 
-Run actions (`▶ Run all`, one per level, and `▶ Run` on test anchors), progress, and cancellation are not part of this release; they follow after the `fast-runs` change. Run tests with `stele test <id>` in a terminal meanwhile: the server picks up the new outcomes.
+Headings with planned evidence or tests also get run actions: `▶ Run all` (the requirement or scenario ID) and `▶ Run unit`, `▶ Run integration`, `▶ Run e2e` for the levels present (the evidence IDs of that level). Every test anchor gets `▶ Run` for its own evidence entry, such as `scn.todo.591a3b429cf0.unit`. On one line, lenses come in the order summary, run all, `unit`, `integration`, `e2e`, status. A run action runs in the scope of its own heading or anchor. See [Running tests](#running-tests).
+
+## Running tests
+
+`stele.runTests` runs the selected tests through the same runner as `stele test <targets...>`: the same selection, the same batches (one test process per Go package and build tag set, or per Node test file, one batch after another), and the same evidence file, into which the outcomes are merged without discarding the others. It takes the targets `stele test` accepts: requirement, scenario, and evidence IDs, and `spec.md` paths.
+
+- **Scopes.** With `scope`, every target runs in that scope. Without it, a target runs in the first scope, in scope order, that declares it, so a test never runs twice in one command.
+- **Unknown targets** fail the command with error `-32602` naming the target, before any test runs.
+- **One run per project.** While a run is in progress, another `stele.runTests` for the project fails with `-32803` naming the running targets. Runs from a terminal are not blocked; the evidence file is written atomically and merged per entry.
+- **Progress.** With a `workDoneToken` in the request, or when the client declares `window.workDoneProgress` (the server then creates a token with `window/workDoneProgress/create`), the server sends `$/progress`: a `begin` titled `Stele: running <n> tests` that is cancellable, a `report` per finished test (`2/3 · 1 passed · 1 failed · failed: <scenario> (<level>)` with the percentage), a `report` for each batch that did not complete (`tests/todo.test.mts did not complete (exit status 1)`), and an `end` with the summary.
+- **Cancellation.** `$/cancelRequest` for the command, or `window/workDoneProgress/cancel` for its token, stops the run: the server sends `SIGTERM` to the running batch's process group, which includes the test binary `go test` starts, and `SIGKILL` about 2 seconds later if the group is still running. No further batch starts, no evidence is written, and the command ends with `RequestCancelled` (`-32800`). The command line is unchanged: `stele test` does not use process groups.
+- **Result.**
+
+```json
+{
+  "executions": [{ "evidenceId": "scn.todo.591a3b429cf0.unit", "path": "tests/todo.test.mts", "line": 5, "selector": "saves entered text", "outcome": "passed", "reason": null }],
+  "incomplete": [{ "batch": "tests/journey.test.mts", "status": "exit status 1", "unreported": 1 }],
+  "scopes": [{ "scope": "todo-basics", "verdicts": { "linkage": "pass", "execution": "passed", "overall": "pass" } }]
+}
+```
+
+Executions are sorted by path and selector; a test of a batch that did not complete fails with `test-process-failed`, as in the evidence file. `verdicts` are the ones `stele verify` computes for the scope after the run, at the scope's stage. After a run the server refreshes CodeLens items and diagnostics.
 
 ### Diagnostics
 
@@ -101,6 +123,7 @@ Every command runs on the server; a client only forwards the click. `workspace/e
 
 | Command | Argument | Effect |
 |---|---|---|
+| `stele.runTests` | `{ "root": "<project root URI>", "targets": ["req.…", "scn.…", "scn.….unit", "openspec/…/spec.md"], "scope": "<optional scope>" }` | Runs the tests; see [Running tests](#running-tests) |
 | `stele.showStatus` | `{ "root": "<project root URI>", "id": "req.… or scn.…" }` | `window/showMessage` listing each evidence entry |
 | `stele.showSpecification` | `{ "root", "id" }` | `window/showDocument` for the heading, or `window/showMessage` with the plain-text card |
 | `stele.addAnnotation` | `{ "uri": "<spec file URI>" }` | `workspace/applyEdit` with the annotation edit |
@@ -117,6 +140,7 @@ The server adapts only to the capabilities the client declares, never to the cli
 | `window.showDocument.support` | Show the heading | Show the card as a message |
 | `textDocument.codeAction.codeActionLiteralSupport` | Code action with its edit | The `stele.addAnnotation` command |
 | `workspace.workspaceEdit.documentChanges` | Versioned edit | `changes` |
+| `window.workDoneProgress` or a request `workDoneToken` | `$/progress` while tests run | Runs without progress |
 | `general.positionEncodings` includes `utf-8` | UTF-8 columns | UTF-16 columns |
 
 The server advertises `experimental.stele` with `{"diagnostics": "publish", "requests": ["stele/index"]}`.

@@ -1,6 +1,7 @@
 package stele
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -84,7 +85,17 @@ type testRequest struct {
 	merge bool
 	// observer receives progress; nil shows none.
 	observer testObserver
+	// cancel, when set, stops the run: the language server sets it, the CLI
+	// never does. A cancelled run writes no evidence.
+	cancel context.Context
 }
+
+// notCancellable is the cancel context of a run that cannot be cancelled,
+// such as every run of the CLI.
+var notCancellable context.Context
+
+// errRunCancelled reports a run stopped through its cancel context.
+var errRunCancelled = errors.New("the test run was cancelled")
 
 // testRun is the result of running a scope's tests: the scope's evidence and,
 // for a targeted run, the executions that ran.
@@ -137,7 +148,11 @@ func runScopeTests(request testRequest) (testRun, error) {
 	if observer == nil {
 		observer = silentProgress{}
 	}
-	executions, incomplete := executeTestGroups(root, selectedGroups, inputDigest, observer, parsed)
+	executions, incomplete := executeCancellableGroups(request.cancel, root, selectedGroups, inputDigest, observer,
+		parsed)
+	if request.cancel != nil && request.cancel.Err() != nil {
+		return testRun{}, errRunCancelled
+	}
 	run.parsed, run.incomplete = parsed, incomplete
 	if run.targeted {
 		run.selected = executions
@@ -413,7 +428,20 @@ func executeTestGroups(
 	observer testObserver,
 	parsed ParsedSpecs,
 ) ([]TestExecution, []batchEvent) {
-	reporter := groupReporter{observer: observer, titles: make(map[string]string)}
+	return executeCancellableGroups(notCancellable, root, groups, inputDigest, observer, parsed)
+}
+
+// executeCancellableGroups runs the groups like executeTestGroups; a set
+// cancel context stops the running batch and starts no further batch.
+func executeCancellableGroups(
+	cancel context.Context,
+	root string,
+	groups []testGroup,
+	inputDigest string,
+	observer testObserver,
+	parsed ParsedSpecs,
+) ([]TestExecution, []batchEvent) {
+	reporter := groupReporter{observer: observer, titles: make(map[string]string), cancel: cancel}
 	for _, requirement := range parsed.Requirements {
 		for _, scenario := range requirement.Scenarios {
 			reporter.titles[scenario.ID] = scenario.Title
@@ -438,6 +466,13 @@ func executeTestGroups(
 type groupReporter struct {
 	observer testObserver
 	titles   map[string]string
+	// cancel is the run's cancel context, nil when the run cannot be cancelled.
+	cancel context.Context
+}
+
+// cancelled reports whether the run was cancelled.
+func (reporter groupReporter) cancelled() bool {
+	return reporter.cancel != nil && reporter.cancel.Err() != nil
 }
 
 func (reporter groupReporter) event(group testGroup, batch string) progressEvent {
