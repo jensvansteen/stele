@@ -897,6 +897,76 @@ func TestUnknownColorModeIsRejected(t *testing.T) {
 	}
 }
 
+// @verifies scn.terminalreport.50fd0b8c9244.unit
+func TestUnknownAnnotationModeIsRejected(t *testing.T) {
+	root := allScopesFixture(t)
+	ran := recordTests(t)
+	code, stdout, stderr := runCommand(t, "validate", "--root", root, "--change", "example", "--annotations=gitlab")
+	if code != 2 || stdout != "" || !strings.Contains(stderr, "accepted values: auto, github, never") ||
+		len(*ran) != 0 {
+		t.Fatalf("validate --annotations=gitlab = %d, %q, %q", code, stdout, stderr)
+	}
+}
+
+// danglingAnchorFixture adds an anchor at tests/todo.test.mts:14 for an
+// identity that no specification declares.
+func danglingAnchorFixture(t *testing.T) string {
+	t.Helper()
+	root := allScopesFixture(t)
+	writeFixture(t, root, "tests/todo.test.mts", strings.Repeat("\n", 13)+
+		"// @verifies "+"scn.todo.abcdef012345\n")
+	return root
+}
+
+// @verifies scn.terminalreport.d9386a6ce84d.unit
+func TestAnnotationsLeaveOutputAndExitCodeUnchanged(t *testing.T) {
+	root := danglingAnchorFixture(t)
+	recordTests(t)
+	arguments := []string{"validate", "--change", "example", "--root", root}
+	stubEnvironment(t, nil)
+	plainCode, plainStdout, plainStderr := runCommand(t, arguments...)
+	stubEnvironment(t, map[string]string{"GITHUB_ACTIONS": "true"})
+	code, stdout, stderr := runCommand(t, arguments...)
+	if code != 1 || code != plainCode || stdout != plainStdout || strings.Contains(plainStderr, "::") {
+		t.Fatalf("annotations changed the run: %d/%d\n%s\n---\n%s", plainCode, code, plainStdout, stdout)
+	}
+	if !strings.Contains(stderr, "\n::error file=tests/todo.test.mts,line=14,title=ANCHOR_DANGLING::") ||
+		!strings.HasPrefix(stderr, plainStderr) {
+		t.Fatalf("annotations on standard error:\n%s", stderr)
+	}
+	for _, command := range []string{"verify", "test"} {
+		_, jsonStdout, jsonStderr := runCommand(t, command, "--change", "example", "--root", root, "--json")
+		if !json.Valid([]byte(jsonStdout)) || strings.Contains(jsonStdout, "::") ||
+			(command == "verify" && !strings.Contains(jsonStderr, "title=ANCHOR_DANGLING::")) {
+			t.Fatalf("%s --json = %q, %q", command, jsonStdout, jsonStderr)
+		}
+	}
+	_, quietStdout, quietStderr := runCommand(t, append(arguments, "--quiet")...)
+	if strings.Contains(quietStdout, "::") || !strings.HasPrefix(quietStderr, "::error file=tests/todo.test.mts") {
+		t.Fatalf("--quiet = %q, %q", quietStdout, quietStderr)
+	}
+}
+
+// @verifies scn.terminalreport.e045d1b2d55c.unit
+func TestAnnotationsOnlyInGitHubActionsUnlessAsked(t *testing.T) {
+	root := danglingAnchorFixture(t)
+	recordTests(t)
+	arguments := []string{"validate", "--change", "example", "--root", root}
+	annotated := func(environment map[string]string, extra ...string) bool {
+		stubEnvironment(t, environment)
+		code, _, stderr := runCommand(t, append(append([]string{}, arguments...), extra...)...)
+		if code != 1 {
+			t.Fatalf("validate %v = %d", extra, code)
+		}
+		return strings.Contains("\n"+stderr, "\n::")
+	}
+	if annotated(nil) || !annotated(nil, "--annotations=github") ||
+		annotated(map[string]string{"GITHUB_ACTIONS": "true"}, "--annotations=never") ||
+		annotated(map[string]string{"GITHUB_ACTIONS": "false"}) {
+		t.Fatal("annotations do not follow --annotations and GITHUB_ACTIONS")
+	}
+}
+
 // @verifies scn.terminalreport.42e58de06dfa.unit
 func TestAllScopesSummary(t *testing.T) {
 	root := allScopesFixture(t)

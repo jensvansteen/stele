@@ -38,7 +38,7 @@ func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 	})
 
 	npmEnvironment := setEnvironmentVariable(
-		os.Environ(),
+		testEnvironment(),
 		"NPM_CONFIG_CACHE",
 		filepath.Join(temporaryRoot, "npm-cache"),
 	)
@@ -102,7 +102,7 @@ func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 
 	// The consumer has no OpenSpec setup: stele init runs the bundled OpenSpec.
 	steleExecutable := packageExecutable(consumerRoot, "stele")
-	initResult := runCommand(consumerRoot, os.Environ(), steleExecutable, "init")
+	initResult := runCommand(consumerRoot, testEnvironment(), steleExecutable, "init")
 	requireCommandSuccess(t, "initialize consumer project", initResult)
 
 	var config struct {
@@ -129,13 +129,13 @@ func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 	requireFile(t, openspecExecutable)
 	requireCommandSuccess(t, "create OpenSpec change", runCommand(
 		consumerRoot,
-		os.Environ(),
+		testEnvironment(),
 		openspecExecutable,
 		"new",
 		"change",
 		"example",
 	))
-	status := runCommand(consumerRoot, os.Environ(), openspecExecutable, "status", "--change", "example")
+	status := runCommand(consumerRoot, testEnvironment(), openspecExecutable, "status", "--change", "example")
 	requireCommandSuccess(t, "show OpenSpec status", status)
 	if !strings.Contains(status.stdout, "Schema: stele") || !strings.Contains(status.stdout, "verification") {
 		t.Fatalf("new change does not use the stele schema:\n%s", status.stdout)
@@ -143,7 +143,7 @@ func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 
 	writeConsumerFixture(t, consumerRoot)
 
-	validateEnvironment := removeEnvironmentVariable(os.Environ(), "NODE_TEST_CONTEXT")
+	validateEnvironment := removeEnvironmentVariable(testEnvironment(), "NODE_TEST_CONTEXT")
 	validation := runCommand(
 		consumerRoot,
 		validateEnvironment,
@@ -178,7 +178,7 @@ func TestPackedPackageInitializesAndValidatesSeparateConsumer(t *testing.T) {
 		t.Fatalf("expected validation verdict %q, got %q", "pass", report.Verdict)
 	}
 
-	requirePackageVersion(t, repositoryRoot, runCommand(consumerRoot, os.Environ(), steleExecutable, "--version"))
+	requirePackageVersion(t, repositoryRoot, runCommand(consumerRoot, testEnvironment(), steleExecutable, "--version"))
 	requireCheckGate(t, consumerRoot, validateEnvironment, steleExecutable)
 }
 
@@ -196,14 +196,27 @@ func requirePackageVersion(t *testing.T, repositoryRoot string, result commandRe
 	}
 }
 
-// requireCheckGate runs `stele check --all` as CI does, without a terminal,
-// after the change gets a plan that nobody approved.
+// requireCheckGate runs `stele check --all` as GitHub Actions does, without a
+// terminal and with GITHUB_ACTIONS=true, after the change gets a plan that
+// nobody approved.
 func requireCheckGate(t *testing.T, consumerRoot string, environment []string, steleExecutable string) {
 	t.Helper()
+	// The unapproved plan is the project's only problem: the specification is
+	// annotated and the test anchors the planned evidence ID.
+	requireCommandSuccess(t, "annotate the consumer specifications",
+		runCommand(consumerRoot, environment, steleExecutable, "annotate", "--all"))
+	testPath := filepath.Join(consumerRoot, "tests", "example.test.mts")
+	testSource, err := os.ReadFile(testPath)
+	if err != nil {
+		t.Fatalf("read the consumer test: %v", err)
+	}
+	mustWriteFile(t, testPath, strings.Replace(string(testSource), "@verifies scn.example.abcdef012345\n",
+		"@verifies scn.example.abcdef012345.unit\n", 1))
 	mustWriteFile(t, filepath.Join(consumerRoot, "openspec", "changes", "example", "linkage-plan.json"),
 		`{"schemaVersion":2,"changeId":"example","scenarios":{"scn.example.abcdef012345":{"evidence":[`+
 			`{"id":"scn.example.abcdef012345.unit","level":"unit","rationale":"Pure function."}]}}}`)
-	check := runCommand(consumerRoot, environment, steleExecutable, "check", "--all")
+	check := runCommand(consumerRoot, setEnvironmentVariable(environment, "GITHUB_ACTIONS", "true"), steleExecutable,
+		"check", "--all")
 	var exitError *exec.ExitError
 	if !errors.As(check.err, &exitError) || exitError.ExitCode() != 1 {
 		t.Fatalf("stele check --all: %v\nstderr:\n%s\nstdout:\n%s", check.err, check.stderr, check.stdout)
@@ -215,6 +228,33 @@ func requireCheckGate(t *testing.T, consumerRoot string, environment []string, s
 	}
 	if strings.Contains(check.stdout+check.stderr, "\x1b") || !strings.Contains(check.stderr, "test execution:") {
 		t.Fatalf("stele check --all progress without a terminal:\n%q", check.stderr)
+	}
+	requireOnlyPlanAnnotations(t, check.stderr)
+}
+
+// testEnvironment is the environment of every command this test starts,
+// without GitHub Actions unless a step sets it, so the output is the same
+// locally and in CI.
+func testEnvironment() []string {
+	return removeEnvironmentVariable(removeEnvironmentVariable(os.Environ(), "GITHUB_ACTIONS"), "GITHUB_WORKSPACE")
+}
+
+// requireOnlyPlanAnnotations checks that the GitHub Actions annotations on
+// standard error are errors titled PLAN_UNAPPROVED, and that there is one.
+func requireOnlyPlanAnnotations(t *testing.T, stderr string) {
+	t.Helper()
+	annotations := 0
+	for line := range strings.SplitSeq(stderr, "\n") {
+		if !strings.HasPrefix(line, "::") {
+			continue
+		}
+		annotations++
+		if !strings.HasPrefix(line, "::error ") || !strings.Contains(line, ",title=PLAN_UNAPPROVED::") {
+			t.Fatalf("stele check --all annotation %q is not a PLAN_UNAPPROVED error:\n%s", line, stderr)
+		}
+	}
+	if annotations == 0 {
+		t.Fatalf("stele check --all wrote no annotations in GitHub Actions:\n%s", stderr)
 	}
 }
 

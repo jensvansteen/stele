@@ -11,8 +11,9 @@ import (
 // notDiagnostics are code-like literals in the package that are environment
 // variables, not diagnostic codes.
 var notDiagnostics = map[string]bool{
-	"NODE_TEST_CONTEXT": true, "NO_COLOR": true, "STELE_CHILD_TEST": true,
-	"STELE_FAKE_EXIT": true, "STELE_FAKE_OPENSPEC_VERSION": true, "STELE_OPENSPEC_EXTEND": true,
+	"GITHUB_ACTIONS": true, "GITHUB_WORKSPACE": true, "NODE_TEST_CONTEXT": true, "NO_COLOR": true,
+	"STELE_CHILD_TEST": true, "STELE_FAKE_EXIT": true, "STELE_FAKE_OPENSPEC_VERSION": true,
+	"STELE_OPENSPEC_EXTEND": true,
 }
 
 // @verifies scn.terminalreport.78fda44eee93.unit

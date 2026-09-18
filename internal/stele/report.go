@@ -73,12 +73,19 @@ type problemGroup struct {
 	items                        []problemItem
 }
 
+// problemItem is one finding; path and line locate it for annotations.
 type problemItem struct {
 	id, title, location string
+	path                string
+	line                int
 }
 
+// testLine is one failed or stale test; path and line locate it for
+// annotations.
 type testLine struct {
 	location, name, detail string
+	path                   string
+	line                   int
 }
 
 // behavior is what the report knows about one requirement or scenario.
@@ -293,7 +300,8 @@ func firstOf(values []string, fallback string) string {
 
 func (summary testSummary) line(index reportIndex, execution TestExecution, remark string) testLine {
 	location := execution.Path
-	if line := summary.lines[execution.Path+"\x00"+pointerValue(execution.Selector)]; line > 0 {
+	line := summary.lines[execution.Path+"\x00"+pointerValue(execution.Selector)]
+	if line > 0 {
 		location = fmt.Sprintf("%s:%d", execution.Path, line)
 	}
 	name := pointerValue(execution.Selector)
@@ -310,7 +318,10 @@ func (summary testSummary) line(index reportIndex, execution TestExecution, rema
 	if remark != "" {
 		details = append(details, remark)
 	}
-	return testLine{location: location, name: name, detail: strings.Join(details, " · ")}
+	return testLine{
+		location: location, name: name, detail: strings.Join(details, " · "),
+		path: execution.Path, line: line,
+	}
 }
 
 func capabilityRows(
@@ -546,6 +557,7 @@ func failedScenarios(report Report) []testLine {
 				lines = append(lines, testLine{
 					location: fmt.Sprintf("%s:%d", scenario.Source.Path, scenario.Source.Line),
 					name:     scenario.Title, detail: scenario.ID,
+					path: scenario.Source.Path, line: scenario.Source.Line,
 				})
 			}
 		}
@@ -602,6 +614,7 @@ func problemItemOf(index reportIndex, item Diagnostic) problemItem {
 	}
 	if source != nil {
 		result.location = fmt.Sprintf("%s:%d", source.Path, source.Line)
+		result.path, result.line = source.Path, source.Line
 	}
 	if result.id == "" {
 		result.title = item.Message
