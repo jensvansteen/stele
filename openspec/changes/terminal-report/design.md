@@ -10,7 +10,7 @@ See proposal.md for the problem. The current state that shapes the approach:
 - **Version.** `Version` is the constant `0.1.0` in `cli.go`. It appears in `--version`, the help text, `verifier.version` in reports, and the header of the forked workflow schema.
 - **Archived plans.** `loadArchivedPlans` combines archived plans in path order. OpenSpec 1.13 names an archive `YYYY-MM-DD-<change>` from the local date (`formatLocalDate()` in `core/archive.js`) and records nothing finer: `.openspec.yaml` holds only `schema` and a `created` date. Changes archived on the same day therefore sort by name. In the rc.3 self-verification, `verification-strategy` sorts after `link-index` although it was applied first.
 - **Scenario renames.** OpenSpec's `findScenarioLossIssues` rejects a MODIFIED requirement that omits a scenario name the current specification has, and a requirement cannot be both REMOVED and ADDED under the same name. A REMOVED requirement plus an ADDED requirement under a new name validates and archives correctly (tried against a copy of the rc.3 specifications).
-- **Branches that land first.** `chore/self-verify-rc3` archives five changes into `openspec/specs` and moves self-verification to rc.3. `feat/spec-annotation` adds `stele annotate` and the `SPEC_ANNOTATION_*` codes. The delta specs here are written against the specifications as they will be after `chore/self-verify-rc3`, and the change is rebased after both branches merge.
+- **Merged prerequisites.** `chore/self-verify-rc3` (#17) archived five changes into `openspec/specs` and moved self-verification to rc.3. `feat/spec-annotation` (#18) added `stele annotate` and the `SPEC_ANNOTATION_*` codes. This change is rebased onto them (`754f62c`). Its delta specs carry the `<!-- stele: spec v1 -->` annotation, and the MODIFIED and REMOVED blocks match the current specifications apart from that first line.
 
 ## Goals / Non-Goals
 
@@ -51,7 +51,7 @@ A new `diagnostics.go` holds one entry per code: its stage, a one-line meaning, 
 
 | Stage (check line) | Codes |
 |---|---|
-| Specifications | `ID_*`, `SCENARIO_MISSING`, `SPEC_ANNOTATION_*` (after rebase), and the new `SPEC_REMOVED_UNMATCHED` |
+| Specifications | `ID_*`, `SCENARIO_MISSING`, `SPEC_ANNOTATION_*`, and the new `SPEC_REMOVED_UNMATCHED` |
 | Plan approval | `PLAN_*`, including the new `PLAN_ARCHIVE_ORDER_AMBIGUOUS` and `PLAN_REMOVED_BEHAVIOR_PLANNED` |
 | Linkage (anchors) | `LINK_*`, `ANCHOR_*`, including the new `LINK_REMOVED_BEHAVIOR_ANCHORED` |
 
@@ -173,6 +173,22 @@ The scope prefix appears only with `--all`. The standard output that follows is 
 - **Terminal:** `var isTerminal = func(file io.Writer) bool` checks whether the writer is an `*os.File` whose mode has `os.ModeCharDevice`. This uses only the standard library, so the verifier stays dependency-light. `TERM=dumb` counts as not a terminal for in-place updates. Environment lookups go through `var lookupEnv = os.LookupEnv`.
 
 *Alternative:* `golang.org/x/term`. It was rejected because the only things needed are character-device detection and a width, and a new dependency is not justified for them.
+
+**Ready for concurrency.** The follow-up change `fast-runs`, planned right after this one, will add:
+
+- tests batched per Go package and per Node test file, still reported per test;
+- parallel execution with `--jobs`;
+- project-defined `execution.groups` in `stele.config.json`, each with a `match` glob, its own `jobs`, and `setup` and `teardown` commands;
+- `STELE_WORKER_ID` for per-worker isolation;
+- static stages that run while tests execute.
+
+This change still runs tests sequentially, but the observer is shaped so that `fast-runs` needs no redesign:
+
+- **Event identity.** Every progress event carries the test identity (path, selector, and evidence IDs), a group name, and a worker slot ID. Sequential runs use the group `default` and slot `0`. Events are keyed by test identity, never by position, so `started` and `finished` may arrive out of order and for several tests at once.
+- **The terminal line.** It is rendered from counters, not from "the current test": run out of total, passed, failed, and elapsed time, plus `N running` when more than one test is in flight, and per-group counts when there is more than one group. With one running test it shows that test's scenario and level, as specified. With several, it shows the most recently started one next to `N running`.
+- **Plain output is atomic.** Each line is written whole with one write call, under the reporter's own mutex, and only when a test or batch finishes (or a stage starts or ends). Lines from different workers are never interleaved, and partial lines are never written.
+- **No dependence on completion order.** The final report and all evidence are built from the sorted result set: capabilities in specification order, tests by path and selector, findings by path, line, and ID. Progress lines may appear in completion order; the report never does. The shuffled-input determinism test (`scn.terminalreport.23e3fa620ea0`) already covers this.
+- **Safe to call from several goroutines.** The observer methods are safe for concurrent use from the start, although this change only calls them from one goroutine. `fast-runs` can then add workers without changing the observer interface.
 
 ### 7. Color and flags
 
@@ -357,7 +373,7 @@ Requirements are anchored with `@implements` during implementation. The expected
 - **[`LINK_REMOVED_BEHAVIOR_ANCHORED` under `--specs` can fail repositories that archived removals and kept tests.]** Those tests prove behavior the specification no longer claims. The changelog names the new error and its fix.
 - **[`PLAN_ARCHIVE_ORDER_AMBIGUOUS` could appear in existing repositories.]** It is a warning and never fails a run, and the report gives a fix: approve the intended entries with `stele approve --specs`.
 - **[Stage reordering in `validate` runs verification twice.]** Both runs are pure and fast, and only the second, with evidence, is written.
-- **[The rebase touches `cli.go`, `README`/docs, and the CHANGELOG, which `feat/spec-annotation` also edits.]** The work is planned after both branches merge, and task 0.3 rebases before implementation starts.
+- **[`cli.go`, the docs, and the CHANGELOG were also edited by `feat/spec-annotation`.]** The plan is already rebased onto it (task 0.3), so implementation starts from the merged code.
 
 ## Migration Plan
 

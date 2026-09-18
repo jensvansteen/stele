@@ -1,3 +1,4 @@
+<!-- stele: spec v1 -->
 ## ADDED Requirements
 
 ### Requirement: Check a project with one command

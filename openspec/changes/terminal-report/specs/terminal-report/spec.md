@@ -1,3 +1,4 @@
+<!-- stele: spec v1 -->
 ## Purpose
 
 Show people what a Stele run found, where, and what to do next, with live progress while it runs, without changing the machine-readable output that CI and tools consume.

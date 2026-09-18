@@ -1,3 +1,4 @@
+<!-- stele: spec v1 -->
 ## MODIFIED Requirements
 
 ### Requirement: Scope anchors to declared identities

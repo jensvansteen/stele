@@ -1,3 +1,4 @@
+<!-- stele: spec v1 -->
 ## REMOVED Requirements
 
 - `### Requirement: Initialize a consumer project`

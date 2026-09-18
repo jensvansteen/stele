@@ -1,8 +1,8 @@
 ## 0. Approval and baseline
 
 - [ ] 0.1 Get the reviewer's explicit approval of the verification levels in design.md (proposed, awaiting approval), the decisions, and the open questions; only then run `stele approve --change terminal-report --confirmed-in-chat`, mark the design table approved, and verify `stele verify --stage proposal --change terminal-report` reports no `PLAN_UNAPPROVED`. Start no task in sections 1-8 before this.
-- [ ] 0.2 Confirm `chore/self-verify-rc3` and `feat/spec-annotation` are merged on main; verify with `git log origin/main` and that `stele annotate --check` exists in a local build
-- [ ] 0.3 Rebase this branch on main, re-run `stele ids --change terminal-report` and `npx openspec validate --all --strict`, and verify the init and verification-scope deltas still copy the current requirement text exactly (re-approve any entry that `stele verify --stage proposal` reports as `PLAN_APPROVAL_STALE`)
+- [x] 0.2 Confirm `chore/self-verify-rc3` and `feat/spec-annotation` are merged on main; verify with `git log origin/main` and that `stele annotate --check` exists in a local build
+- [x] 0.3 Rebase this branch on main, re-run `stele ids --change terminal-report` and `npx openspec validate --all --strict`, and verify the init and verification-scope deltas still copy the current requirement text exactly (re-approve any entry that `stele verify --stage proposal` reports as `PLAN_APPROVAL_STALE`)
 - [ ] 0.4 Confirm the open question on leftover anchors after archiving (the `--specs` archive-only rule) and record the answer in design.md; if it is dropped, remove scenario `scn.verificationscope.9c3ef2025b56` with `openspec-update-change` and re-run the proposal check
 
 ## 1. Version
@@ -24,7 +24,7 @@
 
 ## 4. Progress
 
-- [ ] 4.1 Add the runner observer and the `now`, `isTerminal`, and `lookupEnv` seams without changing evidence; verify runner tests pass unchanged
+- [ ] 4.1 Add the runner observer, with events that carry test identity, group, and worker slot and that are safe for concurrent use as design.md "Ready for concurrency" describes, and add the `now`, `isTerminal`, and `lookupEnv` seams without changing evidence; verify runner tests pass unchanged
 - [ ] 4.2 Implement terminal progress (in-place line, immediate failures, cleared line, width limit) and plain progress (stage lines, one line per test file, failure lines, scope prefix under `--all`); verify the progress unit tests pass
 - [ ] 4.3 Add the CLI tests for plain progress through pipes, for a pseudo-terminal through `script` (skipped with a message when unavailable), and for JSON determinism across two runs; verify `npm run test:node` passes on macOS and in CI on Linux
 
