@@ -8,6 +8,8 @@
     "stele": "dist/stele"
   },
   "description": "Maintain software from plain-English specifications with deterministic implementation evidence",
+  "license": "MIT",
+  "author": "Jens Van Steen <jensvansteen@icloud.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jensvansteen/stele.git"
@@ -44,7 +46,8 @@
     "docs/reference/",
     "docs/index.md",
     "docs/OPENSPEC_AND_STELE.md",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "node scripts/build-go.mts",
