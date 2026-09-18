@@ -1,0 +1,360 @@
+{
+  "schemaVersion": 2,
+  "changeId": "terminal-report",
+  "scenarios": {
+    "scn.init.754fd262e114": {
+      "evidence": [
+        {
+          "id": "scn.init.754fd262e114.unit",
+          "level": "unit",
+          "rationale": "Init could demand a change again, or a bare verify pass. Run in process with the OpenSpec setup stubbed.",
+          "placement": "internal/stele/cli_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.init.c8813c799047": {
+      "evidence": [
+        {
+          "id": "scn.init.c8813c799047.unit",
+          "level": "unit",
+          "rationale": "The printed workflow could drift from the skills. The output is checked in process.",
+          "placement": "internal/stele/cli_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.init.cbf5781012fa": {
+      "evidence": [
+        {
+          "id": "scn.init.cbf5781012fa.unit",
+          "level": "unit",
+          "rationale": "Init could miss a configuration, skill, or directory. A temporary directory in process shows it.",
+          "placement": "internal/stele/cli_test.go (existing test)"
+        },
+        {
+          "id": "scn.init.cbf5781012fa.e2e",
+          "level": "e2e",
+          "rationale": "Distinct risk: the skill templates embedded in the shipped binary, which only the installed package exercises.",
+          "placement": "tests/package_install_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.init.e841b29256e0": {
+      "evidence": [
+        {
+          "id": "scn.init.e841b29256e0.unit",
+          "level": "unit",
+          "rationale": "A repeated init could overwrite user files. A temporary directory in process shows it.",
+          "placement": "internal/stele/init_test.go (existing test)"
+        },
+        {
+          "id": "scn.init.e841b29256e0.unit.2",
+          "level": "unit",
+          "rationale": "Distinct risk: the CLI path and its already-initialized message, separate from the file-level check.",
+          "placement": "internal/stele/cli_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.terminalreport.00fe379ba4b4": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.00fe379ba4b4.unit",
+          "level": "unit",
+          "rationale": "Plan problems must not read as implementation failures, the reported bug. Stage mapping and rendering are pure over a built report, so no process or tool is needed.",
+          "placement": "internal/stele/report_test.go, beside the new report.go"
+        }
+      ]
+    },
+    "scn.terminalreport.026c6192674a": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.026c6192674a.unit",
+          "level": "unit",
+          "rationale": "One output could keep a separate constant. Setting Version in process and checking help, --version, the header, and verifier.version covers every use.",
+          "placement": "internal/stele/cli_test.go, extending the existing help and version test"
+        }
+      ]
+    },
+    "scn.terminalreport.14b3f3d729fb": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.14b3f3d729fb.unit",
+          "level": "unit",
+          "rationale": "A typo in --color could be silently accepted. Option parsing runs in process.",
+          "placement": "internal/stele/cli_test.go, beside option parsing"
+        }
+      ]
+    },
+    "scn.terminalreport.23e3fa620ea0": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.23e3fa620ea0.unit",
+          "level": "unit",
+          "rationale": "Map or collection order could make the human report nondeterministic. Rendering the same model from shuffled inputs is pure.",
+          "placement": "internal/stele/report_test.go"
+        }
+      ]
+    },
+    "scn.terminalreport.334afe00983b": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.334afe00983b.e2e",
+          "level": "e2e",
+          "rationale": "Durations or progress could leak into JSON or files. Only separate real processes with a real clock show it, as for the existing determinism tests.",
+          "placement": "tests/cli.test.mts, next to the existing determinism tests"
+        }
+      ]
+    },
+    "scn.terminalreport.37651d67c39c": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.37651d67c39c.unit",
+          "level": "unit",
+          "rationale": "Groups could split, the more-count be off by one, or evidence IDs lack titles. Pure rendering over 123 synthetic findings.",
+          "placement": "internal/stele/report_test.go"
+        }
+      ]
+    },
+    "scn.terminalreport.3c53b931fbf3": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.3c53b931fbf3.unit",
+          "level": "unit",
+          "rationale": "--details could still truncate. Pure rendering.",
+          "placement": "internal/stele/report_test.go"
+        }
+      ]
+    },
+    "scn.terminalreport.3fc2e84a5b98": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.3fc2e84a5b98.unit",
+          "level": "unit",
+          "rationale": "In-place control bytes could leak into logs, or lines have the wrong granularity. A fake writer captures the bytes in process.",
+          "placement": "internal/stele/progress_test.go"
+        },
+        {
+          "id": "scn.terminalreport.3fc2e84a5b98.e2e",
+          "level": "e2e",
+          "rationale": "Distinct risk: the real binary with redirected standard error is exactly CI; only it proves no escape byte reaches a log.",
+          "placement": "tests/cli.test.mts, with piped streams as in CI"
+        }
+      ]
+    },
+    "scn.terminalreport.42e58de06dfa": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.42e58de06dfa.unit",
+          "level": "unit",
+          "rationale": "The --all summary could hide a scope or misname the failure. An in-process run over a fixture with two changes shows it.",
+          "placement": "internal/stele/cli_test.go, beside TestAllScopesReportSeparately"
+        }
+      ]
+    },
+    "scn.terminalreport.4bf69bd755ef": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.4bf69bd755ef.unit",
+          "level": "unit",
+          "rationale": "Stale tests could be shown as failed or hidden, or locations lost. Pure rendering over synthetic evidence.",
+          "placement": "internal/stele/report_test.go"
+        }
+      ]
+    },
+    "scn.terminalreport.5b46740a15da": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.5b46740a15da.unit",
+          "level": "unit",
+          "rationale": "Level counts or the duration could come from the wrong data or clock. An injected fixed clock makes the duration exact in process.",
+          "placement": "internal/stele/report_test.go"
+        }
+      ]
+    },
+    "scn.terminalreport.6678ddf5a27f": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.6678ddf5a27f.unit",
+          "level": "unit",
+          "rationale": "Quiet mode could still print progress or extra lines, or lose the exit code. Run in process.",
+          "placement": "internal/stele/cli_test.go"
+        }
+      ]
+    },
+    "scn.terminalreport.78fda44eee93": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.78fda44eee93.unit",
+          "level": "unit",
+          "rationale": "A new diagnostic code could ship without stage, meaning, or fix. Scanning the package sources against the catalogue is an in-process check.",
+          "placement": "internal/stele/diagnostics_test.go, beside the new catalogue"
+        }
+      ]
+    },
+    "scn.terminalreport.99cec4c2f435": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.99cec4c2f435.unit",
+          "level": "unit",
+          "rationale": "Capabilities could be mis-grouped or mis-marked. Grouping by source path is pure logic over a built report.",
+          "placement": "internal/stele/report_test.go"
+        }
+      ]
+    },
+    "scn.terminalreport.9f3cb9c00f42": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.9f3cb9c00f42.unit",
+          "level": "unit",
+          "rationale": "Progress could reach standard output or change the JSON. Run in process with separate writers compares stdout with the current JSON format.",
+          "placement": "internal/stele/cli_test.go"
+        }
+      ]
+    },
+    "scn.terminalreport.a735c55107ce": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.a735c55107ce.unit",
+          "level": "unit",
+          "rationale": "The progress line could stay on screen, overwrite failures, or exceed the width. A fake terminal and clock capture the exact bytes in process.",
+          "placement": "internal/stele/progress_test.go, beside the new progress.go"
+        },
+        {
+          "id": "scn.terminalreport.a735c55107ce.e2e",
+          "level": "e2e",
+          "rationale": "Distinct risk: terminal detection on the real standard error descriptor of the shipped binary, which no in-process writer exercises.",
+          "placement": "tests/cli.test.mts, under a pseudo-terminal via script with per-OS arguments"
+        }
+      ]
+    },
+    "scn.terminalreport.a76da19c3313": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.a76da19c3313.unit",
+          "level": "unit",
+          "rationale": "validate could keep hiding warnings or let them change the exit code. Run in process with stubbed tests and OpenSpec shows both.",
+          "placement": "internal/stele/cli_test.go, beside the validate command tests"
+        }
+      ]
+    },
+    "scn.terminalreport.cd40642c50e6": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.cd40642c50e6.e2e",
+          "level": "e2e",
+          "rationale": "The build script could omit the linker flag or pack a stale binary. Only the installed package proves the shipped version.",
+          "placement": "tests/package_install_test.go, the packed-package smoke test"
+        }
+      ]
+    },
+    "scn.terminalreport.cf302ba34005": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.cf302ba34005.unit",
+          "level": "unit",
+          "rationale": "Color could be forced in CI or ignore NO_COLOR. Environment and terminal detection are injected seams.",
+          "placement": "internal/stele/report_test.go, or a style_test.go beside the color logic"
+        }
+      ]
+    },
+    "scn.validate.704b1662c309": {
+      "evidence": [
+        {
+          "id": "scn.validate.704b1662c309.unit",
+          "level": "unit",
+          "rationale": "A step could skip the current specifications or a change. A fixture with specs and two changes runs in process.",
+          "placement": "internal/stele/check_test.go"
+        }
+      ]
+    },
+    "scn.validate.d768594936b1": {
+      "evidence": [
+        {
+          "id": "scn.validate.d768594936b1.unit",
+          "level": "unit",
+          "rationale": "Exit code 1 could mask a tool failure. A stubbed OpenSpec failure in process shows the combined code.",
+          "placement": "internal/stele/check_test.go"
+        }
+      ]
+    },
+    "scn.validate.ddff25a243df": {
+      "evidence": [
+        {
+          "id": "scn.validate.ddff25a243df.e2e",
+          "level": "e2e",
+          "rationale": "Distinct risk: CI and verify:self run the installed binary without a terminal, where exit code, streams, and bundled OpenSpec decide together.",
+          "placement": "tests/package_install_test.go, in the consumer project"
+        }
+      ]
+    },
+    "scn.validate.ed99aac59b49": {
+      "evidence": [
+        {
+          "id": "scn.validate.ed99aac59b49.unit",
+          "level": "unit",
+          "rationale": "An early failure could skip later steps, or the summary misreport them. Run in process over a fixture change.",
+          "placement": "internal/stele/check_test.go, beside the new check.go"
+        }
+      ]
+    },
+    "scn.verificationscope.1c6a44335f91": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.1c6a44335f91.unit",
+          "level": "unit",
+          "rationale": "An undecidable archive order could pass silently. A fixture with two matching same-day archives is pure.",
+          "placement": "internal/stele/scope_test.go"
+        }
+      ]
+    },
+    "scn.verificationscope.4ad1b478a310": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.4ad1b478a310.unit",
+          "level": "unit",
+          "rationale": "The rc.3 bug: alphabetical order wins over the change that last modified the scenario. A fixture with two same-day archives is pure.",
+          "placement": "internal/stele/scope_test.go, beside the existing ordering test"
+        }
+      ]
+    },
+    "scn.verificationscope.70c3ee060846": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.70c3ee060846.unit",
+          "level": "unit",
+          "rationale": "Date order could regress when both texts match. Fixture archives on two dates, in process.",
+          "placement": "internal/stele/scope_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.verificationscope.79a83cf82aba": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.79a83cf82aba.unit",
+          "level": "unit",
+          "rationale": "Conflicting scope options could be accepted. Option parsing runs in process.",
+          "placement": "internal/stele/scope_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.verificationscope.8b577e9712e7": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.8b577e9712e7.unit",
+          "level": "unit",
+          "rationale": "Combined plans could stop verifying archived behavior after the ordering change. A fixture archive runs in process.",
+          "placement": "internal/stele/scope_test.go (existing test)"
+        }
+      ]
+    },
+    "scn.verificationscope.f8ab6e2e1812": {
+      "evidence": [
+        {
+          "id": "scn.verificationscope.f8ab6e2e1812.integration",
+          "level": "integration",
+          "rationale": "The real OpenSpec CLI must run for --specs; it needs the bundled OpenSpec, one real outside tool.",
+          "placement": "internal/stele/scope_test.go (existing test)"
+        }
+      ]
+    }
+  }
+}
