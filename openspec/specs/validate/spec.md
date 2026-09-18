@@ -1,3 +1,4 @@
+<!-- stele: spec v1 -->
 # validate Specification
 
 ## Purpose
