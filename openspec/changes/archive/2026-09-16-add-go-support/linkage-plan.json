@@ -1,21 +1,182 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "changeId": "add-go-support",
-  "requirements": {
-    "req.gosupport.4c353f2b171a": "internal/stele/goanchors.go#scanGoAnchorFile",
-    "req.gosupport.d8c058038daa": "internal/stele/gorunner.go#executeGoTest"
-  },
   "scenarios": {
-    "scn.gosupport.203331e4d990": "internal/stele/gorunner_test.go#TestExecuteExactGoTestDetectsNoMatchingExecution",
-    "scn.gosupport.208b6a95ea3f": "internal/stele/gorunner_test.go#TestExecuteExactGoTestFails",
-    "scn.gosupport.29a77eab096c": "internal/stele/goanchors_test.go#TestScanAnchorsLeavesUnattachedGoAnchorsUnresolved",
-    "scn.gosupport.2c88ed381429": "tests/cli.test.mts#runs TypeScript and Go scenario tests together",
-    "scn.gosupport.351e919a25ad": "internal/stele/goanchors_test.go#TestScanAnchorsIgnoresGoStringLiterals",
-    "scn.gosupport.4a0637d44b7a": "internal/stele/gorunner_test.go#TestExecuteExactGoTestAppliesBuildConstraints",
-    "scn.gosupport.75d202e0ed36": "internal/stele/gorunner_test.go#TestExecuteExactGoTestReportsSkip",
-    "scn.gosupport.7798d2c7e562": "internal/stele/goanchors_test.go#TestScanAnchorsResolvesGoDeclarations",
-    "scn.gosupport.8954a51cba0f": "internal/stele/goanchors_test.go#TestVerifyRejectsInvalidGoSource",
-    "scn.gosupport.9bd4f6844031": "internal/stele/goanchors_test.go#TestScanAnchorsResolvesGoTestFunctions",
-    "scn.gosupport.d195095fc292": "internal/stele/gorunner_test.go#TestExecuteExactGoTestPasses"
+    "scn.gosupport.203331e4d990": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.203331e4d990.integration",
+          "level": "integration",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:adf78baeb9148bb038b110f6602c511c1ea8f0287f6d4d58edb84f67e4032db8",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.208b6a95ea3f": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.208b6a95ea3f.integration",
+          "level": "integration",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:23008347c6f8f47f5fcaff3cf9db3801e616a45569d64be71c1e425b4a190c8e",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.29a77eab096c": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.29a77eab096c.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:92a904198ca87ce70d002dc3ff7996f015a9540da005f714da9feec0b9d0d05b",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.2c88ed381429": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.2c88ed381429.e2e",
+          "level": "e2e",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:3dfef158fe65b498dacc6cea15b802600e2203d7bb250f3338c77122af08ed1a",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.351e919a25ad": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.351e919a25ad.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:b122e190cad41c6ee764f3606f4610a7aec6861b5fd8a2a09c8db33ab25dcc4a",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.4a0637d44b7a": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.4a0637d44b7a.integration",
+          "level": "integration",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:39d91d973c3e8d4e757b4b3d8d5f5f4ced2cec18864fc5fb037df8814f0576b1",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.75d202e0ed36": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.75d202e0ed36.integration",
+          "level": "integration",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:d67ef27ff3371744b9cc30222908519d966ae3ea5eeb9052960bfa388aebb679",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.7798d2c7e562": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.7798d2c7e562.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:d7eea06e104aab032ef648ca5f70c9bf514db1f04b2f3a4a1daf19c58711d7bb",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.8954a51cba0f": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.8954a51cba0f.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:fcc3bf50ca6bc9b9d614693de3517f2b6e562a51dddd242e89bd8822dd4ade6f",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.9bd4f6844031": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.9bd4f6844031.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:a2d4f066fcec2765ab555627e7f17e20ad55a1f3852d9e38e4d1c359ae10429c",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.gosupport.d195095fc292": {
+      "evidence": [
+        {
+          "id": "scn.gosupport.d195095fc292.integration",
+          "level": "integration",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:e0720ba140b597a750cb24da2e2ace4cb5a0d1636f11c8e44d48f7b529900d8e",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    }
   }
 }

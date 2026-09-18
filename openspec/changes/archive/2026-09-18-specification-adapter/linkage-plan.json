@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 2,
+  "changeId": "specification-adapter",
+  "scenarios": {
+    "scn.backend.08f190c98ed9": {
+      "evidence": [
+        {
+          "id": "scn.backend.08f190c98ed9.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:b22119defede37793b6c57d10b350c30a34d8379a5024c1ece18e269b33fbee9",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.backend.0ee7b914816a": {
+      "evidence": [
+        {
+          "id": "scn.backend.0ee7b914816a.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:e334fab6972c987fc40d812802cf469eb4b1d48aecc902ed9eefc1ebde6c955a",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.backend.124f95bf55a3": {
+      "evidence": [
+        {
+          "id": "scn.backend.124f95bf55a3.integration",
+          "level": "integration",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:ac9e9bfb5ee917f326d654cdb44a3b668afd03ec1f73396eab88ab1fed18fa65",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.backend.17bc5c526b79": {
+      "evidence": [
+        {
+          "id": "scn.backend.17bc5c526b79.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:d7554fd6cc27cd8cb679454b468c606350c51845765039eab99f3f4c9fd53794",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.backend.ad74565b613f": {
+      "evidence": [
+        {
+          "id": "scn.backend.ad74565b613f.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:a0ee3d715a5c8916f07ee89c842240448a653c03c5b7b65d527f5977fb25acac",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.backend.c077e67d1e58": {
+      "evidence": [
+        {
+          "id": "scn.backend.c077e67d1e58.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:0ca088f59c51934df28d2c1c1f9e033289d328390550473b166d2df075c223d2",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.backend.e20f52b594b9": {
+      "evidence": [
+        {
+          "id": "scn.backend.e20f52b594b9.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:4cfaf2370077fb3d42223043d39e7003478ee4f5134aba84a0ba797fbe1ba737",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    }
+  }
+}

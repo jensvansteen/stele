@@ -1,65 +1,141 @@
 {
   "schemaVersion": 2,
-  "changeId": "baseline-verification-core",
+  "changeId": "authoring-workflow",
   "scenarios": {
-    "scn.execution.8371d74b5134": {
+    "scn.ids.03c9b0ba7536": {
       "evidence": [
         {
-          "id": "scn.execution.8371d74b5134.integration",
-          "level": "integration",
-          "rationale": "Migrated from v1; review level and rationale.",
-          "approval": {
-            "approver": "jensvansteen",
-            "date": "2026-09-18",
-            "digest": "sha256:50c50f861daae97b4a83adb6bdbdc80258e2b94bc6e918986f3ee2bfd231c98f",
-            "via": "cli",
-            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
-          }
-        }
-      ]
-    },
-    "scn.execution.a70f24b45cfe": {
-      "evidence": [
-        {
-          "id": "scn.execution.a70f24b45cfe.unit",
+          "id": "scn.ids.03c9b0ba7536.unit",
           "level": "unit",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:d2fc04971eddba5b04a2088203dd3d0a2ef05e615f79e2f8a987e7ce6caf4361",
+            "digest": "sha256:a042085ef75d37e7de9f1b1b8c6de4861e800eb67989246bf8b6c2b2e800d567",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.execution.a9dde959cf57": {
+    "scn.ids.0db6a666b9d4": {
       "evidence": [
         {
-          "id": "scn.execution.a9dde959cf57.unit",
+          "id": "scn.ids.0db6a666b9d4.unit",
           "level": "unit",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:7edc0768e8d27cced1eafeac9e8c15624f683a56837b35d84051aec0371acf4b",
+            "digest": "sha256:63e2370bd24d43b6d4eb2efb737139334cc6b2555d69bcd04d525c656d2b5edb",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.execution.bce9246e1444": {
+    "scn.ids.11a49d3afd32": {
       "evidence": [
         {
-          "id": "scn.execution.bce9246e1444.integration",
-          "level": "integration",
+          "id": "scn.ids.11a49d3afd32.unit",
+          "level": "unit",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:4c269c8ab769f329d28db0a9ae76a5be894fb635836a62ca197adb0e513b87f8",
+            "digest": "sha256:b64789d793808882c753f67412db0a96c7a07f0da7c77b6232062143b8041d73",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.ids.1f44342aea82": {
+      "evidence": [
+        {
+          "id": "scn.ids.1f44342aea82.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:8e3d4c76f6a569a5a54939273f767c9d18810082a3f8e15d289ab30656ed5abb",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.ids.83b2e0efd623": {
+      "evidence": [
+        {
+          "id": "scn.ids.83b2e0efd623.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:52e2f77686bef040d62bc5c2ce4155475129b9daf5863d1bbbe8a8357bb8f43b",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        },
+        {
+          "id": "scn.ids.83b2e0efd623.e2e",
+          "level": "e2e",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:011efbf5b2ca1ab328946e7de9147b59567c73385a238ba2b8b64362742458af",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.ids.9211a14a8ec9": {
+      "evidence": [
+        {
+          "id": "scn.ids.9211a14a8ec9.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:58fa6af6c31113ffcc117e5bb31d10021c09014f20252bc77afdfe90c8621383",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.ids.d83366faeaf7": {
+      "evidence": [
+        {
+          "id": "scn.ids.d83366faeaf7.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:fc358b8ae6a34dd235138edd0809f3a086a7c89c6880394096b57a6ca32fd835",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.ids.ed0d3d9619a5": {
+      "evidence": [
+        {
+          "id": "scn.ids.ed0d3d9619a5.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:59393a954f88afb07dbc13e274e0204741dc24061fe6848eb621e10fe281cb55",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
@@ -76,6 +152,22 @@
             "approver": "jensvansteen",
             "date": "2026-09-18",
             "digest": "sha256:9853e33d690275c957af0bd93052bf372fbacae965832b4f121299341da31c86",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.init.c8813c799047": {
+      "evidence": [
+        {
+          "id": "scn.init.c8813c799047.unit",
+          "level": "unit",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:d4630003ed85ac11f1281560582b4b780b81483d26d7fbe28265fa91e9527f8c",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
@@ -138,192 +230,192 @@
         }
       ]
     },
-    "scn.validate.10388560c2dc": {
+    "scn.lifecycle.08814fe1e646": {
       "evidence": [
         {
-          "id": "scn.validate.10388560c2dc.e2e",
-          "level": "e2e",
-          "rationale": "Migrated from v1; review level and rationale.",
-          "approval": {
-            "approver": "jensvansteen",
-            "date": "2026-09-18",
-            "digest": "sha256:6386a8eeccbfbb50ae81f5f6570ea52e585eae699589cf1bef001d6654fa655e",
-            "via": "cli",
-            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
-          }
-        }
-      ]
-    },
-    "scn.validate.d9553f1a4c1c": {
-      "evidence": [
-        {
-          "id": "scn.validate.d9553f1a4c1c.unit",
+          "id": "scn.lifecycle.08814fe1e646.unit",
           "level": "unit",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:2345f02ea07a5f6c1535a0c08b2bf5ba1d1a46673fb173789c1f5c23f871f905",
+            "digest": "sha256:f5840ade6154193cee7dafe0c1a4d5a7c66163ba9c941fe3c571a551d0cb6d36",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.verify.0d43596abe4a": {
+    "scn.lifecycle.5a216e97cca6": {
       "evidence": [
         {
-          "id": "scn.verify.0d43596abe4a.unit",
+          "id": "scn.lifecycle.5a216e97cca6.unit",
           "level": "unit",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:59ed9b041b4749c1f3a193b7431f9830d3391555d97fe8b3a9deb3c5c7a579f1",
+            "digest": "sha256:7f56f0b32d10fb8dd608a2392061a06f2d23c38b56123212e03826f16aafafa5",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.verify.14c6b4fe39bc": {
+    "scn.lifecycle.5df1b597ff80": {
       "evidence": [
         {
-          "id": "scn.verify.14c6b4fe39bc.unit",
+          "id": "scn.lifecycle.5df1b597ff80.unit",
           "level": "unit",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:227db6c26f5673d53e73d10ecba55b663b560129fc928eea5b4551d0267f06b8",
+            "digest": "sha256:6cdd539f8c05b45bb66f7810c827897142478fdf41445deabadd8e752f99759c",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.verify.36f0ef1f337f": {
+    "scn.lifecycle.b91a6d6dd399": {
       "evidence": [
         {
-          "id": "scn.verify.36f0ef1f337f.unit",
+          "id": "scn.lifecycle.b91a6d6dd399.unit",
           "level": "unit",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:4b26815b0985693393ae0a51c372fd8fa8307c119a34f5e91e7d4d4cf8bacfc8",
+            "digest": "sha256:5375acf6248a07ea36e3df6e69f809f7b24fb88ac93892babed387cb60b43c1d",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.verify.3a70c9d1ef24": {
+    "scn.workflowschema.270587f7a4c3": {
       "evidence": [
         {
-          "id": "scn.verify.3a70c9d1ef24.e2e",
-          "level": "e2e",
+          "id": "scn.workflowschema.270587f7a4c3.integration",
+          "level": "integration",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:b20559c0a7b45ff2f378146331da2a1363a55256625aa9d49890210838e6a18c",
+            "digest": "sha256:b425646385a6665c48f001a67424ef444ebb578e77c9afa6dd338bc976a0b32f",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.verify.5e9a130cd7b4": {
+    "scn.workflowschema.3aef78a653b4": {
       "evidence": [
         {
-          "id": "scn.verify.5e9a130cd7b4.e2e",
-          "level": "e2e",
+          "id": "scn.workflowschema.3aef78a653b4.integration",
+          "level": "integration",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:bfb3bfb6b80ad769cd24f7ba4a6874e208ae189541314cb24876dfeff8ac21dc",
+            "digest": "sha256:9231ee7cec807dde6dc967a988af727b2220d8c2fd8dd09371e49df407c15c95",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.verify.6c22483ab3c3": {
+    "scn.workflowschema.61671da05c73": {
       "evidence": [
         {
-          "id": "scn.verify.6c22483ab3c3.unit",
-          "level": "unit",
+          "id": "scn.workflowschema.61671da05c73.integration",
+          "level": "integration",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:1b18a054ed0918823702f00319e9f5fada12134b8abfe8258827b27f00e831a2",
+            "digest": "sha256:d6201849f5cfcfc7267a6c7c1a3e5f957d5f517160fafe13cc7bc3378f2621e2",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.verify.a2c7e48b610f": {
+    "scn.workflowschema.6ffeeaa11cce": {
       "evidence": [
         {
-          "id": "scn.verify.a2c7e48b610f.e2e",
-          "level": "e2e",
+          "id": "scn.workflowschema.6ffeeaa11cce.integration",
+          "level": "integration",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:3819e68ba92e67e20fabd7a0507bc3aa4c019b4206ea9e3991e7650153855f7f",
+            "digest": "sha256:1f0b02097031646ab0119948b55b094d35f93069fab7aba3e77d6402e9c86843",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.verify.c4db6a432869": {
+    "scn.workflowschema.779f1d7cebcb": {
       "evidence": [
         {
-          "id": "scn.verify.c4db6a432869.unit",
-          "level": "unit",
+          "id": "scn.workflowschema.779f1d7cebcb.integration",
+          "level": "integration",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:b8446128079ffd59a4ed4aa4065fa4daef5eb07b81fb72890f696517099ac38e",
+            "digest": "sha256:1451492978503188ba80c460ba9f43deb1353a83bc1d5bbb954368ee95606ca0",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.verify.c5fd3656da59": {
+    "scn.workflowschema.a444787573ca": {
       "evidence": [
         {
-          "id": "scn.verify.c5fd3656da59.unit",
-          "level": "unit",
+          "id": "scn.workflowschema.a444787573ca.integration",
+          "level": "integration",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:c2ba7f5bb9e4eaf4d632632a51f44b7ff4f2645a8a9212ce7773be78dda2f075",
+            "digest": "sha256:d3d661e426255dd2877f1c1e9a9d6229c2c909fa7098e77e7a09c2e5f69e6a3e",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }
         }
       ]
     },
-    "scn.verify.d6f8012b3ea5": {
+    "scn.workflowschema.b184c4d2986a": {
       "evidence": [
         {
-          "id": "scn.verify.d6f8012b3ea5.e2e",
-          "level": "e2e",
+          "id": "scn.workflowschema.b184c4d2986a.integration",
+          "level": "integration",
           "rationale": "Migrated from v1; review level and rationale.",
           "approval": {
             "approver": "jensvansteen",
             "date": "2026-09-18",
-            "digest": "sha256:932e5fb95c987bdd6ebfb949b55dba8097dda6daa5ea0f0f2a98070185c99337",
+            "digest": "sha256:dad3f542631d539aab8234909a969898dbc7d70895f79026e9d41ef4471e3eee",
+            "via": "cli",
+            "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
+          }
+        }
+      ]
+    },
+    "scn.workflowschema.b4a054dbe512": {
+      "evidence": [
+        {
+          "id": "scn.workflowschema.b4a054dbe512.integration",
+          "level": "integration",
+          "rationale": "Migrated from v1; review level and rationale.",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-18",
+            "digest": "sha256:9d019008def2d9c741d2e3e61fe398dd8a78ec907c85f07a0831c4f3def9e015",
             "via": "cli",
             "revision": "a028c6291dd1c4674c183f1af662068fc781ba1d"
           }

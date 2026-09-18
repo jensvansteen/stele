@@ -30,4 +30,5 @@
 
 - [x] 5.1 Add anchors for this change's planned targets and run `npm run verify`; verify it passes with exactly 100% core coverage and `npm run stele -- validate --change authoring-workflow` passes with the local build
 - [x] 5.2 Run `stele init` in this repository with the local build; verify the lifecycle skills, the `stele` schema, and the configuration guidance are installed, `.claude/skills` still links to `.agents/skills`, and a scratch `openspec new change` uses the `stele` schema
-- [ ] 5.3 After a release that contains this change, use the published `stele ids` instead of the prototype, archive the change, delete the `feat/stele-ids` prototype branch with the maintainer's consent, and verify `npm run verify:self` passes
+- [x] 5.3 After a release that contains this change, use the published `stele ids` instead of the prototype, archive the change, and verify `npm run verify:self` passes
+- [ ] 5.4 Delete the `feat/stele-ids` prototype branch once the maintainer consents

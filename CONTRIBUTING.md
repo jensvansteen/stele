@@ -41,9 +41,9 @@ Changes to verification behavior need meaningful tests for both success and fail
 
 Consumer fixtures use TypeScript or Go. Preserve their existing behavioral IDs. Code that implements a requirement uses `@implements req.…` beside a compatible declaration; a test that verifies a scenario uses `@verifies scn.…` beside an independently selectable named test, a TypeScript `test(...)` call or a Go `TestXxx` function. Stele verifies its own implementation this way, using the published package pinned as the `stele-published` development dependency:
 
-1. Plan a change under `openspec/changes/<change>/`: proposal, delta specs with Verification-IDs, a design with an approved verification table, tasks, and the change's own `linkage-plan.json`. Check it with `npm run stele:published -- verify --stage proposal --change <change>`.
+1. Plan a change under `openspec/changes/<change>/`: proposal, delta specs with Verification-IDs, a design, tasks, and the change's own version 2 `linkage-plan.json` whose evidence entries the maintainer approved with `stele approve`. Check it with `npm run stele:published -- verify --stage proposal --change <change>`.
 2. Implement it across one or more pull requests. Until a release contains the behavior the change relies on, check it with the local build: `npm run stele -- validate --change <change>`.
-3. Archive the change with `npx openspec archive <change>` once all its tasks are complete, usually in the pull request that finishes it. OpenSpec merges its specs into `openspec/specs/` and moves the change, including its linkage plan, to `openspec/changes/archive/`.
+3. Archive the change with the `stele-archive` skill once all its tasks are complete, usually in the pull request that finishes it: `npm run stele:published -- validate --change <change>`, then `npx openspec archive <change> --yes`, then `npm run stele:published -- validate --specs`. OpenSpec merges its specs into `openspec/specs/` and moves the change, including its linkage plan, to `openspec/changes/archive/`.
 4. `npm run verify:self` builds the CLI under test and runs `stele validate --specs` with the published package, verifying all archived behavior. CI runs it on Linux for pull requests and pushes to `main`.
 
 `stele.config.json` has no default change, so plain `stele verify` requires `--change` or `--specs`.
