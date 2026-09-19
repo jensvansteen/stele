@@ -496,7 +496,9 @@ func (server *lspServer) steleIndex(raw json.RawMessage) ([]byte, error) {
 		var backend specificationBackend
 		if backend, err = resolveBackend(config.Adapter); err == nil {
 			var index Index
-			if index, err = savedIndex(project.root, backendWithFiles(backend, saved)); err == nil {
+			targets, _ := parseProjectTargets(config.Targets)
+			base := verificationScope{backend: backendWithFiles(backend, saved), targets: targets}
+			if index, err = savedIndex(project.root, base); err == nil {
 				return MarshalDeterministic(index)
 			}
 		}
@@ -505,8 +507,8 @@ func (server *lspServer) steleIndex(raw json.RawMessage) ([]byte, error) {
 }
 
 // savedIndex indexes every scope, like `stele index --all`.
-func savedIndex(root string, backend specificationBackend) (Index, error) {
-	scopes := everyScope(root, backend)
+func savedIndex(root string, base verificationScope) (Index, error) {
+	scopes := everyScope(root, base)
 	if len(scopes) == 0 {
 		return Index{}, errors.New("no current specifications and no active changes to index")
 	}

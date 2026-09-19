@@ -173,7 +173,7 @@ func executeRun(ctx context.Context, root string, run *lspRun, progress *lspProg
 	for index := range run.scopes {
 		scope := &run.scopes[index]
 		result, err := runProjectScenarios(testRequest{
-			root: root, scope: scope.scope, evidencePath: defaultEvidencePath, targets: scope.targets,
+			root: root, scope: scope.scope, evidencePath: defaultEvidencePath, selections: scope.targets,
 			merge: true, observer: progress, cancel: ctx,
 		})
 		if err != nil {

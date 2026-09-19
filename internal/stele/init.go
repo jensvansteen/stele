@@ -66,7 +66,7 @@ func initializeBackend(root, changeID string, backend specificationBackend) ([]s
 //
 // @implements req.specannotation.0784be141698
 func annotateInitialSpecs(root string, backend specificationBackend) ([]string, []string, error) {
-	result, err := annotateScopes(root, everyScope(root, backend), false)
+	result, err := annotateScopes(root, everyScope(root, verificationScope{backend: backend}), false, "")
 	if err != nil {
 		return nil, nil, err
 	}

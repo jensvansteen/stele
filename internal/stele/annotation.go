@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -49,6 +52,12 @@ type SpecAnnotation struct {
 	Path    string
 	State   string
 	Version string
+	// Targets lists the valid names of the targets field in the written
+	// order, and TargetsDeclared tells whether the field is present.
+	Targets         []string
+	TargetsDeclared bool
+	// fields keeps every field of the first line as written, trimmed.
+	fields []string
 }
 
 // annotationClassifier classifies a file's annotation line by line, so the
@@ -59,6 +68,8 @@ type annotationClassifier struct {
 	// later lines that consist only of an annotation.
 	fields    []string
 	misplaced []int
+	// targetProblems explains a malformed or repeated targets field.
+	targetProblems []string
 }
 
 func newAnnotationClassifier(path string) *annotationClassifier {
@@ -88,7 +99,37 @@ func (classifier *annotationClassifier) line(number int, text string) {
 	classifier.annotation.State = choose(match[1] == annotationVersion, annotationAnnotated, annotationUnsupported)
 	// Text before the first ";" is whitespace; every part after one is a field.
 	for _, field := range strings.Split(match[2], ";")[1:] {
+		classifier.annotation.fields = append(classifier.annotation.fields, strings.TrimSpace(field))
+		if value, isTargets := targetsField(field); isTargets {
+			classifier.readTargets(value)
+			continue
+		}
 		classifier.fields = append(classifier.fields, annotationFieldName(field))
+	}
+}
+
+// targetsField reports whether a field is the targets field, and its value.
+func targetsField(field string) (string, bool) {
+	match := annotationFieldPattern.FindStringSubmatch(field)
+	if match == nil || strings.Contains(match[2], "--") || match[1] != "targets" {
+		return "", false
+	}
+	return match[2], true
+}
+
+// readTargets reads the targets field; version 1 allows it once.
+//
+// @implements req.specannotation.331a671f3614
+func (classifier *annotationClassifier) readTargets(value string) {
+	if classifier.annotation.TargetsDeclared {
+		classifier.targetProblems = append(classifier.targetProblems, "the targets field appears more than once")
+		return
+	}
+	names, problem := parseTargetList(value)
+	classifier.annotation.TargetsDeclared = true
+	classifier.annotation.Targets = names
+	if problem != "" {
+		classifier.targetProblems = append(classifier.targetProblems, "the targets list is malformed: "+problem)
 	}
 }
 
@@ -138,8 +179,14 @@ func (classifier *annotationClassifier) diagnostics(fix string) []Diagnostic {
 	}
 	for _, field := range classifier.fields {
 		diagnostics = append(diagnostics, diagnostic("SPEC_ANNOTATION_FIELD_IGNORED", "warning",
-			fmt.Sprintf("Field %q in the Stele annotation of %s is ignored: format %s defines no fields.",
+			fmt.Sprintf("Field %q in the Stele annotation of %s is ignored: format %s defines only the targets field.",
 				field, path, annotationVersion), path, 1, ""))
+	}
+	if annotation.State == annotationAnnotated {
+		for _, problem := range classifier.targetProblems {
+			diagnostics = append(diagnostics, diagnostic("SPEC_TARGETS_MALFORMED", "error",
+				fmt.Sprintf("In the Stele annotation of %s, %s.", path, problem), path, 1, ""))
+		}
 	}
 	return diagnostics
 }
@@ -157,13 +204,37 @@ func classifyAnnotation(path, content string) *annotationClassifier {
 // byte order mark, ending it like the file's first line or with a line feed.
 // Every other byte is kept.
 func insertAnnotation(content string) string {
+	return insertTargetedAnnotation(content, nil)
+}
+
+// insertTargetedAnnotation inserts the annotation like insertAnnotation, with
+// a targets field when targets are given.
+func insertTargetedAnnotation(content string, targets []string) string {
 	body := strings.TrimPrefix(content, byteOrderMark)
 	bom := content[:len(content)-len(body)]
 	terminator := "\n"
 	if lines := splitLinesKeepEnds(body); len(lines) > 0 && lineTerminator(lines[0]) != "" {
 		terminator = lineTerminator(lines[0])
 	}
-	return bom + annotationCanonical + terminator + body
+	return bom + annotationLine(targets, nil) + terminator + body
+}
+
+// annotationLine writes the canonical annotation with an optional targets
+// field followed by other fields as written.
+func annotationLine(targets []string, others []string) string {
+	if targets == nil && len(others) == 0 {
+		return annotationCanonical
+	}
+	var line strings.Builder
+	line.WriteString("<!-- stele: spec " + annotationVersion)
+	if targets != nil {
+		line.WriteString("; targets: " + strings.Join(targets, ", "))
+	}
+	for _, field := range others {
+		line.WriteString("; " + field)
+	}
+	line.WriteString(" -->")
+	return line.String()
 }
 
 // annotationFix names the command that adds a scope's missing annotations.
@@ -229,20 +300,94 @@ type plannedAnnotation struct {
 	content string
 }
 
-// planAnnotation reads one file and plans the insertion of a missing annotation.
-func planAnnotation(root, scope, file string, check bool) (plannedAnnotation, error) {
+// planAnnotation reads one file and plans the insertion of a missing
+// annotation, with the targets of the capability's current specification
+// when the file is a delta spec. With targetsFrom, it also plans setting the
+// targets of a current specification from the archived delta spec.
+func planAnnotation(root string, scope verificationScope, file, targetsFrom string, check bool) (plannedAnnotation,
+	error,
+) {
 	content, err := readSpecFile(file)
 	if err != nil {
 		return plannedAnnotation{}, err
 	}
+	name, _, _ := scopeName(scope)
 	path := repositoryPath(root, file)
 	annotation := classifyAnnotation(path, string(content)).result()
-	planned := plannedAnnotation{file: file, entry: annotationEntry(scope, annotation)}
-	if annotation.State == annotationMissing && !check {
-		planned.content = insertAnnotation(string(content))
+	planned := plannedAnnotation{file: file, entry: annotationEntry(name, annotation)}
+	if check {
+		return planned, nil
+	}
+	targets := capabilityTargets(root, scope, scope.spec().Capability(scope, path))
+	if targetsFrom != "" {
+		var archived bool
+		if targets, archived = archivedTargets(targetsFrom, capabilityOf(path)); !archived {
+			targets = annotation.Targets
+			if !annotation.TargetsDeclared {
+				targets = nil
+			}
+		}
+	}
+	switch {
+	case annotation.State == annotationMissing:
+		planned.content = insertTargetedAnnotation(string(content), targets)
+		planned.entry.Changed = true
+	case annotation.State == annotationAnnotated && targetsFrom != "" &&
+		(annotation.TargetsDeclared != (targets != nil) || !slices.Equal(annotation.Targets, targets)):
+		planned.content = replaceAnnotationTargets(string(content), annotation, targets)
 		planned.entry.Changed = true
 	}
 	return planned, nil
+}
+
+// capabilityTargets returns the targets that a capability's current
+// specification declares, for a delta spec of a change, or nil.
+func capabilityTargets(root string, scope verificationScope, capability string) []string {
+	if scope.currentSpecs || capability == "" {
+		return nil
+	}
+	content, err := readSpecFile(scope.spec().CurrentSpecFile(root, capability))
+	if err != nil {
+		return nil
+	}
+	annotation := classifyAnnotation("", string(content)).result()
+	if !annotation.TargetsDeclared {
+		return nil
+	}
+	return annotation.Targets
+}
+
+// archivedTargets reads the targets of a capability's delta spec in an
+// archived change directory: nil when it declares none, and false when the
+// archive has no delta spec for the capability.
+func archivedTargets(directory, capability string) ([]string, bool) {
+	content, err := readSpecFile(filepath.Join(directory, "specs", capability, "spec.md"))
+	if err != nil {
+		return nil, false
+	}
+	annotation := classifyAnnotation("", string(content)).result()
+	if !annotation.TargetsDeclared {
+		return nil, true
+	}
+	return append([]string{}, annotation.Targets...), true
+}
+
+// replaceAnnotationTargets rewrites the first line with the given targets,
+// or without a targets field for nil, keeping every other field and every
+// other byte.
+//
+// @implements req.specannotation.1707277552af
+func replaceAnnotationTargets(content string, annotation SpecAnnotation, targets []string) string {
+	body := strings.TrimPrefix(content, byteOrderMark)
+	bom := content[:len(content)-len(body)]
+	lines := splitLinesKeepEnds(body)
+	others := make([]string, 0, len(annotation.fields))
+	for _, field := range annotation.fields {
+		if _, isTargets := targetsField(field); !isTargets {
+			others = append(others, field)
+		}
+	}
+	return bom + annotationLine(targets, others) + lineTerminator(lines[0]) + strings.Join(lines[1:], "")
 }
 
 func annotationEntry(scope string, annotation SpecAnnotation) AnnotationFile {
@@ -272,7 +417,9 @@ func writeAnnotations(planned []plannedAnnotation) error {
 // misplaced, malformed, or unsupported annotation are never edited.
 //
 // @implements req.specannotation.c4d7843868f5
-func annotateScopes(root string, scopes []verificationScope, check bool) (AnnotationResult, error) {
+func annotateScopes(root string, scopes []verificationScope, check bool, targetsFrom string) (AnnotationResult,
+	error,
+) {
 	result := AnnotationResult{
 		SchemaVersion: 1,
 		Mode:          choose(check, "check", "write"),
@@ -281,9 +428,8 @@ func annotateScopes(root string, scopes []verificationScope, check bool) (Annota
 	}
 	planned := make([]plannedAnnotation, 0)
 	for _, scope := range scopes {
-		name, _, _ := scopeName(scope)
 		for _, file := range scope.spec().SpecFiles(root, scope) {
-			plan, err := planAnnotation(root, name, file, check)
+			plan, err := planAnnotation(root, scope, file, targetsFrom, check)
 			if err != nil {
 				return result, err
 			}
@@ -307,7 +453,7 @@ func annotateTargetScopes(parsed options) ([]verificationScope, error) {
 		scope := resolveScope(parsed)
 		return []verificationScope{scope}, requireScopeSpecs(parsed.root, scope)
 	}
-	scopes := everyScope(parsed.root, parsed.backend)
+	scopes := everyScope(parsed.root, parsed.baseScope())
 	if len(scopes) == 0 {
 		return nil, errors.New("no current specifications and no active changes to annotate")
 	}
@@ -315,11 +461,15 @@ func annotateTargetScopes(parsed options) ([]verificationScope, error) {
 }
 
 func annotateCommand(parsed options, stdout, stderr io.Writer) int {
+	targetsFrom, err := targetsFromDirectory(parsed)
+	if err != nil {
+		return writeCommandError(stderr, err)
+	}
 	scopes, err := annotateTargetScopes(parsed)
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
-	result, err := annotateScopes(parsed.root, scopes, parsed.check)
+	result, err := annotateScopes(parsed.root, scopes, parsed.check, targetsFrom)
 	if err != nil {
 		return writeCommandError(stderr, err)
 	}
@@ -329,6 +479,22 @@ func annotateCommand(parsed options, stdout, stderr io.Writer) int {
 		renderAnnotations(stdout, result)
 	}
 	return resultExitCode(result.Verdict == "pass")
+}
+
+// targetsFromDirectory resolves --targets-from: an archived change directory,
+// only with --specs.
+func targetsFromDirectory(parsed options) (string, error) {
+	if parsed.targetsFrom == "" {
+		return "", nil
+	}
+	if !parsed.specs {
+		return "", errors.New("--targets-from needs --specs: it sets the targets of the current specifications")
+	}
+	directory := resolveWithin(parsed.root, parsed.targetsFrom)
+	if info, err := os.Stat(directory); err != nil || !info.IsDir() {
+		return "", fmt.Errorf("--targets-from %s is not a directory", parsed.targetsFrom)
+	}
+	return directory, nil
 }
 
 // annotationProblem explains a state that a person has to fix.

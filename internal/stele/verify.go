@@ -65,6 +65,10 @@ type linkageValidationInput struct {
 	// current specifications, the identities only archived changes declare.
 	Removed map[string]removedIdentity
 	Retired map[string]bool
+	// Targets is the project's target registry, and Selection the --target
+	// selection.
+	Targets   *projectTargets
+	Selection targetSelection
 }
 
 type reportBuildInput struct {
@@ -80,6 +84,9 @@ type reportBuildInput struct {
 	// Revision and Dirty describe the repository state the report covers.
 	Revision string
 	Dirty    bool
+	// Targets and Selection are as for linkage validation.
+	Targets   *projectTargets
+	Selection targetSelection
 }
 
 type reportContribution struct {
@@ -211,13 +218,15 @@ func scopeVerifyInput(root string, scope verificationScope, mode string, shared 
 	parsed.Diagnostics = append(parsed.Diagnostics, planDiagnostics...)
 	return verifyInput{
 		linkage: linkageValidationInput{
-			Mode:     mode,
-			Parsed:   parsed,
-			Anchors:  shared.anchors,
-			Plan:     plan,
-			Declared: shared.declared,
-			Removed:  removed,
-			Retired:  retired,
+			Mode:      mode,
+			Parsed:    parsed,
+			Anchors:   shared.anchors,
+			Plan:      plan,
+			Declared:  shared.declared,
+			Removed:   removed,
+			Retired:   retired,
+			Targets:   scope.targets,
+			Selection: scope.selected,
 		},
 		root:        root,
 		changeID:    scope.changeID,
@@ -241,6 +250,8 @@ func verifyLoaded(input verifyInput) Report {
 		Evidence:    input.evidence,
 		Revision:    input.revision,
 		Dirty:       input.dirty,
+		Targets:     input.linkage.Targets,
+		Selection:   input.linkage.Selection,
 	})
 }
 
@@ -248,6 +259,7 @@ func validateLinkage(input linkageValidationInput) []Diagnostic {
 	diagnostics := append([]Diagnostic{}, input.Parsed.Diagnostics...)
 	known := knownIdentities(input.Parsed)
 	diagnostics = append(diagnostics, anchorDiagnostics(input.Mode, input.Anchors, known, input.Declared)...)
+	diagnostics = append(diagnostics, anchorTargetDiagnostics(input, known)...)
 	if input.Mode == "implementation" {
 		diagnostics = append(diagnostics, removedAnchorDiagnostics(input.Anchors, input.Removed)...)
 	}
@@ -256,8 +268,15 @@ func validateLinkage(input linkageValidationInput) []Diagnostic {
 	diagnostics = append(diagnostics, unknownPlanDiagnostics(input.Plan, scenarioIdentities(input.Parsed),
 		input.Removed, input.Plan.Source)...)
 	for _, requirement := range input.Parsed.Requirements {
+		if !input.Selection.appliesTo(requirement.Targeted, requirement.Targets) {
+			continue
+		}
 		diagnostics = append(diagnostics, requirementLinkDiagnostics(input, requirement)...)
+		diagnostics = append(diagnostics, targetImplementationDiagnostics(input, requirement)...)
 		for _, scenario := range requirement.Scenarios {
+			if !input.Selection.appliesTo(scenario.Targeted, scenario.Targets) {
+				continue
+			}
 			if input.Plan.usesEvidence(scenario.ID) {
 				diagnostics = append(diagnostics, evidenceDiagnostics(input, scenario)...)
 				continue
@@ -472,9 +491,16 @@ func buildReport(input reportBuildInput) Report {
 		report.Summary.Errors,
 	)
 
+	matrix := input.matrixInput()
+	if input.Selection.active() {
+		report.SelectedTargets = append([]string{}, input.Selection...)
+	}
 	executionOutcomes := make([]string, 0)
 	for _, requirement := range input.Parsed.Requirements {
-		requirementReport, contribution := buildRequirementReport(input, requirement, outcomes)
+		if !input.Selection.appliesTo(requirement.Targeted, requirement.Targets) {
+			continue
+		}
+		requirementReport, contribution := buildRequirementReport(input, requirement, outcomes, matrix)
 		report.Requirements = append(report.Requirements, requirementReport)
 		if contribution.LinkedRequirement {
 			report.Summary.LinkedRequirements++
@@ -488,7 +514,19 @@ func buildReport(input reportBuildInput) Report {
 	report.Stages.Execution.Status = aggregateExecution(executionOutcomes)
 	report.Verdicts = reportVerdicts(input.Mode, report.Verdict, report.Stages.Execution.Status)
 	report.Verdict = report.Verdicts.Overall
+	if report.matrix = buildTargetMatrix(matrix); report.matrix != nil {
+		report.Targets = targetVerdicts(matrix, report.matrix, input.Mode, input.Diagnostics)
+	}
 	return report
+}
+
+// matrixInput is the matrix view of a report's input.
+func (input reportBuildInput) matrixInput() matrixInput {
+	return matrixInput{
+		parsed: input.Parsed, plan: input.Plan, anchors: input.Anchors,
+		executions: indexExecutions(input.Evidence), inputDigest: input.InputDigest,
+		targets: input.Targets, selection: input.Selection,
+	}
 }
 
 // reportVerdicts keeps linkage and execution apart and derives the overall
@@ -573,6 +611,7 @@ func buildRequirementReport(
 	input reportBuildInput,
 	requirement Requirement,
 	outcomes map[string]string,
+	matrix matrixInput,
 ) (RequirementReport, reportContribution) {
 	codeAnchors := anchorsFor(input.Anchors, requirement.ID, "code")
 	codeLinks, linkage := linksForMode(input.Mode, "code", codeAnchors, input.Plan.Requirements[requirement.ID])
@@ -591,7 +630,10 @@ func buildRequirementReport(
 	}
 	contribution := reportContribution{LinkedRequirement: linkageComplete(linkage), ExecutionOutcomes: []string{}}
 	for _, scenario := range requirement.Scenarios {
-		scenarioReport, outcome := buildScenarioReport(input, scenario, outcomes)
+		if !input.Selection.appliesTo(scenario.Targeted, scenario.Targets) {
+			continue
+		}
+		scenarioReport, outcome := buildScenarioReport(input, scenario, outcomes, matrix)
 		report.Scenarios = append(report.Scenarios, scenarioReport)
 		if linkageComplete(scenarioReport.Linkage) {
 			contribution.LinkedScenarios++
@@ -608,16 +650,20 @@ func buildScenarioReport(
 	input reportBuildInput,
 	scenario Scenario,
 	outcomes map[string]string,
+	matrix matrixInput,
 ) (ScenarioReport, string) {
 	testAnchors := anchorsFor(input.Anchors, scenario.ID, "test")
 	testLinks, linkage := linksForMode(input.Mode, "test", testAnchors, input.Plan.Scenarios[scenario.ID])
 	var evidence []PlannedEvidence
 	if input.Plan.usesEvidence(scenario.ID) {
 		entries := input.Plan.Evidence[scenario.ID]
-		testLinks, linkage = evidenceLinks(input.Mode, testAnchors, entries)
-		evidence = plannedEvidence(scenario, entries)
+		testLinks, linkage = evidenceLinks(input.Mode, testAnchors, entries, input.Selection)
+		evidence = plannedEvidence(scenario, entries, input.Selection)
 	}
 	outcome := outcomes[scenario.ID]
+	if scenario.Targeted && input.Selection.active() && input.Evidence != nil {
+		outcome = selectedScenarioOutcome(matrix, scenario)
+	}
 	if outcome == "" {
 		outcome = "not-run"
 	}
@@ -696,6 +742,7 @@ func resolvedLink(anchor Anchor) Link {
 		State:           "resolved",
 		EvidenceID:      anchor.EvidenceID,
 		Level:           anchor.Level,
+		EvidenceTarget:  anchor.Target,
 	}
 }
 

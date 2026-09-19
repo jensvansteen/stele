@@ -583,3 +583,35 @@ func TestIdsLeaveBrokenAnnotationsUnchanged(t *testing.T) {
 		t.Fatal("a misplaced annotation does not follow the policy")
 	}
 }
+
+// @verifies scn.specannotation.1aaf0a9528b5.unit
+func TestIdsCarryTheCapabilityTargetsIntoANewAnnotation(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "openspec/specs/share/spec.md", "<!-- stele: spec v1; targets: ios, android -->\n"+
+		"### Requirement: Share a list\nVerification-ID: req.share.111111111111\n")
+	writeFixture(t, root, "openspec/changes/draft/specs/share/spec.md", `## ADDED Requirements
+### Requirement: Copy a list
+#### Scenario: Copy text
+- **WHEN** the user copies a list
+- **THEN** the clipboard holds its text
+`)
+	code, stdout, stderr := runIdentities(t, "--root", root, "--change", "draft", "--json")
+	var result IdentityResult
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil || code != 0 {
+		t.Fatalf("ids = %d, %v, %q", code, err, stderr)
+	}
+	content := readTestFile(t, root, "openspec/changes/draft/specs/share/spec.md")
+	lines := strings.Split(content, "\n")
+	if lines[0] != "<!-- stele: spec v1; targets: ios, android -->" || len(result.Insertions) != 2 {
+		t.Fatalf("the delta spec does not carry the targets:\n%s", content)
+	}
+	for _, insertion := range result.Insertions {
+		if lines[insertion.Line-1] != "Verification-ID: "+insertion.ID {
+			t.Fatalf("line %d is %q, not the ID of %#v", insertion.Line, lines[insertion.Line-1], insertion)
+		}
+	}
+	if code, _, _ := runIdentities(t, "--root", root, "--change", "draft"); code != 0 ||
+		readTestFile(t, root, "openspec/changes/draft/specs/share/spec.md") != content {
+		t.Fatal("a second run changed the delta spec")
+	}
+}

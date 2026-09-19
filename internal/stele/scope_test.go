@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -264,7 +265,7 @@ func TestRunRejectsSpecsWithChange(t *testing.T) {
 		scope.spec().Name() != "openspec" {
 		t.Fatalf("--specs did not select the current specifications: %#v, %v", parsed, err)
 	}
-	if resolveScope(options{changeID: "example"}) != changeScope("example") {
+	if scope := resolveScope(options{changeID: "example"}); !reflect.DeepEqual(scope, changeScope("example")) {
 		t.Fatal("a change option did not select the change scope")
 	}
 }

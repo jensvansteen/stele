@@ -77,7 +77,7 @@ func convertV1Plan(plan LinkagePlan, anchors []Anchor) evidencePlanFile {
 		}
 		if len(entries) == 0 {
 			entries = append(entries, EvidenceEntry{
-				ID:        evidenceID(id, "unit"),
+				ID:        evidenceID(id, "", "unit"),
 				Level:     "unit",
 				Rationale: migratedWithoutLevelNote,
 			})

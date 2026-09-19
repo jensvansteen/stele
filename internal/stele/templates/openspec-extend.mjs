@@ -26,10 +26,14 @@ const APPLY_GUIDANCE = [
   "Stele: add @implements and @verifies anchors while writing code and tests, as the stele-verify skill describes.",
   "Stele: run `stele validate --change <change>` and fix failures before reporting the change done.",
 ];
-const ARCHIVE_REPAIR = "Stele: after archiving, run `stele annotate --specs`, then `stele validate --specs`.";
+const ARCHIVE_REPAIR =
+  "Stele: after archiving, run `stele annotate --specs --targets-from <archive-dir>` with the directory the archive created, then `stele validate --specs`.";
 const ARCHIVE_GUIDANCE = ["Stele: `stele validate --change <change>` must pass before archiving.", ARCHIVE_REPAIR];
 // Guidance entries of earlier Stele versions and the entries that replace them.
-const REPLACED_ARCHIVE_GUIDANCE = new Map([["Stele: after archiving, run `stele validate --specs`.", ARCHIVE_REPAIR]]);
+const REPLACED_ARCHIVE_GUIDANCE = new Map([
+  ["Stele: after archiving, run `stele validate --specs`.", ARCHIVE_REPAIR],
+  ["Stele: after archiving, run `stele annotate --specs`, then `stele validate --specs`.", ARCHIVE_REPAIR],
+]);
 const SPEC_ANNOTATION = "<!-- stele: spec v1 -->";
 const SPEC_ANNOTATION_TRIGGER = /^\uFEFF?[ \t]*<!--[ \t]*stele:/u;
 const VERIFICATION_RULES = [
