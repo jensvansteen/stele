@@ -11,8 +11,9 @@ operations:
   archive:
     guidance:
       - "Stele: `stele validate --change <change>` must pass before archiving."
-      - "Stele: after archiving, run `stele annotate --specs`, then `stele validate
-        --specs`."
+      - "Stele: after archiving, run `stele annotate --specs --targets-from
+        <archive-dir>` with the directory the archive created, then `stele
+        validate --specs`."
 rules:
   verification:
     - "Stele: follow the stele-plan skill for levels, rationale, advisory

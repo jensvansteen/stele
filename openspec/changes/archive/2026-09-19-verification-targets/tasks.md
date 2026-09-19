@@ -1,6 +1,6 @@
 ## 0. Approval gate
 
-- [ ] 0.1 Get the reviewer's explicit approval of the verification levels in design.md ("proposed, awaiting approval"), Decisions 1 to 9, and Open Questions 1 to 6. Only then run `stele approve --change verification-targets --confirmed-in-chat`, mark the design table approved, and check that `stele check --change verification-targets` reports no `PLAN_UNAPPROVED`. Start no task in sections 1 to 8 before this.
+- [x] 0.1 Get the reviewer's explicit approval of the verification levels in design.md ("proposed, awaiting approval"), Decisions 1 to 9, and Open Questions 1 to 6. Only then run `stele approve --change verification-targets --confirmed-in-chat`, mark the design table approved, and check that `stele check --change verification-targets` reports no `PLAN_UNAPPROVED`. Start no task in sections 1 to 8 before this.
 - [x] 0.2 Record the answers to the open questions in design.md. If an answer changes behavior (for example reserving `system`, including untargeted specifications under `--target`, or a warning mode), update the specs and plan with `openspec-update-change` first, and re-run `stele verify --stage proposal --change verification-targets`.
 - [x] 0.3 Make sure `ci-gates` and `fast-runs` are archived, and rebase onto `main`. Then re-run `stele ids --change verification-targets` and `stele annotate --change verification-targets --check`, and check that every MODIFIED block still copies the current `spec-annotation`, `verification-strategy`, `link-index`, `terminal-report`, and `verify` requirements exactly, apart from this change's edits.
 - [x] 0.4 Before changing any code, record the untargeted baseline outputs for the compatibility test (`add73aad6d42`). The test compares with the `stele-published` binary, so check that the fixture produces identical output with it and with the current build.
@@ -48,5 +48,5 @@
 ## 8. Compatibility and close
 
 - [x] 8.1 Add the e2e compatibility test: the built CLI and the `stele-published` binary on the same untargeted fixture, comparing `validate --specs --json`, `index --specs`, and the human report byte for byte, with only the version normalized. Verify the e2e test for `add73aad6d42` passes.
-- [ ] 8.2 Add the `@implements` anchors listed in design.md, run `npm run verify` and `stele check --change verification-targets`, and fix every failure before reporting the change done.
+- [x] 8.2 Add the `@implements` anchors listed in design.md, run `npm run verify` and `stele check --change verification-targets`, and fix every failure before reporting the change done.
 - [x] 8.3 Note the follow-up for the language server (per-target lenses and diagnostics from `matrix.go`) in the `-lsp` change or as a new change proposal. Do not implement it here.
