@@ -1,6 +1,7 @@
 package stele
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,12 +22,26 @@ type Index struct {
 	Requirements  []IndexRequirement `json:"requirements"`
 	Scenarios     []IndexScenario    `json:"scenarios"`
 	Anchors       []IndexAnchor      `json:"anchors"`
+	// Targets lists the configured targets when a scope has targeted
+	// specifications, and SelectedTargets the --target selection.
+	Targets         []IndexTarget `json:"targets,omitempty"`
+	SelectedTargets []string      `json:"selectedTargets,omitempty"`
 }
 
-// IndexScope names one scope of the index: a change or the current specifications.
+// IndexTarget is one configured target with its paths.
+type IndexTarget struct {
+	Name         string   `json:"name"`
+	Paths        []string `json:"paths"`
+	EvidenceOnly bool     `json:"evidenceOnly"`
+}
+
+// IndexScope names one scope of the index: a change or the current
+// specifications. Matrix is its scenario by target matrix, only when it has
+// targeted specifications.
 type IndexScope struct {
-	ID   string `json:"id"`
-	Kind string `json:"kind"`
+	ID     string        `json:"id"`
+	Kind   string        `json:"kind"`
+	Matrix *TargetMatrix `json:"matrix,omitempty"`
 }
 
 // IndexSpecFile is one specification file of one scope with its annotation
@@ -36,6 +51,8 @@ type IndexSpecFile struct {
 	Path       string  `json:"path"`
 	Annotation string  `json:"annotation"`
 	Version    *string `json:"version"`
+	// Targets is the file's declared targets field, in the written order.
+	Targets []string `json:"targets,omitempty"`
 }
 
 // IndexLocation is a code or test declaration linked to an identity.
@@ -55,6 +72,11 @@ type IndexRequirement struct {
 	SpecVersion     *string         `json:"specVersion"`
 	Scenarios       []string        `json:"scenarios"`
 	Implementations []IndexLocation `json:"implementations"`
+	// DeclaredTargets is the Targets: line of a targeted item, null without
+	// one, and ApplicableTargets the targets it applies to; untargeted items
+	// have neither.
+	DeclaredTargets   json.RawMessage `json:"declaredTargets,omitempty"`
+	ApplicableTargets []string        `json:"applicableTargets,omitempty"`
 }
 
 // IndexScenario is one scenario of one scope with its evidence.
@@ -68,11 +90,16 @@ type IndexScenario struct {
 	Source      Source          `json:"source"`
 	SpecVersion *string         `json:"specVersion"`
 	Evidence    []IndexEvidence `json:"evidence"`
+	// DeclaredTargets and ApplicableTargets are as for a requirement.
+	DeclaredTargets   json.RawMessage `json:"declaredTargets,omitempty"`
+	ApplicableTargets []string        `json:"applicableTargets,omitempty"`
 }
 
 // IndexEvidence is one planned or anchored piece of evidence of a scenario.
 // Approval is approved, unapproved, or stale for a version 2 plan entry, v1
-// for a scenario with a version 1 target, and unplanned otherwise.
+// for a scenario with a version 1 target, and unplanned otherwise. Target is
+// the planned path of a version 1 target, or the target of a targeted
+// version 2 entry.
 type IndexEvidence struct {
 	ID        string          `json:"id"`
 	Level     string          `json:"level,omitempty"`
@@ -96,6 +123,7 @@ type IndexAnchor struct {
 	Selector   *string `json:"selector"`
 	EvidenceID string  `json:"evidenceId,omitempty"`
 	Level      string  `json:"level,omitempty"`
+	Target     string  `json:"target,omitempty"`
 	Status     string  `json:"status"`
 }
 
@@ -114,6 +142,10 @@ type IndexInput struct {
 	Declared    map[string]bool
 	Evidence    *Evidence
 	InputDigest string
+	// Targets is the project's target registry, and Selection the --target
+	// selection.
+	Targets   *projectTargets
+	Selection targetSelection
 }
 
 // BuildIndex builds the link index from parsed inputs. Scopes keep their
@@ -132,9 +164,17 @@ func BuildIndex(input IndexInput) Index {
 	}
 	executions := indexExecutions(input.Evidence)
 	for _, scope := range input.Scopes {
-		index.Scopes = append(index.Scopes, scope.Scope)
+		indexed := scope.Scope
+		indexed.Matrix = buildTargetMatrix(matrixInput{
+			parsed: scope.Parsed, plan: scope.Plan, anchors: input.Anchors, executions: executions,
+			inputDigest: input.InputDigest, targets: input.Targets, selection: input.Selection,
+		})
+		index.Scopes = append(index.Scopes, indexed)
 		versions := indexSpecFiles(&index, scope)
 		for _, requirement := range scope.Parsed.Requirements {
+			if !input.Selection.appliesTo(requirement.Targeted, requirement.Targets) {
+				continue
+			}
 			entry := IndexRequirement{
 				ID:              requirement.ID,
 				Scope:           scope.Scope.ID,
@@ -145,25 +185,80 @@ func BuildIndex(input IndexInput) Index {
 				Scenarios:       []string{},
 				Implementations: indexLocations(anchorsFor(input.Anchors, requirement.ID, "code")),
 			}
+			entry.DeclaredTargets, entry.ApplicableTargets = indexItemTargets(requirement.Targeted,
+				requirement.targetsDeclared, requirement.DeclaredTargets, requirement.Targets)
 			for _, scenario := range requirement.Scenarios {
+				if !input.Selection.appliesTo(scenario.Targeted, scenario.Targets) {
+					continue
+				}
+				declared, applicable := indexItemTargets(scenario.Targeted, scenario.targetsDeclared,
+					scenario.DeclaredTargets, scenario.Targets)
 				entry.Scenarios = append(entry.Scenarios, scenario.ID)
 				index.Scenarios = append(index.Scenarios, IndexScenario{
-					ID:          scenario.ID,
-					Scope:       scope.Scope.ID,
-					Requirement: requirement.ID,
-					Title:       scenario.Title,
-					Text:        scenario.Body,
-					Steps:       append([]ScenarioStep{}, scenario.Steps...),
-					Source:      scenario.Source,
-					SpecVersion: versions[scenario.Source.Path],
-					Evidence:    indexEvidence(scope.Plan, scenario, input.Anchors, executions, input.InputDigest),
+					DeclaredTargets:   declared,
+					ApplicableTargets: applicable,
+					ID:                scenario.ID,
+					Scope:             scope.Scope.ID,
+					Requirement:       requirement.ID,
+					Title:             scenario.Title,
+					Text:              scenario.Body,
+					Steps:             append([]ScenarioStep{}, scenario.Steps...),
+					Source:            scenario.Source,
+					SpecVersion:       versions[scenario.Source.Path],
+					Evidence: indexEvidence(scope.Plan, scenario, input.Anchors, executions, input.InputDigest,
+						input.Selection),
 				})
 			}
 			index.Requirements = append(index.Requirements, entry)
 		}
 	}
 	index.Anchors = indexAnchors(input)
+	index.Targets = indexTargets(input)
+	if input.Selection.active() {
+		index.SelectedTargets = append([]string{}, input.Selection...)
+	}
 	return index
+}
+
+// indexItemTargets returns the index fields of an item's targets: nothing
+// for an untargeted item, and otherwise its Targets: line or null, and the
+// targets it applies to.
+//
+// @implements req.verificationtargets.d74fcbc51f5c
+func indexItemTargets(targeted, hasLine bool, declared, applicable []string) (json.RawMessage, []string) {
+	if !targeted {
+		return nil, nil
+	}
+	line := json.RawMessage("null")
+	if hasLine {
+		line, _ = json.Marshal(declared)
+	}
+	return line, append([]string{}, applicable...)
+}
+
+// indexTargets lists the configured targets when any scope of the index has
+// a matrix, and nothing otherwise.
+func indexTargets(input IndexInput) []IndexTarget {
+	targeted := false
+	for _, scope := range input.Scopes {
+		for _, annotation := range scope.Parsed.Annotations {
+			targeted = targeted || annotation.TargetsDeclared
+		}
+	}
+	if !targeted || input.Targets == nil {
+		return nil
+	}
+	targets := make([]IndexTarget, 0, len(input.Targets.names))
+	for _, name := range input.Targets.names {
+		if !input.Selection.includes(name) {
+			continue
+		}
+		definition := input.Targets.definitions[name]
+		targets = append(targets, IndexTarget{
+			Name: name, Paths: append([]string{}, definition.Paths...), EvidenceOnly: definition.EvidenceOnly,
+		})
+	}
+	return targets
 }
 
 // indexSpecFiles lists a scope's specification files in the index, sorted by
@@ -190,6 +285,7 @@ func indexSpecFiles(index *Index, scope IndexScopeInput) map[string]*string {
 			Path:       path,
 			Annotation: annotation.State,
 			Version:    entry.Version,
+			Targets:    targetsIf(annotation.TargetsDeclared, append([]string{}, annotation.Targets...)),
 		})
 		if annotation.State == annotationAnnotated {
 			versions[path] = entry.Version
@@ -218,27 +314,12 @@ func indexEvidence(
 	anchors []Anchor,
 	executions map[testGroupKey]TestExecution,
 	inputDigest string,
+	selection targetSelection,
 ) []IndexEvidence {
 	tests := anchorsFor(anchors, scenario.ID, "test")
 	result := make([]IndexEvidence, 0)
 	if plan.usesEvidence(scenario.ID) {
-		for _, entry := range plan.Evidence[scenario.ID] {
-			entryTests := make([]Anchor, 0)
-			for _, anchor := range tests {
-				if anchor.EvidenceID == entry.ID {
-					entryTests = append(entryTests, anchor)
-				}
-			}
-			result = append(result, IndexEvidence{
-				ID:        entry.ID,
-				Level:     entry.Level,
-				Approval:  approvalState(scenario, entry),
-				Placement: entry.Placement,
-				Tests:     indexLocations(entryTests),
-				Execution: evidenceExecution(entryTests, executions, inputDigest),
-			})
-		}
-		return result
+		return indexPlannedEvidence(plan, scenario, tests, executions, inputDigest, selection)
 	}
 
 	target := plan.Scenarios[scenario.ID]
@@ -274,6 +355,40 @@ func indexEvidence(
 			Target:    target,
 			Tests:     []IndexLocation{},
 			Execution: ExecutionState{State: "not-run", Outcome: "not-run"},
+		})
+	}
+	return result
+}
+
+// indexPlannedEvidence lists the version 2 plan entries of a scenario for
+// the selected targets, with their tests and last execution.
+func indexPlannedEvidence(
+	plan LinkagePlan,
+	scenario Scenario,
+	tests []Anchor,
+	executions map[testGroupKey]TestExecution,
+	inputDigest string,
+	selection targetSelection,
+) []IndexEvidence {
+	result := make([]IndexEvidence, 0)
+	for _, entry := range plan.Evidence[scenario.ID] {
+		if !selection.includes(entry.Target) {
+			continue
+		}
+		entryTests := make([]Anchor, 0)
+		for _, anchor := range tests {
+			if anchor.EvidenceID == entry.ID {
+				entryTests = append(entryTests, anchor)
+			}
+		}
+		result = append(result, IndexEvidence{
+			ID:        entry.ID,
+			Level:     entry.Level,
+			Approval:  approvalState(scenario, entry),
+			Placement: entry.Placement,
+			Target:    entry.Target,
+			Tests:     indexLocations(entryTests),
+			Execution: evidenceExecution(entryTests, executions, inputDigest),
 		})
 	}
 	return result
@@ -335,6 +450,9 @@ func indexAnchors(input IndexInput) []IndexAnchor {
 	}
 	anchors := make([]IndexAnchor, 0, len(input.Anchors))
 	for _, anchor := range input.Anchors {
+		if !input.Selection.includes(anchor.Target) {
+			continue
+		}
 		entry := IndexAnchor{
 			ID:         anchor.ID,
 			Annotation: anchor.Annotation,
@@ -344,6 +462,7 @@ func indexAnchors(input IndexInput) []IndexAnchor {
 			Selector:   anchor.Selector,
 			EvidenceID: anchor.EvidenceID,
 			Level:      anchor.Level,
+			Target:     anchor.Target,
 		}
 		scopes := declaring[anchor.ID]
 		if len(scopes) == 0 {
@@ -373,7 +492,7 @@ func indexAnchors(input IndexInput) []IndexAnchor {
 // change followed by the current specifications when there are any.
 func indexScopes(parsed options) ([]verificationScope, error) {
 	if parsed.allScopes {
-		scopes := everyScope(parsed.root, parsed.backend)
+		scopes := everyScope(parsed.root, parsed.baseScope())
 		if len(scopes) == 0 {
 			return nil, errors.New("no current specifications and no active changes to index")
 		}
@@ -384,7 +503,8 @@ func indexScopes(parsed options) ([]verificationScope, error) {
 		return nil, err
 	}
 	scopes := []verificationScope{selected}
-	specs := verificationScope{currentSpecs: true, backend: parsed.backend}
+	specs := parsed.baseScope()
+	specs.currentSpecs = true
 	if !selected.currentSpecs && len(specs.spec().SpecFiles(parsed.root, specs)) > 0 {
 		scopes = append(scopes, specs)
 	}
@@ -394,7 +514,9 @@ func indexScopes(parsed options) ([]verificationScope, error) {
 // loadIndex reads the specifications, plans, anchors, and stored evidence of
 // the scopes through their repository files and builds their index.
 func loadIndex(root string, scopes []verificationScope) (Index, error) {
-	input := IndexInput{Scopes: make([]IndexScopeInput, 0, len(scopes))}
+	input := IndexInput{
+		Scopes: make([]IndexScopeInput, 0, len(scopes)), Targets: scopes[0].targets, Selection: scopes[0].selected,
+	}
 	for _, scope := range scopes {
 		parsed, err := parseScopeSpecs(root, scope)
 		if err != nil {
@@ -444,4 +566,12 @@ func indexCommand(parsed options, stdout, stderr io.Writer) int {
 		return writeCommandError(stderr, fmt.Errorf("writing the index: %w", err))
 	}
 	return 0
+}
+
+// targetsIf returns values when condition holds, and nil otherwise.
+func targetsIf(condition bool, values []string) []string {
+	if condition {
+		return values
+	}
+	return nil
 }

@@ -41,7 +41,7 @@ type checkStepSummary struct {
 func checkCommand(parsed options, stdout, stderr io.Writer) int {
 	scopes := []verificationScope{resolveScope(parsed)}
 	if parsed.allScopes {
-		scopes = everyScope(parsed.root, parsed.backend)
+		scopes = everyScope(parsed.root, parsed.baseScope())
 	}
 	identities, identitiesStep := checkIdentities(parsed.root, scopes)
 	annotations, annotationsStep := checkAnnotations(parsed.root, scopes)
@@ -117,7 +117,7 @@ func checkIdentities(root string, scopes []verificationScope) (checkStepSummary,
 // checkAnnotations checks the Stele annotation of every specification file.
 func checkAnnotations(root string, scopes []verificationScope) (checkStepSummary, checkStep) {
 	summary := checkStepSummary{name: "Annotations"}
-	result, err := annotateScopes(root, scopes, true)
+	result, err := annotateScopes(root, scopes, true, "")
 	if err != nil {
 		summary.code, summary.detail = 2, err.Error()
 		return summary, checkStep{Step: "annotate", ExitCode: 2, Result: json.RawMessage("null"), Error: err.Error()}

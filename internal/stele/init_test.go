@@ -149,7 +149,7 @@ func TestArchiveSkillGatesOnValidation(t *testing.T) {
 		"`stele validate --change <change>`",
 		"If it fails, stop",
 		"`openspec-archive-change` skill",
-		"`stele annotate --specs`",
+		"`stele annotate --specs --targets-from",
 		"`stele validate --specs`",
 	)
 }
@@ -160,7 +160,8 @@ func TestArchiveSkillRestoresTheAnnotation(t *testing.T) {
 	assertOrdered(t, skill,
 		"1. Run `stele validate --change <change>`. If it fails, stop",
 		"2. Use the `openspec-archive-change` skill",
-		"3. Run `stele annotate --specs`",
+		"3. Run `stele annotate --specs --targets-from openspec/changes/archive/<date>-<change>`",
+		"with the directory the archive just created",
 		"4. Run `stele validate --specs`",
 	)
 	if strings.Count(skill, "stele annotate") != 1 || strings.Count(skill, "stele validate --specs") != 1 {
@@ -305,6 +306,27 @@ func TestPlanningSkillContainsStrategyGuidance(t *testing.T) {
 			t.Fatalf("stele-plan lacks %q:\n%s", guidance, skill)
 		}
 	}
+}
+
+// @verifies scn.verificationstrategy.1ca6af4620e9.unit
+func TestPlanningSkillGuidesTargets(t *testing.T) {
+	skill := installedSkill(t, "stele-plan")
+	for _, guidance := range []string{
+		"Targets are optional: without them a specification describes the project itself.",
+		"**Behavior differences go in the specification**, as separate scenarios narrowed with a `Targets:` line",
+		"**Testing differences go in the plan**, as evidence levels per target",
+		"`scn.share.3c4d5e6f7a8b.ios.unit`",
+		`"target": "android"`,
+		"**Replicas**: the same behavior built for several targets",
+		"**Split**: one behavior divided over parts",
+		"A contract requirement lists both sides, and each proves its own side",
+		"**Journey**: an end-to-end flow across everything, narrowed to a `system` target that is `evidenceOnly`",
+	} {
+		if !strings.Contains(skill, guidance) {
+			t.Fatalf("stele-plan lacks %q:\n%s", guidance, skill)
+		}
+	}
+	assertOrdered(t, skill, "## The plan", "## Targets", "## Approval")
 }
 
 // @verifies scn.verificationstrategy.17786fd23375.unit

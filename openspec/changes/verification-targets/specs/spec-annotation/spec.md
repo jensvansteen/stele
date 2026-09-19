@@ -1,0 +1,143 @@
+<!-- stele: spec v1 -->
+## MODIFIED Requirements
+
+### Requirement: Declare a Stele specification on the first line
+Verification-ID: req.specannotation.331a671f3614
+
+A specification file SHALL be a Stele specification of format version 1 when its first line, after an optional UTF-8 byte order mark, is an HTML comment of the form `<!-- stele: spec v1 -->`. Spaces and tabs SHALL be allowed before and after the comment and around every token, and at least one space or tab SHALL separate `spec` from the version. The words `stele` and `spec` are lowercase. After the version, the comment MAY contain fields, each written as `;` followed by `key: value`, where a key is a lowercase letter followed by lowercase letters, digits, or hyphens, and a value is any text without `;` or `--`, with surrounding whitespace trimmed. Version 1 defines one field, `targets`, whose value lists the specification's targets as the `verification-targets` capability defines. Every other field SHALL be ignored with a `SPEC_ANNOTATION_FIELD_IGNORED` warning, including a field that does not follow this form, and a repeated `targets` field SHALL be reported as `SPEC_TARGETS_MALFORMED`. Stele SHALL report a first-line comment that starts with `stele:` but does not match the form as `SPEC_ANNOTATION_MALFORMED`, a version other than `v1` as `SPEC_ANNOTATION_UNSUPPORTED`, and a line other than the first that consists only of a Stele annotation as `SPEC_ANNOTATION_MISPLACED`. Malformed and unsupported annotations SHALL be errors.
+
+#### Scenario: Recognize the canonical annotation
+Verification-ID: scn.specannotation.0de8bd2cbe54
+
+- **WHEN** a specification's first line is `<!-- stele: spec v1 -->`
+- **THEN** Stele treats it as a Stele specification of version `v1` and reports no annotation diagnostic
+
+#### Scenario: Tolerate whitespace, line endings, and a byte order mark
+Verification-ID: scn.specannotation.0d7c07caa518
+
+- **WHEN** a specification starts with a byte order mark and its first line is `  <!--stele:   spec	v1-->` followed by a CRLF line ending
+- **THEN** Stele recognizes version `v1` exactly as for the canonical form
+
+#### Scenario: Ignore fields with a warning
+Verification-ID: scn.specannotation.6434ff2d493c
+
+- **WHEN** the first line is `<!-- stele: spec v1; targets: vscode, zed; owner -->` in a project that configures `vscode` and `zed`
+- **THEN** Stele recognizes version `v1` with the targets `vscode` and `zed`, reports one `SPEC_ANNOTATION_FIELD_IGNORED` warning for `owner`, and reports no warning for `targets`
+
+#### Scenario: Reject an unsupported version
+Verification-ID: scn.specannotation.c1a89d2bc235
+
+- **WHEN** the first line is `<!-- stele: spec v2 -->`
+- **THEN** verification reports a `SPEC_ANNOTATION_UNSUPPORTED` error naming the file and the version, and fails
+
+#### Scenario: Reject a malformed annotation
+Verification-ID: scn.specannotation.10178af5c550
+
+- **WHEN** the first line is `<!-- stele: spec -->` or `<!-- stele: specification v1 -->`
+- **THEN** verification reports a `SPEC_ANNOTATION_MALFORMED` error naming the file, and fails
+
+#### Scenario: Report an annotation below the first line
+Verification-ID: scn.specannotation.2681b7fc2880
+
+- **WHEN** a specification's first line is a heading and its third line is `<!-- stele: spec v1 -->`
+- **THEN** Stele does not treat the file as annotated and reports `SPEC_ANNOTATION_MISPLACED` for line 3 instead of `SPEC_ANNOTATION_MISSING`, with the severity that the project's policy gives a missing annotation
+
+### Requirement: Annotate specification files
+Verification-ID: req.specannotation.c4d7843868f5
+
+The `stele annotate [--change <id> | --specs | --all]` command SHALL insert `<!-- stele: spec v1 -->` as the first line of every specification file in the scope that has no annotation, after a byte order mark if there is one, adding `; targets: …` with the targets of the current specification when the file is a delta spec of a capability whose current specification declares targets, ending it with the file's first line ending, or with a line feed when the file has none. It SHALL preserve every other byte and change nothing in a file that already has a valid annotation, so a second run changes nothing. It SHALL leave a file with a malformed, unsupported, or misplaced annotation unchanged, report it, and exit with code `1`. With `--check` it SHALL write nothing and exit with code `1` while any file lacks a valid annotation. With `--json` it SHALL print deterministic JSON listing each file of the scope with its state. `--all` covers the current specifications and the delta specs of every active change, never archived changes.
+
+#### Scenario: Annotate the files of a scope and preserve every other byte
+Verification-ID: scn.specannotation.c1e6a83408c6
+
+- **WHEN** `stele annotate --change <id>` runs for a change with one delta spec using CRLF line endings without a final newline and one delta spec that is already annotated
+- **THEN** the first file gains `<!-- stele: spec v1 -->` followed by CRLF as its first line with every other byte unchanged, the second file is unchanged, and the command reports the annotated file
+
+#### Scenario: Annotate a delta spec with its capability's targets
+Verification-ID: scn.specannotation.e419861e4e50
+- **WHEN** `stele annotate --change <id>` runs for an unannotated delta spec of a capability whose current specification declares `targets: api, web`
+- **THEN** the delta spec's new first line is `<!-- stele: spec v1; targets: api, web -->`
+
+#### Scenario: Change nothing on a second run
+Verification-ID: scn.specannotation.6bd9c9356646
+
+- **WHEN** `stele annotate --all` runs twice on the same project
+- **THEN** the second run writes no file, reports every file as already annotated, and exits with `0`
+
+#### Scenario: Check annotations without writing
+Verification-ID: scn.specannotation.a518efc1ddd8
+
+- **WHEN** `stele annotate --specs --check --json` runs while one current specification lacks an annotation
+- **THEN** no file changes, the JSON output lists that file as missing and the others as annotated, and the command exits with `1`, or with `0` once every file is annotated
+
+#### Scenario: Leave broken annotations for a person to fix
+Verification-ID: scn.specannotation.db2f08beff7a
+
+- **WHEN** `stele annotate --all` finds one file with a malformed first-line annotation, one with an unsupported version, and one with an annotation on a later line
+- **THEN** it leaves all three files unchanged, names each with its problem, still annotates the other files that lack an annotation, and exits with `1`
+
+### Requirement: Annotate delta specs while assigning identities
+Verification-ID: req.specannotation.809d0513cbaa
+
+`stele ids` SHALL add the annotation to every delta spec of the change that lacks one, in the same write as the missing Verification-IDs, following the insertion rules of `stele annotate`. When the current specification of the delta spec's capability declares targets, the inserted annotation SHALL carry the same `targets` field. `stele ids` SHALL report the line numbers of inserted IDs as they are in the written file. It SHALL NOT modify a delta spec whose annotation is malformed or unsupported, and SHALL report it and exit with code `1`. With `--check` it SHALL report missing annotations next to missing IDs, and a missing annotation SHALL fail the check only when `unannotatedSpecs` is `error`. With `--json` it SHALL list the annotated or unannotated files in an `annotations` array.
+
+#### Scenario: Add the annotation together with missing IDs
+Verification-ID: scn.specannotation.7a12f1bf3cf0
+
+- **WHEN** `stele ids --change <id>` runs for a delta spec without an annotation and without IDs
+- **THEN** the file starts with `<!-- stele: spec v1 -->`, every heading has an ID, the reported ID line numbers match the written file, and a second run changes nothing
+
+#### Scenario: Carry the capability's targets into a new delta spec annotation
+Verification-ID: scn.specannotation.1aaf0a9528b5
+- **WHEN** `stele ids --change <id>` runs for an unannotated delta spec of capability `share`, whose current specification starts with `<!-- stele: spec v1; targets: ios, android -->`
+- **THEN** the delta spec starts with `<!-- stele: spec v1; targets: ios, android -->`, and a second run changes nothing
+
+#### Scenario: Check a missing annotation according to the policy
+Verification-ID: scn.specannotation.f0d8e6fbaa2d
+
+- **WHEN** `stele ids --check` runs for a change whose delta specs have every ID but one lacks an annotation
+- **THEN** it lists the unannotated file and exits with `0` under the default `warn` policy, and with `1` when `unannotatedSpecs` is `error`
+
+### Requirement: Restore the annotation after archiving
+Verification-ID: req.specannotation.1707277552af
+
+The `stele-archive` skill SHALL run `stele annotate --specs` after the `openspec-archive-change` step and before `stele validate --specs`. The archive guidance that `stele init` merges into `openspec/config.yaml` SHALL name the same step. After a change that creates a new capability is archived, `stele annotate --specs` SHALL restore the annotation on the current specification that the archive created, and SHALL keep a merged current specification's existing annotation as the only one. `stele annotate --specs --targets-from <archived-change-directory>` SHALL also set the `targets` field of each current specification to the `targets` field of the same capability's delta spec in that archived change, adding the annotation when it is missing, removing the field when the delta spec has none, and preserving every other byte. The `stele-archive` skill and the archive guidance SHALL pass `--targets-from` with the directory the archive created.
+
+#### Scenario: Archive through Stele restores the annotation
+Verification-ID: scn.specannotation.3baa32066f7a
+
+- **WHEN** an agent follows `stele-archive`
+- **THEN** it runs `stele validate --change`, stops if it fails, uses `openspec-archive-change`, runs `stele annotate --specs --targets-from` with the new archive directory, and finishes with `stele validate --specs`
+
+#### Scenario: Direct OpenSpec archiving names the repair step
+Verification-ID: scn.specannotation.23d533778e10
+
+- **WHEN** `stele init` merges its guidance into `openspec/config.yaml`
+- **THEN** the archive guidance tells the agent to run `stele annotate --specs --targets-from` with the new archive directory before `stele validate --specs`
+
+#### Scenario: Restore the annotation on a new current specification
+Verification-ID: scn.specannotation.b7e05fe76741
+
+- **WHEN** OpenSpec archives an annotated change that creates one new capability and modifies another whose current specification is annotated, and `stele annotate --specs` runs afterwards
+- **THEN** both current specifications start with exactly one `<!-- stele: spec v1 -->` line, and `stele validate --specs` reports no annotation diagnostic
+
+#### Scenario: Restore the targets of archived delta specs
+Verification-ID: scn.specannotation.0020f5fc5ce4
+- **WHEN** OpenSpec archives a change whose new capability's delta spec declares `targets: api, web` and whose delta spec of an existing capability changes its targets from `ios` to `ios, android`, and `stele annotate --specs --targets-from` runs with the archive directory
+- **THEN** the new current specification starts with `<!-- stele: spec v1; targets: api, web -->`, the existing one's first line declares `targets: ios, android` with every other byte unchanged, and a second run changes nothing
+
+### Requirement: Expose annotation state in the link index
+Verification-ID: req.specannotation.a6d30cbac541
+
+`stele index` SHALL list, for every scope, each specification file with its path, its annotation state (`annotated`, `missing`, `misplaced`, `malformed`, or `unsupported`), its declared version, or `null` when there is none, and, only when the file declares targets, its `targets` list in declared order. Each requirement and scenario SHALL carry the version of its file as `specVersion`, or `null` unless the file is annotated with a supported version. The output SHALL stay deterministic.
+
+#### Scenario: Index records the annotation of each file and item
+Verification-ID: scn.specannotation.4432e2c478c1
+
+- **WHEN** `stele index --change <id>` runs for a change with one annotated and one unannotated delta spec, next to annotated current specifications
+- **THEN** the index lists each file once per scope with state `annotated` and version `v1`, or `missing` and `null`, and each requirement and scenario carries the `specVersion` of its file
+
+#### Scenario: Index the declared targets of a file
+Verification-ID: scn.specannotation.f69cc0129044
+- **WHEN** `stele index --specs` runs with one specification annotated with `targets: ios, android` and one without targets
+- **THEN** the first file's entry has `targets` `["ios", "android"]` and the second file's entry has no `targets` field

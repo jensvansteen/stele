@@ -325,7 +325,7 @@ func TestMergeKeepsUserConfiguration(t *testing.T) {
 		"schema: stele",
 		"confirm the verification levels",
 		"must pass before archiving",
-		"run `stele annotate --specs`, then",
+		"run `stele annotate --specs --targets-from",
 		"verification:",
 	} {
 		if !strings.Contains(config, added) {
@@ -348,7 +348,8 @@ func TestArchiveGuidanceNamesTheRepairStep(t *testing.T) {
 `)
 	steleInit(t, root)
 	config := readTestFile(t, root, "openspec/config.yaml")
-	repair := "Stele: after archiving, run `stele annotate --specs`, then `stele validate --specs`."
+	repair := "Stele: after archiving, run `stele annotate --specs --targets-from <archive-dir>` with the " +
+		"directory the archive created, then `stele validate --specs`."
 	if strings.Contains(config, "Stele: after archiving, run `stele validate --specs`.") ||
 		strings.Count(config, "stele annotate --specs") != 1 {
 		t.Fatalf("the older entry was not replaced by one repair entry:\n%s", config)
@@ -364,7 +365,19 @@ func TestArchiveGuidanceNamesTheRepairStep(t *testing.T) {
 		t.Fatalf("archive guidance = %#v", instructions.OperationGuidance)
 	}
 	assertOrdered(t, strings.Join(instructions.OperationGuidance, "\n"),
-		"stele annotate --specs", "stele validate --specs")
+		"stele annotate --specs --targets-from", "stele validate --specs")
+
+	// The entry of Stele 0.1.0-rc.5, without --targets-from, is replaced too.
+	writeFixture(t, root, "openspec/config.yaml", userConfiguration+`  archive:
+    guidance:
+      - "Stele: after archiving, run `+"`stele annotate --specs`, then `stele validate --specs`"+`."
+`)
+	steleInit(t, root)
+	replaced := readTestFile(t, root, "openspec/config.yaml")
+	if strings.Count(replaced, "stele annotate --specs") != 1 ||
+		!strings.Contains(replaced, "--targets-from") {
+		t.Fatalf("the rc.5 entry was not replaced:\n%s", replaced)
+	}
 
 	// With both entries present, the older one is removed, and a rerun changes nothing.
 	writeFixture(t, root, "openspec/config.yaml", userConfiguration+`  archive:

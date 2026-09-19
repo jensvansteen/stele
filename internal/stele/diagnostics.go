@@ -68,6 +68,39 @@ var diagnosticGuides = map[string]diagnosticGuide{
 		stageSpecifications, "The annotation has a field that format v1 ignores.",
 		"ignored field{s}", "remove the field from the annotation",
 	},
+	"SPEC_TARGETS_MALFORMED": {
+		stageSpecifications,
+		"A target list is empty, repeats a name, holds an invalid name, or a heading has two Targets: lines.",
+		"malformed target list{s}", "write one comma-separated list of distinct configured target names",
+	},
+	"SPEC_TARGET_UNKNOWN": {
+		stageSpecifications, "A specification or Targets: line names a target stele.config.json does not configure.",
+		"unknown target{s}", "fix the name, or add the target with its paths to stele.config.json",
+	},
+	"SPEC_TARGETS_WIDENED": {
+		stageSpecifications, "A Targets: line names a target its parent does not apply to.", "widened target list{s}",
+		"narrow only: remove the name, or add it to the requirement or the annotation",
+	},
+	"SPEC_TARGETS_MISPLACED": {
+		stageSpecifications, "A Targets: line is not in a heading's metadata block.", "misplaced Targets: line{s}",
+		"move it directly below the heading, next to `Verification-ID:`",
+	},
+	"SPEC_TARGETS_UNDECLARED": {
+		stageSpecifications, "A Targets: line appears in a specification without a targets field.",
+		"undeclared Targets: line{s}", "add `; targets: …` to the first line, or remove the line",
+	},
+	"SPEC_TARGETS_MISMATCH": {
+		stageSpecifications,
+		"A delta spec declares targets differently from its current specification, with or without the field.",
+		"mismatched target field{s}",
+		"copy the current `targets` field, or change targets deliberately and list the affected requirements",
+	},
+	"SPEC_TARGETS_CHANGE_UNCOVERED": {
+		stageSpecifications,
+		"A delta spec changes its capability's targets without listing a current requirement whose targets change.",
+		"uncovered target change{s}",
+		"add that requirement as MODIFIED (narrow it if it should keep its targets), and plan its evidence",
+	},
 	"SPEC_REMOVED_UNMATCHED": {
 		stageSpecifications,
 		"A removed requirement name matches no current requirement, so nothing is checked.", "unmatched removal{s}",
@@ -89,6 +122,10 @@ var diagnosticGuides = map[string]diagnosticGuide{
 	"PLAN_EVIDENCE_INVALID": {
 		stagePlan, "An evidence entry is malformed.", "invalid entr{ies}",
 		"fix the entry's ID, level, and rationale in linkage-plan.json",
+	},
+	"PLAN_TARGET_NOT_APPLICABLE": {
+		stagePlan, "A plan entry names a target its scenario does not apply to.", "inapplicable entr{ies}",
+		"remove the entry, or widen the scenario deliberately",
 	},
 	"PLAN_UNKNOWN_ID": {
 		stagePlan, "The plan names an ID the scope does not declare.", "unknown ID{s}",
@@ -139,6 +176,15 @@ var diagnosticGuides = map[string]diagnosticGuide{
 		stageLinkage, "Code or a test is still anchored to removed behavior.",
 		"removed-behavior anchor{s}",
 		"delete the code or test, or move its anchor to the behavior it now serves",
+	},
+	"ANCHOR_TARGET_OUTSIDE_PATHS": {
+		stageLinkage, "A `@verifies` anchor for a target lives outside that target's paths.",
+		"evidence outside its target{s}", "fix the evidence ID to the target the test belongs to, or move the test",
+	},
+	"LINK_TARGET_IMPLEMENTATION_MISSING": {
+		stageLinkage, "A requirement has no `@implements` anchor within the paths of a target it applies to.",
+		"unimplemented target{s}", "add `@implements <requirement-id>` to that target's implementation, " +
+			"or narrow the requirement with Targets:",
 	},
 	"ANCHOR_DANGLING": {
 		stageLinkage, "An anchor names an ID no specification declares.", "dangling anchor{s}",

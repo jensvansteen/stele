@@ -11,7 +11,7 @@ Let a user keep a list of todos.
 
 The annotation tells Stele and editors, from the first line alone, that the file is a Stele specification and which format version it uses. It is an HTML comment, so every Markdown renderer hides it, and OpenSpec accepts it: `openspec validate --strict` passes, and `openspec archive` keeps it when it merges a change into an annotated current specification.
 
-Stele writes the annotation for you. `stele ids`, `stele init`, and the `stele` workflow schema's specification template add it, and `stele annotate` adds it to any file that lacks it.
+Stele writes the annotation for you. `stele ids`, `stele init`, and the `stele` workflow schema's specification template add it, and `stele annotate` adds it to any file that lacks it. For a delta spec of a capability whose current specification declares targets, `stele ids` and `stele annotate` copy its `targets` field too.
 
 ## Grammar
 
@@ -42,7 +42,29 @@ After the version, an annotation may carry fields, each written as `; key: value
 <!-- stele: spec v1; targets: vscode, zed, jetbrains -->
 ```
 
-Version 1 defines no fields. Stele ignores every field with a `SPEC_ANNOTATION_FIELD_IGNORED` warning, including a field that does not follow the form, such as `; owner`, and a repeated key. A field never makes verification fail, so a field that a later Stele release adds never breaks an older one.
+Version 1 defines one field, `targets`. Stele ignores every other field with a `SPEC_ANNOTATION_FIELD_IGNORED` warning, including a field that does not follow the form, such as `; owner`, and a repeated key. An ignored field never makes verification fail, so a field that a later Stele release adds never breaks an older one.
+
+### The `targets` field
+
+`targets` lists the [targets](/guide/targets) a specification applies to, as a comma-separated list of names that `stele.config.json` configures:
+
+```markdown
+<!-- stele: spec v1; targets: ios, android -->
+```
+
+Targets are optional. A specification without the field describes the project itself, exactly as before targets existed. With the field, every requirement and scenario applies to every listed target, unless it narrows them with a `Targets:` line:
+
+```markdown
+#### Scenario: Share through the iOS share sheet
+Verification-ID: scn.share.4d5e6f7a8b9c
+Targets: ios
+```
+
+- The `Targets:` line belongs in the metadata block directly below a heading, next to `Verification-ID:`, in either order.
+- It may only narrow: a requirement's list is a subset of the file's targets, and a scenario's list a subset of its requirement's.
+- It is metadata, so it is not part of the requirement or scenario text, the scenario steps, or an approval digest.
+
+An empty list, a repeated name, an invalid name, or a second `targets` field or `Targets:` line is `SPEC_TARGETS_MALFORMED`. A name that the configuration does not know is `SPEC_TARGET_UNKNOWN`. Stele 0.1.0-rc.5 and older warn about the field and read targeted evidence IDs wrongly, so targeted projects need the release that ships targets.
 
 ### Versioning rule
 
@@ -68,7 +90,11 @@ Stele keeps reading and verifying every specification file of a scope, annotated
 | An annotation only on a later line | `SPEC_ANNOTATION_MISPLACED`, instead of `MISSING` | The `unannotatedSpecs` policy |
 | A first-line `stele:` comment that does not match the grammar | `SPEC_ANNOTATION_MALFORMED` | Error |
 | A version other than `v1` | `SPEC_ANNOTATION_UNSUPPORTED` | Error |
-| An unknown, malformed, or repeated field | `SPEC_ANNOTATION_FIELD_IGNORED` | Warning |
+| An unknown, malformed, or repeated field other than `targets` | `SPEC_ANNOTATION_FIELD_IGNORED` | Warning |
+| A malformed target list, or a second `targets` field or `Targets:` line | `SPEC_TARGETS_MALFORMED` | Error |
+| A target name that `stele.config.json` does not configure | `SPEC_TARGET_UNKNOWN` | Error |
+| A `Targets:` line that widens its parent, lies outside a metadata block, or appears without a `targets` field | `SPEC_TARGETS_WIDENED`, `SPEC_TARGETS_MISPLACED`, `SPEC_TARGETS_UNDECLARED` | Error |
+| A delta spec whose targets differ from its current specification's | `SPEC_TARGETS_MISMATCH`, `SPEC_TARGETS_CHANGE_UNCOVERED` | Error |
 
 A missing annotation names the command that adds it: `stele annotate --specs` for current specifications, and `stele annotate --change <change>` or `stele ids --change <change>` for a change. Archived changes are never checked.
 
@@ -99,4 +125,4 @@ To migrate an existing project, upgrade Stele and run `stele init`, or `stele an
 
 When archiving a change creates a new current specification, OpenSpec writes a fresh file that starts with `# <capability> Specification`, and the annotation is lost. A current specification that archiving merges into keeps its first line.
 
-`stele annotate --specs` restores the lost annotations and changes nothing else. The `stele-archive` skill runs it between `openspec-archive-change` and `stele validate --specs`, and the archive guidance that `stele init` adds to `openspec/config.yaml` names the same step for projects that use OpenSpec's skills directly. See [Use Stele with OpenSpec](/guide/openspec#run-the-stele-gates-around-openspec-s-skills).
+`stele annotate --specs` restores the lost annotations and changes nothing else. With `--targets-from openspec/changes/archive/<date>-<change>`, it also copies each capability's `targets` field from the archived delta spec, because OpenSpec keeps only the first line of a merged specification. The `stele-archive` skill runs it between `openspec-archive-change` and `stele validate --specs`, and the archive guidance that `stele init` adds to `openspec/config.yaml` names the same step for projects that use OpenSpec's skills directly. See [Use Stele with OpenSpec](/guide/openspec#run-the-stele-gates-around-openspec-s-skills).

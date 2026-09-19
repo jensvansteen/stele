@@ -17,6 +17,7 @@ var (
 	verificationIDPattern = regexp.MustCompile(`^Verification-ID:\s*(\S+)\s*$`)
 	stepBulletPattern     = regexp.MustCompile(`^[-*+]\s+(.*)$`)
 	stepKeywordPattern    = regexp.MustCompile(`^\*\*([A-Za-z][A-Za-z ]*?)\*\*:?\s*(.*)$`)
+	targetsLinePattern    = regexp.MustCompile(`^Targets:(.*)$`)
 	// removedBulletPattern matches the bullet form of a removed requirement,
 	// such as "- `### Requirement: Export todos`".
 	removedBulletPattern = regexp.MustCompile("^\\s*[-*+]\\s*`?###\\s*Requirement:\\s*(.+?)`?\\s*$")
@@ -45,6 +46,10 @@ type specFileParser struct {
 	// section is the delta section of the current line, such as "REMOVED".
 	section string
 	removed []RemovedRequirement
+	renamed []RemovedRequirement
+	// metadata is set while the lines directly below a heading can still be
+	// its Verification-ID and Targets: lines.
+	metadata bool
 }
 
 func diagnostic(code, severity, message, path string, line int, identity string) Diagnostic {
@@ -70,6 +75,13 @@ func ParseSpecs(root, changeID string) (ParsedSpecs, error) {
 func parseScopeSpecs(root string, scope verificationScope) (ParsedSpecs, error) {
 	parsed, err := scope.spec().ParseSpecs(root, scope)
 	applyAnnotationPolicy(parsed.Diagnostics, scope.unannotated)
+	if err == nil {
+		resolveSpecTargets(&parsed, scope.targets)
+		compareDeltaTargets(root, scope, &parsed)
+		sort.Slice(parsed.Diagnostics, func(i, j int) bool {
+			return diagnosticKey(parsed.Diagnostics[i]) < diagnosticKey(parsed.Diagnostics[j])
+		})
+	}
 	return parsed, err
 }
 
@@ -82,6 +94,7 @@ func parseSpecFiles(repo repoFiles, root string, files []string, fix string) (Pa
 		Files:        []string{},
 		Annotations:  []SpecAnnotation{},
 		Removed:      []RemovedRequirement{},
+		Renamed:      []RemovedRequirement{},
 	}
 
 	for _, file := range files {
@@ -94,7 +107,8 @@ func parseSpecFiles(repo repoFiles, root string, files []string, fix string) (Pa
 
 		requirements, diagnostics, annotation, removed, err := parseSpecFile(repo, file, relative, fix)
 		parsed.Requirements = append(parsed.Requirements, requirements...)
-		parsed.Removed = append(parsed.Removed, removed...)
+		parsed.Removed = append(parsed.Removed, removed.removed...)
+		parsed.Renamed = append(parsed.Renamed, removed.renamed...)
 		parsed.Diagnostics = append(parsed.Diagnostics, diagnostics...)
 		parsed.Annotations = append(parsed.Annotations, annotation)
 		if err != nil {
@@ -109,13 +123,18 @@ func parseSpecFiles(repo repoFiles, root string, files []string, fix string) (Pa
 	return parsed, nil
 }
 
+// deltaNames are the requirement names a delta spec removes or renames.
+type deltaNames struct {
+	removed, renamed []RemovedRequirement
+}
+
 func parseSpecFile(repo repoFiles, path, relativePath, fix string) ([]Requirement, []Diagnostic, SpecAnnotation,
-	[]RemovedRequirement, error,
+	deltaNames, error,
 ) {
 	classifier := newAnnotationClassifier(relativePath)
 	content, err := repo.readFile(path)
 	if err != nil {
-		return nil, nil, classifier.result(), nil, err
+		return nil, nil, classifier.result(), deltaNames{}, err
 	}
 
 	parser := specFileParser{path: relativePath, target: noIdentityTarget}
@@ -127,7 +146,8 @@ func parseSpecFile(repo repoFiles, path, relativePath, fix string) ([]Requiremen
 	}
 	finishSpecText(parser.requirements)
 	parser.diagnostics = append(parser.diagnostics, classifier.diagnostics(fix)...)
-	return parser.requirements, parser.diagnostics, classifier.result(), parser.removed, scanner.Err()
+	names := deltaNames{removed: parser.removed, renamed: parser.renamed}
+	return parser.requirements, parser.diagnostics, classifier.result(), names, scanner.Err()
 }
 
 // finishSpecText trims the collected requirement text and derives each
@@ -178,6 +198,7 @@ func (parser *specFileParser) parseLine(line string) {
 		// Any heading ends the text of the current requirement or scenario.
 		parser.scenarioText = nil
 		parser.requirementText = nil
+		parser.metadata = false
 	}
 	if match := deltaSectionPattern.FindStringSubmatch(line); match != nil {
 		parser.section = strings.ToUpper(match[1])
@@ -186,6 +207,21 @@ func (parser *specFileParser) parseLine(line string) {
 	if parser.section == "REMOVED" {
 		parser.parseRemovedLine(line)
 		return
+	}
+	if parser.section == "RENAMED" {
+		if match := renameFromPattern.FindStringSubmatch(line); match != nil {
+			parser.renamed = append(parser.renamed, RemovedRequirement{
+				Name:   strings.TrimSpace(match[1]),
+				Source: Source{Path: parser.path, Line: parser.line},
+			})
+		}
+	}
+	if match := targetsLinePattern.FindStringSubmatch(line); match != nil && parser.parseTargetsLine(match[1]) {
+		return
+	}
+	if strings.TrimSpace(line) != "" && !verificationIDPattern.MatchString(line) &&
+		requirementPattern.FindStringSubmatch(line) == nil && scenarioPattern.FindStringSubmatch(line) == nil {
+		parser.metadata = false
 	}
 	if match := requirementPattern.FindStringSubmatch(line); match != nil {
 		parser.beginRequirement(match[1])
@@ -234,6 +270,7 @@ func (parser *specFileParser) beginRequirement(title string) {
 	parser.requirementText = &parser.currentRequirement.Text
 	parser.currentScenario = nil
 	parser.target = requirementIdentityTarget
+	parser.metadata = true
 }
 
 func (parser *specFileParser) beginScenario(title string) {
@@ -250,6 +287,45 @@ func (parser *specFileParser) beginScenario(title string) {
 	parser.currentScenario.Text = strings.TrimSpace(title)
 	parser.scenarioText = &parser.currentScenario.Text
 	parser.target = scenarioIdentityTarget
+	parser.metadata = true
+}
+
+// parseTargetsLine records a `Targets:` line in a heading's metadata block and
+// returns true. A line elsewhere is reported as misplaced and stays text.
+//
+// @implements req.verificationtargets.ab2f8aad3e78
+func (parser *specFileParser) parseTargetsLine(value string) bool {
+	var declared *[]string
+	var hasLine *bool
+	var line *int
+	identity := ""
+	switch {
+	case parser.metadata && parser.target == requirementIdentityTarget:
+		declared, hasLine, line = &parser.currentRequirement.DeclaredTargets,
+			&parser.currentRequirement.targetsDeclared, &parser.currentRequirement.targetsLine
+		identity = parser.currentRequirement.ID
+	case parser.metadata && parser.target == scenarioIdentityTarget:
+		declared, hasLine, line = &parser.currentScenario.DeclaredTargets,
+			&parser.currentScenario.targetsDeclared, &parser.currentScenario.targetsLine
+		identity = parser.currentScenario.ID
+	default:
+		parser.diagnostics = append(parser.diagnostics, diagnostic("SPEC_TARGETS_MISPLACED", "error",
+			"A Targets: line must be in the metadata block directly below a requirement or scenario heading.",
+			parser.path, parser.line, ""))
+		return false
+	}
+	if *hasLine {
+		parser.diagnostics = append(parser.diagnostics, diagnostic("SPEC_TARGETS_MALFORMED", "error",
+			"A heading has a second Targets: line; keep one.", parser.path, parser.line, identity))
+		return true
+	}
+	names, problem := parseTargetList(value)
+	*declared, *hasLine, *line = names, true, parser.line
+	if problem != "" {
+		parser.diagnostics = append(parser.diagnostics, diagnostic("SPEC_TARGETS_MALFORMED", "error",
+			"The Targets: line is malformed: "+problem+".", parser.path, parser.line, identity))
+	}
+	return true
 }
 
 func (parser *specFileParser) assignIdentity(identity string) {

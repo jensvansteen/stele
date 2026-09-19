@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -63,7 +64,7 @@ func fixtureScenario(t *testing.T, root, id string) Scenario {
 }
 
 func entry(scenarioID, level, rationale string) EvidenceEntry {
-	return EvidenceEntry{ID: evidenceID(scenarioID, level), Level: level, Rationale: rationale}
+	return EvidenceEntry{ID: evidenceID(scenarioID, "", level), Level: level, Rationale: rationale}
 }
 
 // approved returns the entry with an approval for the fixture's current text.
@@ -349,5 +350,131 @@ func TestArchivedPlansMixSchemaVersions(t *testing.T) {
 	}
 	if !hasDiagnostic(report.Diagnostics, "PLAN_UNAPPROVED") || hasDiagnostic(report.Diagnostics, "PLAN_UNKNOWN_ID") {
 		t.Fatalf("mixed archive diagnostics = %#v", report.Diagnostics)
+	}
+}
+
+// targetedPlanScenario parses the targeted fixture's scenario for plan checks.
+func targetedPlanScenario(t *testing.T, root, id string) Scenario {
+	t.Helper()
+	parsed, err := parseScopeSpecs(root, configuredScope(t, root, changeScope("example")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, requirement := range parsed.Requirements {
+		for _, scenario := range requirement.Scenarios {
+			if scenario.ID == id {
+				return scenario
+			}
+		}
+	}
+	t.Fatalf("no scenario %s", id)
+	return Scenario{}
+}
+
+// @verifies scn.verificationstrategy.159fc8c6d372.unit
+func TestEvidenceIsPlannedPerTarget(t *testing.T) {
+	root := targetedFixture(t)
+	writeTargetedPlan(t, root, true,
+		targetedEntry(shareTextID, "ios", "unit"), targetedEntry(shareTextID, "android", "unit"),
+		targetedEntry(shareTextID, "android", "e2e"), targetedEntry(shareSheetID, "ios", "unit"))
+	report := verifyTargeted(t, root, "proposal")
+	if report.Verdicts.Linkage != "pass" || len(report.Diagnostics) != 0 {
+		t.Fatalf("a complete targeted plan failed: %#v", report.Diagnostics)
+	}
+	got := make([]string, 0)
+	for _, entry := range report.Requirements[0].Scenarios[0].Evidence {
+		got = append(got, entry.Target+":"+entry.ID+":"+entry.Level+":"+entry.Approval)
+	}
+	want := []string{
+		"ios:" + shareTextID + ".ios.unit:unit:approved",
+		"android:" + shareTextID + ".android.unit:unit:approved",
+		"android:" + shareTextID + ".android.e2e:e2e:approved",
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("planned evidence = %v", got)
+	}
+	second := targetedEntry(shareTextID, "ios", "unit")
+	second.ID += ".2"
+	scenario := targetedPlanScenario(t, root, shareTextID)
+	if problem := evidenceEntryProblem(scenario, second, map[string]bool{}); problem != "" {
+		t.Fatalf("a second ios unit entry is invalid: %s", problem)
+	}
+	withTarget := EvidenceEntry{ID: "x", Target: "ios", Level: "unit"}
+	if evidenceDigest(scenario, withTarget) == evidenceDigest(scenario, EvidenceEntry{ID: "x", Level: "unit"}) {
+		t.Fatal("the approval digest does not include the target")
+	}
+}
+
+// @verifies scn.verificationstrategy.ef89652e0e06.unit
+func TestMismatchedOrMissingTargetsAreInvalid(t *testing.T) {
+	root := targetedFixture(t)
+	writeFixture(t, root, "openspec/changes/example/specs/plain/spec.md", `<!-- stele: spec v1 -->
+### Requirement: Plain
+Verification-ID: req.plain.111111111111
+#### Scenario: Plain works
+Verification-ID: scn.plain.222222222222
+- **WHEN** it runs
+- **THEN** it passes
+`)
+	withoutTarget := targetedEntry(shareTextID, "ios", "unit")
+	withoutTarget.Target = ""
+	mismatched := targetedEntry(shareTextID, "android", "unit")
+	mismatched.Target = "ios"
+	plainWithTarget := EvidenceEntry{ID: "scn.plain.222222222222.unit", Target: "ios", Level: "unit", Rationale: "x"}
+	writeTargetedPlan(t, root, true, withoutTarget, mismatched, plainWithTarget,
+		targetedEntry(shareSheetID, "ios", "unit"))
+	report := verifyTargeted(t, root, "proposal")
+	invalid := diagnosticsWithCode(report.Diagnostics, "PLAN_EVIDENCE_INVALID")
+	messages := make(map[string]string)
+	for _, item := range invalid {
+		messages[identityOf(item)] = item.Message
+	}
+	if len(invalid) != 3 ||
+		!strings.Contains(messages[shareTextID+".ios.unit"], "needs a target") ||
+		!strings.Contains(messages[shareTextID+".android.unit"], "must be "+shareTextID+".ios.unit") ||
+		!strings.Contains(messages["scn.plain.222222222222.unit"], "declares no targets") {
+		t.Fatalf("PLAN_EVIDENCE_INVALID = %#v", messages)
+	}
+	if report.Verdicts.Linkage != "fail" {
+		t.Fatal("invalid targets did not fail")
+	}
+}
+
+// @verifies scn.verificationstrategy.8d540b6ad130.unit
+func TestEveryTargetOfAScenarioNeedsEvidence(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "stele.config.json", `{"change":"example","targets":{"vscode":{"paths":["vscode/**"]},`+
+		`"zed":{"paths":["zed/**"]},"jetbrains":{"paths":["jetbrains/**"]}}}`)
+	writeFixture(t, root, "openspec/changes/example/specs/lens/spec.md",
+		`<!-- stele: spec v1; targets: vscode, zed, jetbrains -->
+### Requirement: Show a lens
+Verification-ID: req.lens.aaaaaaaaaaaa
+#### Scenario: Lens on a function
+Verification-ID: scn.lens.bbbbbbbbbbbb
+- **WHEN** a function is anchored
+- **THEN** a lens names the requirement
+`)
+	writeTargetedPlan(t, root, true, targetedEntry("scn.lens.bbbbbbbbbbbb", "vscode", "e2e"),
+		targetedEntry("scn.lens.bbbbbbbbbbbb", "zed", "integration"))
+	report := verifyTargeted(t, root, "proposal")
+	missing := diagnosticsWithCode(report.Diagnostics, "PLAN_EVIDENCE_MISSING")
+	if len(missing) != 1 || identityOf(missing[0]) != "scn.lens.bbbbbbbbbbbb" ||
+		!strings.Contains(missing[0].Message, "on target jetbrains") || len(report.Diagnostics) != 1 {
+		t.Fatalf("diagnostics = %#v", report.Diagnostics)
+	}
+}
+
+// @verifies scn.verificationstrategy.53e78ff15ea6.unit
+func TestEvidenceForAnInapplicableTargetIsRejected(t *testing.T) {
+	root := completeTargetedFixture(t)
+	writeTargetedPlan(t, root, true,
+		targetedEntry(shareTextID, "ios", "unit"), targetedEntry(shareTextID, "android", "unit"),
+		targetedEntry(shareSheetID, "ios", "unit"), targetedEntry(shareSheetID, "android", "unit"))
+	report := verifyTargeted(t, root, "proposal")
+	codes := diagnosticCodes(report.Diagnostics)
+	if !slices.Equal(codes, []string{"PLAN_TARGET_NOT_APPLICABLE"}) ||
+		identityOf(report.Diagnostics[0]) != shareSheetID+".android.unit" ||
+		!strings.Contains(report.Diagnostics[0].Message, "does not apply to (ios)") {
+		t.Fatalf("diagnostics = %#v", report.Diagnostics)
 	}
 }

@@ -23,6 +23,10 @@ type verificationScope struct {
 	backend      specificationBackend
 	// unannotated is the unannotatedSpecs policy; empty means the default.
 	unannotated string
+	// targets is the project's target registry, nil without targets, and
+	// selected the --target selection.
+	targets  *projectTargets
+	selected targetSelection
 }
 
 func changeScope(changeID string) verificationScope {
@@ -51,10 +55,21 @@ func (scope verificationScope) spec() specificationBackend {
 //
 // @implements req.verificationscope.bee89d6750ed
 func resolveScope(parsed options) verificationScope {
+	scope := parsed.baseScope()
 	if parsed.specs {
-		return verificationScope{currentSpecs: true, backend: parsed.backend, unannotated: parsed.unannotated}
+		scope.currentSpecs = true
+		return scope
 	}
-	return verificationScope{changeID: parsed.changeID, backend: parsed.backend, unannotated: parsed.unannotated}
+	scope.changeID = parsed.changeID
+	return scope
+}
+
+// baseScope carries the project settings every scope of a command shares.
+func (parsed options) baseScope() verificationScope {
+	return verificationScope{
+		backend: parsed.backend, unannotated: parsed.unannotated,
+		targets: parsed.projectTargets, selected: parsed.selectedTargets,
+	}
 }
 
 // requireScopeSpecs rejects a scope without specification files, so a gate

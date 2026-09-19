@@ -63,11 +63,13 @@ Adds `<!-- stele: spec v1 -->` as the first line of every specification file in 
 - A file that already starts with a valid annotation is not changed, so a second run changes nothing.
 - A file with a misplaced, malformed, or unsupported annotation is never edited. It is named in the output and the command exits with code `1`, but the other files are still annotated.
 - Every file of the scope is read before any file is written.
+- A delta spec of a capability whose current specification declares [targets](/guide/targets) gets the same `targets` field, such as `<!-- stele: spec v1; targets: ios, android -->`.
 
 | Option | Meaning |
 |---|---|
 | `--change ID`, `--specs`, `--all` | The scope to annotate |
 | `--check` | Write nothing; exit with code `1` while any file lacks a valid annotation |
+| `--targets-from DIR` | With `--specs` only: set each current specification's `targets` field to that of the same capability's delta spec in the archived change directory `DIR`, adding the annotation when it is missing and removing the field when the delta spec has none |
 | `--json` | Print the files of the scope with their state |
 
 ```json
@@ -134,14 +136,14 @@ npx stele test req.todo.22b616c90f42                          # every scenario o
 npx stele test openspec/changes/todo-basics/specs/todo/spec.md  # every scenario in a file
 ```
 
-Positional targets select what runs, Jest-style:
+Positional selections choose what runs, Jest-style:
 
-- An argument that starts with `req.` or `scn.` is an ID: a requirement selects the tests of all its scenarios, a scenario its tests, and an evidence ID (`<scenario>.<level>[.<n>]`) the tests of that entry.
+- An argument that starts with `req.` or `scn.` is an ID: a requirement selects the tests of all its scenarios, a scenario its tests, and an evidence ID (`<scenario>.<level>[.<n>]`, or `<scenario>.<target>.<level>[.<n>]` for a [targeted](/guide/targets) scenario) the tests of that entry.
 - Any other argument is a `spec.md` file under `openspec/`, resolved against the repository root, and selects every scenario the scope parsed from it.
-- Targets combine as a union, and each test runs once, even when several targets or scenarios share it.
-- An ID the scope does not declare, or a file that does not exist or is not part of the scope, exits with code `2` before any test runs, naming the target.
+- Selections combine as a union, and each test runs once, even when several selections or scenarios share it. `--target` narrows the union to the selected targets' entries.
+- An ID the scope does not declare, or a file that does not exist or is not part of the scope, exits with code `2` before any test runs, naming the selection.
 
-With targets, Stele merges the outcomes into the stored evidence, `artifacts/test-results.json` unless `--evidence-file` names another file. Only executions of the tests that ran are replaced; other outcomes are kept. Each scenario's outcome is recomputed over all its tests, so a scenario whose other tests never ran is `not-run`, and one whose tests ran with older inputs is `stale`. The exit code follows the tests that ran: `0` when all passed, otherwise `1`. Without targets the whole scope runs as before, and evidence is written only with `--evidence-file`.
+With selections or `--target`, Stele merges the outcomes into the stored evidence, `artifacts/test-results.json` unless `--evidence-file` names another file. Only executions of the tests that ran are replaced; other outcomes are kept. Each scenario's outcome is recomputed over all its tests, so a scenario whose other tests never ran is `not-run`, and one whose tests ran with older inputs is `stale`. The exit code follows the tests that ran: `0` when all passed, otherwise `1`. Without selections the whole scope runs as before, and evidence is written only with `--evidence-file`.
 
 Only exact test names are selectable. A test whose name is a template literal with an interpolation, a `test.each` table, or a `describe` block leaves its anchor without a selector; the test is reported as not selectable (`target-not-resolved`), never run by a partial name.
 
@@ -231,7 +233,7 @@ Editors start it through a client, and can run tests through it with the same ru
 
 ## Every scope
 
-`--all` on `verify`, `test`, `validate`, and `index` covers the current specifications and then every active change in `openspec/changes/` (archived changes excluded), in directory order. When there are no current specifications, that scope is skipped. `--all` cannot be combined with `--change`, `--specs`, or test targets; such a command exits with code `2` and checks nothing.
+`--all` on `verify`, `test`, `validate`, and `index` covers the current specifications and then every active change in `openspec/changes/` (archived changes excluded), in directory order. When there are no current specifications, that scope is skipped. `--all` cannot be combined with `--change`, `--specs`, or test selections; such a command exits with code `2` and checks nothing. It can be combined with `--target`.
 
 `verify`, `test`, and `validate` check each scope separately and print its report under a heading, then a summary with every scope's verdict and one final line that names the failing scopes. Progress lines name the scope being checked.
 
@@ -253,6 +255,30 @@ Scopes
 ```
 
 The exit code is the worst of the scopes: `2` when a scope could not be checked, else `1` when a scope failed, else `0`. With `--json`, standard output is an array with one `{scope, kind, exitCode, result}` entry per scope. An output file receives every scope in one file: `--report-file` an array of reports, and `--evidence-file` one evidence document that merges the scopes. `stele index --all` prints one index with every scope.
+
+## Targets
+
+`test`, `verify`, `validate`, `check`, and `index` accept `--target NAME`, repeatable, to cover only some of the [targets](/guide/targets) that `stele.config.json` configures, for example one CI job per target:
+
+```bash
+npx stele check --all --target android
+```
+
+- Only the scenarios and requirements that apply to a selected target are covered, with only the selected targets' plan entries, anchors, and tests.
+- Specification, identity, and annotation findings are always reported for the whole scope, because a broken specification is everyone's problem.
+- Specifications without a `targets` field describe the project as a whole, so they stay in scope with all their findings, entries, and tests.
+- The human report's header and the JSON report's `selectedTargets` name the selection, and the target matrix shows only its columns.
+- A name that the configuration does not know, or any `--target` in a project without targets, exits with code `2` before anything runs.
+
+Without `--target`, commands cover every target. When a scope has targeted specifications, the human report adds a target matrix after the check lines: one row per capability with the passed and applicable scenarios per target, then up to ten scenario rows with a gap, and every targeted scenario with `--details`:
+
+```text
+  Target matrix          android    ios
+  share                  1/2        3/3
+    Share an empty list  ✗ missing  ✓ passed
+```
+
+Cells are `✓ passed`, `✗ failed`, `✗ missing`, `! unapproved`, `~ stale`, `○ not run`, or `n/a` when the scenario does not apply. The verification report adds a `targets` object with the `linkage`, `execution`, and `overall` verdicts of every covered target, and `evidenceTarget` on its test links. Neither appears without targets.
 
 ## Output file flags
 
@@ -435,13 +461,19 @@ Every code belongs to one stage, and the report prints its meaning and fix:
 | `SCENARIO_MISSING` | Specifications | A requirement has no scenarios |
 | `SPEC_ANNOTATION_MISSING`, `SPEC_ANNOTATION_MISPLACED`, `SPEC_ANNOTATION_MALFORMED`, `SPEC_ANNOTATION_UNSUPPORTED`, `SPEC_ANNOTATION_FIELD_IGNORED` | Specifications | See [Specification format](/concepts/spec-format) |
 | `SPEC_REMOVED_UNMATCHED` | Specifications | A removed requirement name matches no current requirement |
+| `SPEC_TARGETS_MALFORMED`, `SPEC_TARGET_UNKNOWN` | Specifications | A target list is empty, repeats a name, holds an invalid name, or names a target `stele.config.json` does not configure |
+| `SPEC_TARGETS_WIDENED`, `SPEC_TARGETS_MISPLACED`, `SPEC_TARGETS_UNDECLARED` | Specifications | A `Targets:` line widens its parent, is outside a heading's metadata block, or appears in a specification without a `targets` field |
+| `SPEC_TARGETS_MISMATCH`, `SPEC_TARGETS_CHANGE_UNCOVERED` | Specifications | A delta spec declares targets differently from its current specification, or changes them without listing every affected requirement; see [Targets](/guide/targets) |
 | `PLAN_UNAPPROVED`, `PLAN_APPROVAL_STALE` | Plan approval | An entry is not approved, or changed since approval; run `stele approve` |
 | `PLAN_EVIDENCE_MISSING`, `PLAN_EVIDENCE_INVALID`, `PLAN_UNKNOWN_ID`, `PLAN_CHANGE_MISMATCH` | Plan approval | The plan misses, misstates, or does not belong to its scenarios |
 | `PLAN_CODE_MISSING`, `PLAN_TEST_MISSING`, `PLAN_V1_DEPRECATED` | Plan approval | Version 1 plans; run `stele plan migrate` |
 | `PLAN_ARCHIVE_ORDER_AMBIGUOUS` | Plan approval | Two same-day archives plan an ID differently (warning) |
 | `PLAN_REMOVED_BEHAVIOR_PLANNED` | Plan approval | The plan still lists removed behavior |
+| `PLAN_TARGET_NOT_APPLICABLE` | Plan approval | A plan entry names a target its scenario does not apply to |
 | `LINK_CODE_MISSING`, `LINK_TEST_MISSING`, `LINK_EVIDENCE_MISSING`, `LINK_TARGET_MISMATCH` | Linkage | A requirement, scenario, or evidence entry has no matching anchor |
 | `LINK_REMOVED_BEHAVIOR_ANCHORED` | Linkage | Code or a test is still anchored to removed behavior |
+| `LINK_TARGET_IMPLEMENTATION_MISSING` | Linkage | A requirement has no `@implements` anchor within the paths of a target it applies to |
+| `ANCHOR_TARGET_OUTSIDE_PATHS` | Linkage | A `@verifies` anchor for a target lives outside that target's paths |
 | `ANCHOR_DANGLING`, `ANCHOR_KIND`, `ANCHOR_TARGET_MISSING`, `ANCHOR_EVIDENCE_UNPLANNED` | Linkage | An anchor names an undeclared ID, has the wrong kind, is not above a declaration, or claims unplanned evidence |
 | `EXECUTION_FAILED` | Test execution | The last run of an evidence entry's tests failed (warning); only the [language server](/guide/editors#diagnostics) reports it |
 | `EXECUTION_STALE` | Test execution | The stored outcome was recorded before the verified inputs changed (information); only the [language server](/guide/editors#diagnostics) reports it |

@@ -168,7 +168,7 @@ func TestParseOptions(t *testing.T) {
 		t.Fatalf("unexpected options: %#v", parsed)
 	}
 	parsed, err = parseOptions("test", []string{"scn.demo.aaaaaaaaaaaa", "--change", "demo", "req.demo.bbbbbbbbbbbb"})
-	if err != nil || !slices.Equal(parsed.targets, []string{"scn.demo.aaaaaaaaaaaa", "req.demo.bbbbbbbbbbbb"}) ||
+	if err != nil || !slices.Equal(parsed.selections, []string{"scn.demo.aaaaaaaaaaaa", "req.demo.bbbbbbbbbbbb"}) ||
 		parsed.changeID != "demo" {
 		t.Fatalf("test targets = %#v, %v", parsed, err)
 	}
@@ -457,7 +457,7 @@ func TestTestRejectsUnknownTargets(t *testing.T) {
 	} {
 		code, stdout, stderr := runCommand(t, "test", "scn.demo.bbbbbbbbbbbb", target,
 			"--root", root, "--change", "example")
-		if code != 2 || !strings.Contains(stderr, "unknown test target "+target) || stdout != "" {
+		if code != 2 || !strings.Contains(stderr, "unknown test selection "+target) || stdout != "" {
 			t.Fatalf("test %s = %d, %q, %q", target, code, stdout, stderr)
 		}
 	}
@@ -608,6 +608,62 @@ func TestAllRejectsConflictingScopes(t *testing.T) {
 	}
 	if len(*ran) != 0 || fileExists(filepath.Join(root, "artifacts", "verification-report.json")) {
 		t.Fatalf("a conflicting --all checked something: %v", *ran)
+	}
+	// --target narrows --all instead of conflicting with it.
+	if parsed, err := parseOptions("verify", []string{"--all", "--target", "web", "--root", root}); err != nil ||
+		!parsed.allScopes || !slices.Equal(parsed.selectedTargets, []string{"web"}) {
+		t.Fatalf("--all --target = %#v, %v", parsed, err)
+	}
+}
+
+// @verifies scn.linkindex.094a437d7c9c.unit
+func TestEveryScopeCombinesWithATarget(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "stele.config.json", `{"targets":{"api":{"paths":["api/**"]},"web":{"paths":["web/**"]}}}`)
+	checkout := `<!-- stele: spec v1; targets: api, web -->
+### Requirement: Promo contract
+Verification-ID: req.checkout.111111111111
+#### Scenario: Apply a valid code
+Verification-ID: scn.checkout.222222222222
+- **WHEN** a valid code is submitted
+- **THEN** the response has the discount
+`
+	writeFixture(t, root, "openspec/specs/checkout/spec.md", checkout)
+	writeFixture(t, root, "openspec/changes/promo/specs/checkout/spec.md",
+		strings.Replace(checkout, "### Requirement", "## MODIFIED Requirements\n### Requirement", 1))
+	plan := func(approve bool) string {
+		content, _ := MarshalDeterministic(evidencePlanFile{
+			SchemaVersion: 2, ChangeID: "promo",
+			Scenarios: map[string]ScenarioEvidence{"scn.checkout.222222222222": {Evidence: []EvidenceEntry{
+				targetedEntry("scn.checkout.222222222222", "api", "integration"),
+				targetedEntry("scn.checkout.222222222222", "web", "unit"),
+			}}},
+		})
+		return string(content)
+	}
+	writeFixture(t, root, "openspec/changes/promo/linkage-plan.json", plan(false))
+	code, stdout, stderr := runCommand(t, "verify", "--all", "--target", "web", "--root", root, "--json",
+		"--stage", "proposal")
+	var results []scopeResult
+	if err := json.Unmarshal([]byte(stdout), &results); err != nil || code != 1 || len(results) != 2 {
+		t.Fatalf("verify --all --target web = %d, %q, %q", code, stdout, stderr)
+	}
+	for _, result := range results {
+		var report Report
+		if err := json.Unmarshal(result.Result, &report); err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(report.SelectedTargets, []string{"web"}) {
+			t.Fatalf("scope %s selected %v", result.Scope, report.SelectedTargets)
+		}
+		for _, item := range report.Diagnostics {
+			if strings.Contains(identityOf(item), ".api.") {
+				t.Fatalf("scope %s reported the api target: %#v", result.Scope, item)
+			}
+		}
+	}
+	if results[0].Scope != "specs" || results[1].Scope != "promo" || results[1].ExitCode != 1 {
+		t.Fatalf("scopes = %#v", results)
 	}
 }
 

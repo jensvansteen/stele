@@ -22,7 +22,8 @@ const (
 	markWarn = "!"
 )
 
-var evidenceIDPattern = regexp.MustCompile(`^((?:req|scn)\.[a-z0-9]+\.[a-f0-9]{12})\.(unit|integration|e2e)(?:\.\d+)?$`)
+var evidenceIDPattern = regexp.MustCompile(
+	`^((?:req|scn)\.[a-z0-9]+\.[a-f0-9]{12})\.(?:[a-z][a-z0-9-]*\.)?(unit|integration|e2e)(?:\.\d+)?$`)
 
 // humanReportInput is what a command knows when it prints its report.
 type humanReportInput struct {
@@ -53,6 +54,7 @@ type humanReport struct {
 	header       string
 	capabilities []capabilityRow
 	checks       []checkLine
+	matrix       *matrixView
 	groups       []problemGroup
 	failed       []testLine
 	stale        []testLine
@@ -116,6 +118,13 @@ func buildHumanReport(input humanReportInput) humanReport {
 	result := humanReport{
 		header: fmt.Sprintf("stele %s · %s · %s", Version, input.command, label),
 		passed: input.passed,
+	}
+	if input.scope.selected.active() {
+		result.header += " · " + choose(len(input.scope.selected) == 1, "target ", "targets ") +
+			strings.Join(input.scope.selected, ", ")
+	}
+	if input.report != nil && input.report.matrix != nil {
+		result.matrix = newMatrixView(*input.report.matrix)
 	}
 	tests := classifyTests(input, index)
 	diagnostics := reportDiagnostics(input)
@@ -699,6 +708,7 @@ func renderHumanReport(writer io.Writer, report humanReport, style reportStyle) 
 	for _, check := range report.checks {
 		fmt.Fprintf(&out, "  %s %s%s\n", style.paint(check.mark), pad(check.name, 28), check.detail)
 	}
+	renderMatrix(&out, report.matrix, style)
 	renderGroups(&out, "Errors", "error", report.groups, style)
 	renderGroups(&out, "Warnings", "warning", report.groups, style)
 	renderTests(&out, "Failed tests", markFail, report.failed, style)
@@ -821,4 +831,115 @@ func truncate(text string, width int) string {
 // renderVerdictOnly prints the final line for --quiet.
 func renderVerdictOnly(writer io.Writer, report humanReport, style reportStyle) {
 	_, _ = fmt.Fprintln(writer, verdictLineText(report, style))
+}
+
+// matrixRowLimit is how many scenario rows of the target matrix the report
+// shows before "… N more (--details)".
+const matrixRowLimit = 10
+
+// matrixMarks are the report marks of the matrix cell states.
+var matrixMarks = map[string]string{
+	"passed": markPass + " passed", "failed": markFail + " failed", "missing": markFail + " missing",
+	"unapproved": markWarn + " unapproved", "stale": "~ stale", "not-run": "○ not run",
+	matrixNotApplicable: matrixNotApplicable,
+}
+
+// matrixView is the target matrix of the human report: a summary row per
+// capability with passed and applicable scenarios per target, and the
+// scenarios with a gap, or with --details every targeted scenario.
+type matrixView struct {
+	targets      []string
+	capabilities [][]string
+	gaps         [][]string
+	all          [][]string
+}
+
+// newMatrixView turns a scope's matrix into report rows. Every row starts with
+// its name, followed by one value per target.
+//
+// @implements req.terminalreport.c2e0f6607fd6
+func newMatrixView(matrix TargetMatrix) *matrixView {
+	view := &matrixView{targets: matrix.Targets}
+	counts := make(map[string][][2]int)
+	order := make([]string, 0)
+	for _, row := range matrix.Rows {
+		if _, seen := counts[row.Capability]; !seen {
+			order = append(order, row.Capability)
+			counts[row.Capability] = make([][2]int, len(matrix.Targets))
+		}
+		marks := []string{row.Title}
+		gap := false
+		for column, cell := range row.Cells {
+			marks = append(marks, matrixMarks[cell.State])
+			if cell.State != matrixNotApplicable {
+				counts[row.Capability][column][1]++
+				counts[row.Capability][column][0] += boolCount(cell.State == "passed")
+			}
+			gap = gap || (cell.State != "passed" && cell.State != matrixNotApplicable)
+		}
+		view.all = append(view.all, marks)
+		if gap {
+			view.gaps = append(view.gaps, marks)
+		}
+	}
+	for _, capability := range order {
+		row := []string{capability}
+		for _, count := range counts[capability] {
+			row = append(row, fmt.Sprintf("%d/%d", count[0], count[1]))
+		}
+		view.capabilities = append(view.capabilities, row)
+	}
+	return view
+}
+
+// renderMatrix prints the target matrix: capability rows, then scenario rows
+// with a gap, at most ten of them unless --details lists every scenario.
+func renderMatrix(out *strings.Builder, view *matrixView, style reportStyle) {
+	if view == nil {
+		return
+	}
+	scenarios := view.gaps
+	if style.details {
+		scenarios = view.all
+	}
+	shown := len(scenarios)
+	if !style.details {
+		shown = min(shown, matrixRowLimit)
+	}
+	width := utf8.RuneCountInString("Target matrix")
+	for _, row := range view.capabilities {
+		width = max(width, utf8.RuneCountInString(row[0]))
+	}
+	for _, row := range scenarios[:shown] {
+		width = max(width, utf8.RuneCountInString(truncate(row[0], 48))+2)
+	}
+	widths := make([]int, len(view.targets))
+	for column, target := range view.targets {
+		widths[column] = utf8.RuneCountInString(target)
+		for _, row := range append(append([][]string{}, view.capabilities...), scenarios[:shown]...) {
+			widths[column] = max(widths[column], utf8.RuneCountInString(row[column+1]))
+		}
+	}
+	painted := []string{markPass, markFail, markWarn}
+	line := func(name string, values []string, paint bool) {
+		var text strings.Builder
+		text.WriteString("  " + pad(name, width))
+		for column, value := range values {
+			cell := pad(value, widths[column])
+			if mark, rest, _ := strings.Cut(value, " "); paint && slices.Contains(painted, mark) {
+				cell = style.paint(mark) + " " + pad(rest, widths[column]-utf8.RuneCountInString(mark)-1)
+			}
+			text.WriteString("  " + cell)
+		}
+		out.WriteString(strings.TrimRight(text.String(), " ") + "\n")
+	}
+	out.WriteString("\n")
+	line("Target matrix", view.targets, false)
+	for _, row := range view.capabilities {
+		line(row[0], row[1:], false)
+	}
+	for _, row := range scenarios[:shown] {
+		line("  "+truncate(row[0], 48), row[1:], true)
+	}
+	writeMore(out, len(scenarios)-shown, "  ")
 }

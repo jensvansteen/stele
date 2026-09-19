@@ -20,16 +20,16 @@ const helpBody = ` — deterministic OpenSpec implementation verification
 Usage:
   stele init [--change ID] [--tools TOOLS] [--refresh-schema] [--strict-versions] [--root PATH]
   stele ids [--change ID] [--root PATH] [--check] [--json]
-  stele annotate [--change ID | --specs | --all] [--root PATH] [--check] [--json]
-  stele check [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--evidence-file PATH]
-              [--json] [--strict-versions] [OUTPUT]
-  stele verify [--stage proposal|implementation] [--change ID | --specs | --all] [--root PATH]
-               [--report-file PATH] [--json] [--strict-versions] [OUTPUT]
-  stele test [targets...] [--change ID | --specs | --all] [--root PATH] [--evidence-file PATH] [--json]
-             [OUTPUT]
-  stele validate [--change ID | --specs | --all] [--root PATH] [--report-file PATH] [--evidence-file PATH]
-                 [--json] [--strict-versions] [OUTPUT]
-  stele index [--change ID | --specs | --all] [--root PATH] [--output-file PATH] [--json]
+  stele annotate [--change ID | --specs | --all] [--targets-from DIR] [--root PATH] [--check] [--json]
+  stele check [--change ID | --specs | --all] [--target NAME]... [--root PATH] [--report-file PATH]
+              [--evidence-file PATH] [--json] [--strict-versions] [OUTPUT]
+  stele verify [--stage proposal|implementation] [--change ID | --specs | --all] [--target NAME]...
+               [--root PATH] [--report-file PATH] [--json] [--strict-versions] [OUTPUT]
+  stele test [selections...] [--change ID | --specs | --all] [--target NAME]... [--root PATH]
+             [--evidence-file PATH] [--json] [OUTPUT]
+  stele validate [--change ID | --specs | --all] [--target NAME]... [--root PATH] [--report-file PATH]
+                 [--evidence-file PATH] [--json] [--strict-versions] [OUTPUT]
+  stele index [--change ID | --specs | --all] [--target NAME]... [--root PATH] [--output-file PATH] [--json]
   stele approve [--change ID | --specs] [--evidence ID]... [--scenario ID]... [--all --yes | --confirmed-in-chat]
                 [--by NAME] [--root PATH]
   stele plan migrate [--change ID | --specs] [--root PATH]
@@ -40,7 +40,10 @@ lists every finding, --quiet prints only the verdict line, --color auto colors t
 is set, and --annotations auto writes GitHub Actions annotations when GITHUB_ACTIONS is true. Progress and
 annotations go to standard error; --json output on standard output is unchanged.
 stele check runs stele ids --check, stele annotate --check, and stele validate, and exits with the worst code.
-Test targets are requirement, scenario, or evidence IDs, or spec.md files under openspec/.
+Test selections are requirement, scenario, or evidence IDs, or spec.md files under openspec/.
+--target NAME covers one target of stele.config.json and is repeatable; specifications without targets
+describe the whole project and stay in scope.
+annotate --specs --targets-from DIR copies each capability's targets from an archived change directory.
 stele lsp runs the language server for editors over standard input and output.
 --report and --evidence are deprecated aliases of --report-file and --evidence-file until 0.2.0.
 
@@ -71,10 +74,17 @@ type options struct {
 	// backend is the specification backend selected by the adapter setting.
 	backend        specificationBackend
 	strictVersions bool
-	// targets are the positional test targets; allScopes selects every scope.
-	targets    []string
+	// selections are the positional test selections; allScopes selects every
+	// scope.
+	selections []string
 	allScopes  bool
-	outputPath string
+	// projectTargets is the target registry of stele.config.json, and
+	// selectedTargets the --target selection, sorted.
+	projectTargets  *projectTargets
+	selectedTargets []string
+	// targetsFrom is the archived change directory of annotate --targets-from.
+	targetsFrom string
+	outputPath  string
 	// deprecated lists the deprecated flags that were used.
 	deprecated []deprecatedFlag
 	// every is set while one scope of an --all run executes.
@@ -231,7 +241,8 @@ Using OpenSpec skills directly? The stele schema adds the planning step to
 new changes. Run these Stele commands around the OpenSpec steps:
   after writing specs: stele ids, then stele verify --stage proposal
   after applying:      stele validate --change <change>
-  after archiving:     stele annotate --specs, then stele validate --specs
+  after archiving:     stele annotate --specs --targets-from <archive-dir>,
+                       then stele validate --specs
 Enable OpenSpec's verify-change skill with: npx openspec config profile
 `
 
@@ -332,7 +343,7 @@ func parseOptions(command string, arguments []string) (options, error) {
 	if parsed.specs && parsed.changeID != "" {
 		return options{}, errConflictingScope
 	}
-	if parsed.allScopes && (parsed.specs || parsed.changeID != "" || len(parsed.targets) > 0) {
+	if parsed.allScopes && (parsed.specs || parsed.changeID != "" || len(parsed.selections) > 0) {
 		return options{}, errConflictingAll
 	}
 	if parsed.stage != "proposal" && parsed.stage != "implementation" {
@@ -348,10 +359,10 @@ func parseOptions(command string, arguments []string) (options, error) {
 	return parsed, nil
 }
 
-var errConflictingAll = errors.New("--all cannot be combined with --change, --specs, or test targets")
+var errConflictingAll = errors.New("--all cannot be combined with --change, --specs, or test selections")
 
 // parseArguments parses flags anywhere on the command line. Only `stele test`
-// accepts positional arguments, its targets.
+// accepts positional arguments, its selections.
 func parseArguments(flags *flag.FlagSet, command string, arguments []string, parsed *options) error {
 	for {
 		if err := flags.Parse(arguments); err != nil {
@@ -363,7 +374,7 @@ func parseArguments(flags *flag.FlagSet, command string, arguments []string, par
 		if command != "test" {
 			return fmt.Errorf("unknown option: %s", flags.Arg(0))
 		}
-		parsed.targets = append(parsed.targets, flags.Arg(0))
+		parsed.selections = append(parsed.selections, flags.Arg(0))
 		arguments = flags.Args()[1:]
 	}
 }
@@ -434,6 +445,7 @@ func registerCommandFlags(flags *flag.FlagSet, command string, parsed *options) 
 		return
 	case "annotate":
 		flags.BoolVar(&parsed.check, "check", false, "report missing annotations without writing")
+		flags.StringVar(&parsed.targetsFrom, "targets-from", "", "archived change directory to copy targets from")
 		flags.BoolVar(&parsed.allScopes, "all", false, "annotate the current specifications and every active change")
 	case "approve":
 		flags.Var(listFlag{&parsed.evidenceIDs}, "evidence", "evidence IDs to approve")
@@ -443,10 +455,14 @@ func registerCommandFlags(flags *flag.FlagSet, command string, parsed *options) 
 		flags.BoolVar(&parsed.confirmedInChat, "confirmed-in-chat", false, "record a confirmation given in chat")
 		flags.StringVar(&parsed.approver, "by", "", "approver name")
 	case "plan migrate":
+	case "index":
+		flags.Var(listFlag{&parsed.selectedTargets}, "target", "targets to cover")
+		flags.BoolVar(&parsed.allScopes, "all", false, "check the current specifications and every active change")
 	case "verify", "validate", "check":
 		flags.BoolVar(&parsed.strictVersions, "strict-versions", false, "fail on backend version drift")
 		fallthrough
 	case "test":
+		flags.Var(listFlag{&parsed.selectedTargets}, "target", "targets to cover")
 		flags.BoolVar(&parsed.details, "details", false, "list every finding without truncation")
 		flags.BoolVar(&parsed.quiet, "quiet", false, "print only the verdict line and no progress")
 		flags.StringVar(&parsed.color, "color", "auto", "color: auto, always, or never")
@@ -490,6 +506,13 @@ func withConfig(parsed options) (options, error) {
 	}
 	parsed.unannotated = config.UnannotatedSpecs
 	parsed.backend, err = resolveBackend(config.Adapter)
+	if err != nil {
+		return options{}, err
+	}
+	if parsed.projectTargets, err = parseProjectTargets(config.Targets); err != nil {
+		return options{}, err
+	}
+	parsed.selectedTargets, err = validateTargetSelection(parsed.projectTargets, parsed.selectedTargets)
 	if err != nil {
 		return options{}, err
 	}
@@ -567,11 +590,12 @@ func storedExecutions(root string, report Report) []TestExecution {
 	return executions
 }
 
-// testCommand runs the scope's tests, or with targets only the selected ones,
+// testCommand runs the scope's tests, or with selections or --target only the
+// selected ones,
 // merging their outcomes into the stored evidence. A targeted run exits
 // according to the tests it ran.
 func testCommand(parsed options, stdout, stderr io.Writer) int {
-	if len(parsed.targets) > 0 && parsed.evidencePath == "" {
+	if (len(parsed.selections) > 0 || len(parsed.selectedTargets) > 0) && parsed.evidencePath == "" {
 		parsed.evidencePath = defaultEvidencePath
 	}
 	progress := parsed.progress(stderr)
@@ -581,7 +605,7 @@ func testCommand(parsed options, stdout, stderr io.Writer) int {
 		root:         parsed.root,
 		scope:        scope,
 		evidencePath: parsed.evidencePath,
-		targets:      parsed.targets,
+		selections:   parsed.selections,
 		merge:        parsed.every.mergesEvidence(),
 		observer:     progress,
 	})
@@ -820,14 +844,18 @@ type scopeResult struct {
 
 // everyScope lists the current specifications, when there are any, and then
 // every active change in directory order.
-func everyScope(root string, backend specificationBackend) []verificationScope {
+// Every scope shares base's backend and project settings.
+func everyScope(root string, base verificationScope) []verificationScope {
 	scopes := make([]verificationScope, 0)
-	specs := verificationScope{currentSpecs: true, backend: backend}
+	specs := base
+	specs.currentSpecs, specs.changeID = true, ""
 	if len(specs.spec().SpecFiles(root, specs)) > 0 {
 		scopes = append(scopes, specs)
 	}
 	for _, change := range specs.spec().Changes(root) {
-		scopes = append(scopes, verificationScope{changeID: change, backend: backend})
+		scope := base
+		scope.currentSpecs, scope.changeID = false, change
+		scopes = append(scopes, scope)
 	}
 	return scopes
 }
@@ -872,7 +900,7 @@ func runOneScope(
 //
 // @implements req.linkindex.0c06109d8d29
 func runEveryScope(command string, parsed options, stdout, stderr io.Writer) int {
-	scopes := everyScope(parsed.root, parsed.backend)
+	scopes := everyScope(parsed.root, parsed.baseScope())
 	if len(scopes) == 0 {
 		return writeCommandError(stderr, errors.New("no current specifications and no active changes to check"))
 	}

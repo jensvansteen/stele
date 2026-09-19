@@ -307,3 +307,102 @@ func TestReportWithoutTestsOrPlans(t *testing.T) {
 		t.Fatalf("unknown code guide = %#v", unknown)
 	}
 }
+
+// matrixReportFixture verifies the targeted fixture with a third scenario:
+// every scenario passes on ios, one has no android evidence, and one is
+// narrowed to ios.
+func matrixReportFixture(t *testing.T) (string, Report) {
+	t.Helper()
+	root := targetedFixture(t)
+	writeFixture(t, root, "openspec/changes/example/specs/share/spec.md", shareSpec+`
+#### Scenario: Share an empty list
+Verification-ID: scn.share.dddddddddddd
+
+- **WHEN** the list is empty
+- **THEN** the shared text says so
+`)
+	writeTargetedPlan(t, root, true,
+		targetedEntry(shareTextID, "ios", "unit"), targetedEntry(shareTextID, "android", "unit"),
+		targetedEntry(shareSheetID, "ios", "unit"), targetedEntry("scn.share.dddddddddddd", "ios", "unit"))
+	tests := []struct{ path, name, evidence string }{
+		{"ios/share.test.mts", "ios share text", shareTextID + ".ios.unit"},
+		{"android/share.test.mts", "android share text", shareTextID + ".android.unit"},
+		{"ios/sheet.test.mts", "ios share sheet", shareSheetID + ".ios.unit"},
+		{"ios/empty.test.mts", "ios empty list", "scn.share.dddddddddddd.ios.unit"},
+	}
+	for _, test := range tests {
+		writeTargetedTest(t, root, test.path, test.evidence, test.name)
+	}
+	digest, err := ComputeInputDigest(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence := Evidence{SchemaVersion: evidenceSchemaVersion, InputDigest: digest}
+	for _, test := range tests {
+		evidence.Executions = append(evidence.Executions,
+			execution(test.path, test.name, test.evidence, "passed", digest))
+	}
+	report, err := verifyScope(verifyRequest{
+		root: root, scope: configuredScope(t, root, changeScope("example")), mode: "implementation",
+		evidence: &evidence,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root, report
+}
+
+// @verifies scn.terminalreport.29b8400fc1b1.unit
+func TestReportShowsTheTargetMatrix(t *testing.T) {
+	root, report := matrixReportFixture(t)
+	scope := configuredScope(t, root, changeScope("example"))
+	input := humanReportInput{command: "verify", scope: scope, report: &report}
+	output := renderedReport(input, reportStyle{})
+	lines := strings.Split(output, "\n")
+	start := slices.IndexFunc(lines, func(line string) bool { return strings.HasPrefix(line, "  Target matrix") })
+	if start < 0 {
+		t.Fatalf("no target matrix:\n%s", output)
+	}
+	matrix := lines[start : start+4]
+	want := []string{
+		"  Target matrix          android    ios",
+		"  share                  1/2        3/3",
+		"    Share an empty list  ✗ missing  ✓ passed",
+		"",
+	}
+	if !slices.Equal(matrix, want) {
+		t.Fatalf("matrix =\n%s\nwant\n%s", strings.Join(matrix, "\n"), strings.Join(want, "\n"))
+	}
+	details := renderedReport(input, reportStyle{details: true})
+	for _, row := range []string{"Share text contains every item", "Share through the iOS share sheet", "n/a"} {
+		if !strings.Contains(details, row) {
+			t.Fatalf("--details lacks %q:\n%s", row, details)
+		}
+	}
+	gaps := make([]TargetMatrixRow, 0)
+	for index := range 12 {
+		gaps = append(gaps, TargetMatrixRow{
+			Title: fmt.Sprintf("Gap %02d", index), Capability: "share",
+			Cells: []TargetMatrixCell{{Target: "ios", State: "missing"}},
+		})
+	}
+	var many strings.Builder
+	renderMatrix(&many, newMatrixView(TargetMatrix{Targets: []string{"ios"}, Rows: gaps}), reportStyle{})
+	if !strings.Contains(many.String(), "Gap 09") || strings.Contains(many.String(), "Gap 10") ||
+		!strings.Contains(many.String(), "… 2 more (--details)") {
+		t.Fatalf("the matrix was not truncated at ten rows:\n%s", many.String())
+	}
+}
+
+// @verifies scn.terminalreport.33eebddcfa33.unit
+func TestReportLeavesTheMatrixOutWithoutTargets(t *testing.T) {
+	report := reportFixture()
+	output := renderedReport(humanReportInput{command: "verify", scope: changeScope("example"), report: &report},
+		reportStyle{details: true})
+	if strings.Contains(output, "Target matrix") || strings.Contains(output, "target") {
+		t.Fatalf("an untargeted report mentions targets:\n%s", output)
+	}
+	if report.matrix != nil || buildHumanReport(humanReportInput{report: &report}).matrix != nil {
+		t.Fatal("an untargeted report has a matrix")
+	}
+}

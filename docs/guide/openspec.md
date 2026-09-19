@@ -32,12 +32,12 @@ OpenSpec shows the apply and archive guidance to the agent, but cannot enforce i
 | After `openspec-apply-change` | `stele validate --change <change>` |
 | OpenSpec's `openspec-verify-change` | Run it after `stele validate` passes; it reviews the implementation, Stele proves the links and tests |
 | Before `openspec-archive-change` | `stele validate --change <change>` must pass |
-| After archiving | `stele annotate --specs`, then `stele validate --specs` |
+| After archiving | `stele annotate --specs --targets-from openspec/changes/archive/<date>-<change>`, then `stele validate --specs` |
 | `openspec-explore`, `openspec-sync-specs` | No Stele step is needed |
 
 `openspec-verify-change` is not in OpenSpec's core profile. Enable it with `npx openspec config profile`.
 
-When archiving a change creates a new current specification, OpenSpec writes it without the Stele annotation. `stele annotate --specs` restores it and changes nothing else, which is why it runs before `stele validate --specs`.
+When archiving a change creates a new current specification, OpenSpec writes it without the Stele annotation. `stele annotate --specs` restores it and changes nothing else, which is why it runs before `stele validate --specs`. `--targets-from` also copies each capability's [targets](/guide/targets) from the archived delta spec.
 
 ## Move an existing change to the `stele` schema
 
