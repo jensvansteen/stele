@@ -16,6 +16,14 @@ import (
 
 const requiredCoverage = 100
 
+// corePackage is the Go verifier core, which must be fully covered. The
+// coverage run tests every Go package once, with the race detector, and
+// counts only the core's statements.
+const corePackage = "github.com/jensvansteen/stele/internal/stele/"
+
+// coveragePackages are the packages the coverage run tests.
+var coveragePackages = []string{"./cmd/...", "./internal/...", "./tools/..."}
+
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
@@ -71,7 +79,8 @@ func checkCoverage(stdout, stderr io.Writer) int {
 	}()
 
 	profile := filepath.Join(temporaryDirectory, "core.coverage")
-	command := exec.Command("go", "test", "./internal/stele", "-coverprofile="+profile)
+	arguments := append([]string{"test", "-race", "-coverprofile=" + profile}, coveragePackages...)
+	command := exec.Command("go", arguments...)
 	command.Stdout = stdout
 	command.Stderr = stderr
 	if err := command.Run(); err != nil {
@@ -107,7 +116,7 @@ func readCoverage(path string) (int, int, error) {
 		return 0, 0, fmt.Errorf("open coverage profile: %w", err)
 	}
 
-	covered, total, parseErr := parseCoverage(profile)
+	covered, total, parseErr := parseCoverage(profile, corePackage)
 	closeErr := profile.Close()
 	if parseErr != nil {
 		return 0, 0, parseErr
@@ -118,7 +127,9 @@ func readCoverage(path string) (int, int, error) {
 	return covered, total, nil
 }
 
-func parseCoverage(profile io.Reader) (int, int, error) {
+// parseCoverage counts the covered and total statements of the files whose
+// import path starts with prefix.
+func parseCoverage(profile io.Reader, prefix string) (int, int, error) {
 	scanner := bufio.NewScanner(profile)
 	if !scanner.Scan() || !strings.HasPrefix(scanner.Text(), "mode:") {
 		return 0, 0, fmt.Errorf("coverage profile has no mode header")
@@ -130,6 +141,9 @@ func parseCoverage(profile io.Reader) (int, int, error) {
 		fields := strings.Fields(scanner.Text())
 		if len(fields) < 3 {
 			return 0, 0, fmt.Errorf("invalid coverage record %q", scanner.Text())
+		}
+		if !strings.HasPrefix(fields[0], prefix) {
+			continue
 		}
 		statements, err := strconv.Atoi(fields[len(fields)-2])
 		if err != nil {

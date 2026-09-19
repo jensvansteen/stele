@@ -66,9 +66,39 @@ jobs:
         run: npm run docs:build
       - name: Verify packed npm boundary
         run: npm pack --dry-run
+
+  # The two Stele gates run as their own Linux jobs, in parallel with the
+  # tests: each takes about a minute, and neither needs the other's result.
+  self-verify:
+    name: Verify archived behavior with the published Stele
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - name: Verify Stele's archived behavior with the published Stele
-        if: matrix.os == 'ubuntu-latest'
         run: npm run verify:self
+
+  check-changes:
+    name: Check changes with the Stele built from this commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - name: Check active changes and current specifications with the Stele built from this commit
-        if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }}
         run: npm run stele -- check --all
