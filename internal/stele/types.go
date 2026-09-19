@@ -1,5 +1,7 @@
 package stele
 
+import "encoding/json"
+
 // Source identifies a location in a repository input.
 type Source struct {
 	Path string `json:"path"`
@@ -13,6 +15,8 @@ type Diagnostic struct {
 	Message    string  `json:"message"`
 	IdentityID *string `json:"identityId"`
 	Source     *Source `json:"source"`
+	// target attributes a finding to one target for its verdicts.
+	target string
 }
 
 // ScenarioStep is one `- **KEYWORD** text` bullet of a scenario.
@@ -33,6 +37,16 @@ type Scenario struct {
 	// line, and Steps are its keyword bullets.
 	Body  string
 	Steps []ScenarioStep
+	// DeclaredTargets is the scenario's own `Targets:` line, Targets the
+	// targets it applies to, sorted, and Targeted tells whether its
+	// specification declares targets at all.
+	DeclaredTargets []string
+	Targets         []string
+	Targeted        bool
+	// targetsDeclared tells whether the scenario has a `Targets:` line, and
+	// targetsLine where.
+	targetsDeclared bool
+	targetsLine     int
 }
 
 // Requirement is a parsed OpenSpec requirement and its scenarios.
@@ -44,6 +58,12 @@ type Requirement struct {
 	// and without the scenarios.
 	Text      string
 	Scenarios []Scenario
+	// DeclaredTargets, Targets, and Targeted are as for a scenario.
+	DeclaredTargets []string
+	Targets         []string
+	Targeted        bool
+	targetsDeclared bool
+	targetsLine     int
 }
 
 // ParsedSpecs contains the canonical behaviors and diagnostics read from OpenSpec.
@@ -53,8 +73,10 @@ type ParsedSpecs struct {
 	Files        []string
 	// Annotations holds the annotation of each file, in the order of Files.
 	Annotations []SpecAnnotation
-	// Removed lists the requirements named under `## REMOVED Requirements`.
+	// Removed lists the requirements named under `## REMOVED Requirements`,
+	// and Renamed the old names under `## RENAMED Requirements`.
 	Removed []RemovedRequirement
+	Renamed []RemovedRequirement
 }
 
 // RemovedRequirement is a requirement that a delta spec removes, by name.
@@ -76,6 +98,8 @@ type Anchor struct {
 	// scn.todo.0a1b2c3d4e5f.unit, and empty for a bare identity.
 	EvidenceID string `json:"evidenceId,omitempty"`
 	Level      string `json:"level,omitempty"`
+	// Target is the target of a targeted evidence ID, such as ios.
+	Target string `json:"target,omitempty"`
 }
 
 // EvidenceApproval records who approved an evidence entry and what they saw.
@@ -89,7 +113,10 @@ type EvidenceApproval struct {
 
 // EvidenceEntry is one planned kind of evidence for a scenario.
 type EvidenceEntry struct {
-	ID        string            `json:"id"`
+	ID string `json:"id"`
+	// Target is present exactly when the scenario's specification declares
+	// targets, and equals the target in the ID.
+	Target    string            `json:"target,omitempty"`
 	Level     string            `json:"level"`
 	Rationale string            `json:"rationale"`
 	Placement string            `json:"placement,omitempty"`
@@ -119,6 +146,7 @@ type LinkagePlan struct {
 // PlannedEvidence is the report summary of one evidence entry.
 type PlannedEvidence struct {
 	ID        string `json:"id"`
+	Target    string `json:"target,omitempty"`
 	Level     string `json:"level"`
 	Approval  string `json:"approval"`
 	Placement string `json:"placement,omitempty"`
@@ -137,6 +165,9 @@ type Link struct {
 	Target          *string `json:"target,omitempty"`
 	EvidenceID      string  `json:"evidenceId,omitempty"`
 	Level           string  `json:"level,omitempty"`
+	// EvidenceTarget is the target of a targeted evidence ID; Target stays the
+	// planned path of a version 1 plan until 0.2.0.
+	EvidenceTarget string `json:"evidenceTarget,omitempty"`
 }
 
 // ExecutionState separates test execution state from its outcome.
@@ -247,6 +278,12 @@ type Report struct {
 	Summary      ReportSummary       `json:"summary"`
 	Requirements []RequirementReport `json:"requirements"`
 	Diagnostics  []Diagnostic        `json:"diagnostics"`
+	// SelectedTargets names the --target selection, and Targets gives the
+	// verdicts of every covered target; both only when targets are in use.
+	SelectedTargets []string                  `json:"selectedTargets,omitempty"`
+	Targets         map[string]ReportVerdicts `json:"targets,omitempty"`
+	// matrix is the scenario by target matrix for the human report.
+	matrix *TargetMatrix
 }
 
 // ScenarioOutcome records the execution outcome associated with a scenario identity.
@@ -307,4 +344,6 @@ type Config struct {
 	Change        string `json:"change"`
 	// UnannotatedSpecs is warn or error; empty means the release default.
 	UnannotatedSpecs string `json:"unannotatedSpecs,omitempty"`
+	// Targets maps each target name to its definition.
+	Targets map[string]json.RawMessage `json:"targets,omitempty"`
 }

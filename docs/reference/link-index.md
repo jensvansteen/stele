@@ -128,6 +128,29 @@ Each scenario lists its evidence:
 
 The input digest covers the whole repository, so any edit to an input marks every outcome stale until the tests run again.
 
+## Targets
+
+These fields appear only when a scope has [targeted](/guide/targets) specifications, so the index of a project without targets is unchanged:
+
+- `targets` at the top level lists the configured targets by name, with their `paths` and `evidenceOnly`.
+- A specification file lists its `targets` field in the written order.
+- Each requirement and scenario of a targeted specification has `declaredTargets`, its own `Targets:` line or `null` without one, and `applicableTargets`, the targets it applies to after narrowing, ordered by name.
+- A targeted evidence entry has its `target`. For a version 1 entry, `target` is still the planned path, until 0.2.0.
+- A test anchor with a targeted evidence ID has its `target`.
+- Each scope in `scopes` has a `matrix`: `targets`, the columns ordered by name, and `rows`, one per targeted scenario in specification order, with its `scenario`, `requirement`, `title`, `capability`, and one cell per target.
+
+```json
+{
+  "target": "android",
+  "state": "missing",
+  "evidence": []
+}
+```
+
+A cell's `state` is `n/a` when the scenario does not apply to the target, `missing` without a plan entry or with an approved entry that no `@verifies` anchor resolves, `unapproved` while an entry is unapproved or stale, and otherwise the worst execution state of its entries: `failed`, `stale`, `not-run`, or `passed`. When the entries of a cell differ, the order `failed`, `missing`, `unapproved`, `stale`, `not-run`, `passed` decides. `evidence` lists the cell's evidence IDs.
+
+With `--target`, the index contains only the selected targets' columns, evidence entries, and anchors, the scenarios and requirements that apply to them, and `selectedTargets` names the selection. Untargeted items stay.
+
 ## Anchors
 
 Anchors are sorted by scope, path, and line. An anchor appears once per scope whose specifications declare its ID, and otherwise once without a `scope`, after the others.

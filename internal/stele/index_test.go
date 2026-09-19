@@ -430,3 +430,94 @@ Verification-ID: scn.demo.444444444444
 		t.Fatalf("spec files without annotations = %#v", built.SpecFiles)
 	}
 }
+
+// @verifies scn.linkindex.34d29862cf10.unit
+func TestIndexListsTargetsAndTheMatrix(t *testing.T) {
+	root := targetedFixture(t)
+	writeTargetedPlan(t, root, true,
+		targetedEntry(shareTextID, "ios", "unit"), targetedEntry(shareSheetID, "ios", "unit"))
+	writeTargetedTest(t, root, "ios/share.test.mts", shareTextID+".ios.unit", "ios share text")
+	digest, err := ComputeInputDigest(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, _ := MarshalDeterministic(Evidence{
+		SchemaVersion: evidenceSchemaVersion, InputDigest: digest,
+		Executions: []TestExecution{
+			execution("ios/share.test.mts", "ios share text", shareTextID+".ios.unit", "passed", digest),
+		},
+	})
+	writeFixture(t, root, defaultEvidencePath, string(stored))
+	index := runIndex(t, "--change", "example", "--root", root)
+	if len(index.Targets) != 3 || index.Targets[0].Name != "android" ||
+		!slices.Equal(index.Targets[1].Paths, []string{"ios/**", "shared/**"}) {
+		t.Fatalf("index targets = %#v", index.Targets)
+	}
+	text, sheet := indexedScenario(t, index, "example", shareTextID), indexedScenario(t, index, "example", shareSheetID)
+	var declared []string
+	if err := json.Unmarshal(sheet.DeclaredTargets, &declared); err != nil {
+		t.Fatal(err)
+	}
+	if string(text.DeclaredTargets) != "null" || !slices.Equal(text.ApplicableTargets, []string{"android", "ios"}) ||
+		!slices.Equal(declared, []string{"ios"}) || !slices.Equal(sheet.ApplicableTargets, []string{"ios"}) {
+		t.Fatalf("scenario targets = %s %v, %s %v", text.DeclaredTargets, text.ApplicableTargets,
+			sheet.DeclaredTargets, sheet.ApplicableTargets)
+	}
+	if len(text.Evidence) != 1 || text.Evidence[0].Target != "ios" || text.Evidence[0].Execution.Outcome != "passed" {
+		t.Fatalf("evidence = %#v", text.Evidence)
+	}
+	if anchors := indexedAnchors(index, shareTextID); len(anchors) != 1 || anchors[0].Target != "ios" {
+		t.Fatalf("anchors = %#v", anchors)
+	}
+	matrix := index.Scopes[0].Matrix
+	if cell := cellOf(t, matrixRow(t, matrix, shareSheetID), "android"); cell.State != matrixNotApplicable {
+		t.Fatalf("narrowed android cell = %#v", cell)
+	}
+	textRow := matrixRow(t, matrix, shareTextID)
+	if cellOf(t, textRow, "android").State != "missing" || cellOf(t, textRow, "ios").State != "passed" {
+		t.Fatalf("text row = %#v", textRow)
+	}
+	selected := runIndex(t, "--change", "example", "--root", root, "--target", "android")
+	if !slices.Equal(selected.Scopes[0].Matrix.Targets, []string{"android"}) ||
+		!slices.Equal(selected.SelectedTargets, []string{"android"}) ||
+		len(indexedAnchors(selected, shareTextID)) != 0 ||
+		len(indexedScenario(t, selected, "example", shareTextID).Evidence) != 0 {
+		t.Fatalf("--target android index = %#v", selected)
+	}
+	for _, scenario := range selected.Scenarios {
+		if scenario.ID == shareSheetID {
+			t.Fatal("a scenario narrowed to ios was indexed for android")
+		}
+	}
+}
+
+// @verifies scn.specannotation.f69cc0129044.unit
+func TestIndexListsTheDeclaredTargetsOfFiles(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "stele.config.json", mobileTargetsConfig)
+	writeFixture(t, root, "openspec/specs/share/spec.md", strings.Replace(shareSpec, "## ADDED Requirements\n", "", 1))
+	writeFixture(t, root, "openspec/specs/plain/spec.md", `<!-- stele: spec v1 -->
+### Requirement: Plain
+Verification-ID: req.plain.111111111111
+#### Scenario: Plain works
+Verification-ID: scn.plain.222222222222
+- **WHEN** it runs
+- **THEN** it passes
+`)
+	index := runIndex(t, "--specs", "--root", root)
+	files := make(map[string]IndexSpecFile)
+	for _, file := range index.SpecFiles {
+		files[file.Path] = file
+	}
+	if share := files["openspec/specs/share/spec.md"]; !slices.Equal(share.Targets, []string{"ios", "android"}) {
+		t.Fatalf("share file = %#v", share)
+	}
+	content, _ := json.Marshal(files["openspec/specs/plain/spec.md"])
+	if strings.Contains(string(content), "targets") {
+		t.Fatalf("an untargeted file lists targets: %s", content)
+	}
+	plain := indexedScenario(t, index, "specs", "scn.plain.222222222222")
+	if plain.DeclaredTargets != nil || plain.ApplicableTargets != nil {
+		t.Fatalf("an untargeted scenario has targets: %#v", plain)
+	}
+}

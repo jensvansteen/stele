@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -534,7 +535,7 @@ func runTargets(t *testing.T, root string, targets ...string) testRun {
 		root:         root,
 		scope:        changeScope("example"),
 		evidencePath: defaultEvidencePath,
-		targets:      targets,
+		selections:   targets,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -704,5 +705,94 @@ func TestRunSelectedMergesOlderEvidence(t *testing.T) {
 	ran := recordTests(t)
 	if run := runTargets(t, root, "scn.demo.bbbbbbbbbbbb.integration"); len(*ran) != 0 || len(run.selected) != 0 {
 		t.Fatalf("planned evidence without tests ran %v", *ran)
+	}
+}
+
+// @verifies scn.linkindex.e5c1d7ab73d5.unit
+func TestRunOneTargetedEvidenceEntry(t *testing.T) {
+	root := completeTargetedFixture(t)
+	recordTests(t)
+	code, _, stderr := runCommand(t, "test", "--root", root, "--json", "--evidence-file", defaultEvidencePath)
+	if code != 0 {
+		t.Fatalf("test = %d, %q", code, stderr)
+	}
+	ran := recordTests(t, "ios share text", "android share text")
+	code, _, stderr = runCommand(t, "test", shareTextID+".android.unit", "--root", root, "--json")
+	if code != 1 || !slices.Equal(*ran, []string{"android share text"}) {
+		t.Fatalf("test %s.android.unit = %d, %q, ran %v", shareTextID, code, stderr, *ran)
+	}
+	stored := storedEvidence(t, root)
+	if executionOutcome(stored, "android share text") != "failed" ||
+		executionOutcome(stored, "ios share text") != "passed" {
+		t.Fatalf("outcomes other than the android unit test changed: %#v", stored)
+	}
+	if _, _, err := newBehaviorCatalog(ParsedSpecs{}, emptyLinkagePlan(), nil).resolve(root, ParsedSpecs{},
+		shareTextID+".android.unit"); err == nil {
+		t.Fatal("an undeclared targeted evidence ID resolved")
+	}
+}
+
+// @verifies scn.verificationtargets.258ffea7adf7.integration
+func TestRunTheTestsOfOneTarget(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "stele.config.json", mobileTargetsConfig)
+	writeFixture(t, root, "openspec/specs/share/spec.md", strings.Replace(shareSpec, "## ADDED Requirements\n", "", 1))
+	writeFixture(t, root, "ios/share.test.mts", `import { appendFileSync, mkdirSync } from "node:fs";
+import { test } from "node:test";
+
+// @verifies `+shareTextID+`.ios.unit
+test("ios share text", () => {
+  mkdirSync("marks", { recursive: true });
+  appendFileSync("marks/ios", "ran\n");
+});
+
+// @verifies `+shareSheetID+`.ios.unit
+test("ios share sheet", () => {});
+`)
+	writeFixture(t, root, "android/go.mod", "module example.com/android\n\ngo 1.22\n")
+	writeFixture(t, root, "android/share_test.go", `package android
+
+import (
+	"os"
+	"testing"
+)
+
+// @verifies `+shareTextID+`.android.unit
+func TestAndroidShareText(t *testing.T) {
+	_ = os.MkdirAll("../marks", 0o755)
+	file, err := os.OpenFile("../marks/android", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = file.WriteString("ran\n")
+	_ = file.Close()
+}
+`)
+	if code, stdout, stderr := runCommand(t, "test", "--specs", "--root", root, "--json", "--evidence-file",
+		defaultEvidencePath); code != 0 {
+		t.Fatalf("test --specs = %d, %s, %q", code, stdout, stderr)
+	}
+	before := storedEvidence(t, root)
+	code, stdout, stderr := runCommand(t, "test", "--specs", "--target", "android", "--root", root, "--color", "never")
+	if code != 0 || !strings.HasPrefix(stdout, "stele "+Version+" · test · current specifications · target android\n") {
+		t.Fatalf("test --target android = %d, %q, %q", code, stdout, stderr)
+	}
+	marks := func(name string) string { return readFile(t, filepath.Join(root, "marks", name)) }
+	if marks("ios") != "ran\n" || marks("android") != "ran\nran\n" {
+		t.Fatalf("runs: ios %q, android %q", marks("ios"), marks("android"))
+	}
+	after := storedEvidence(t, root)
+	for _, execution := range before.Executions {
+		if pointerValue(execution.Selector) != "ios share text" {
+			continue
+		}
+		for _, stored := range after.Executions {
+			if executionKey(stored) == executionKey(execution) && !reflect.DeepEqual(stored, execution) {
+				t.Fatalf("the stored ios outcome changed: %#v -> %#v", execution, stored)
+			}
+		}
+	}
+	if executionOutcome(after, "TestAndroidShareText") != "passed" {
+		t.Fatalf("the android outcome was not recorded: %#v", after)
 	}
 }

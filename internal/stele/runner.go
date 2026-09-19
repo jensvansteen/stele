@@ -79,8 +79,9 @@ type testRequest struct {
 	root         string
 	scope        verificationScope
 	evidencePath string
-	// targets are requirement, scenario, or evidence IDs, or spec file paths.
-	targets []string
+	// selections are requirement, scenario, or evidence IDs, or spec file
+	// paths; the scope's --target selection narrows them.
+	selections []string
 	// merge keeps the stored evidence of tests that do not run now.
 	merge bool
 	// observer receives progress; nil shows none.
@@ -134,15 +135,12 @@ func runScopeTests(request testRequest) (testRun, error) {
 	}
 	scopeTests := selectScenarioTests(parsed, anchors)
 	groups := groupScenarioTests(scopeTests)
-	run := testRun{targeted: len(request.targets) > 0}
+	run := testRun{targeted: len(request.selections) > 0 || request.scope.selected.active()}
 	selectedGroups := groups
 	if run.targeted {
-		plan, _ := loadScopePlan(root, request.scope)
-		selected, err := selectBehaviorTests(root, parsed, plan, scopeTests, request.targets)
-		if err != nil {
+		if selectedGroups, err = selectedTestGroups(request, parsed, scopeTests, groups); err != nil {
 			return testRun{}, err
 		}
-		selectedGroups = groupsOf(groups, selected)
 	}
 	observer := request.observer
 	if observer == nil {
@@ -178,7 +176,47 @@ func runScopeTests(request testRequest) (testRun, error) {
 	return run, nil
 }
 
-var errUnknownTarget = errors.New("unknown test target")
+var errUnknownTarget = errors.New("unknown test selection")
+
+// selectedTestGroups returns the groups a run's selections and --target
+// select.
+func selectedTestGroups(request testRequest, parsed ParsedSpecs, tests []Anchor, groups []testGroup) ([]testGroup,
+	error,
+) {
+	selected := tests
+	if len(request.selections) > 0 {
+		plan, _ := loadScopePlan(request.root, request.scope)
+		var err error
+		if selected, err = selectBehaviorTests(request.root, parsed, plan, tests, request.selections); err != nil {
+			return nil, err
+		}
+	}
+	return groupsOf(groups, selectTargetTests(parsed, selected, request.scope.selected)), nil
+}
+
+// selectTargetTests keeps the test anchors of the selected targets: anchors
+// of targeted evidence IDs for a selected target, and every anchor of an
+// untargeted scenario, which covers the whole project.
+//
+// @implements req.verificationtargets.366797f24e77
+func selectTargetTests(parsed ParsedSpecs, tests []Anchor, selection targetSelection) []Anchor {
+	if !selection.active() {
+		return tests
+	}
+	targeted := make(map[string]bool)
+	for _, requirement := range parsed.Requirements {
+		for _, scenario := range requirement.Scenarios {
+			targeted[scenario.ID] = scenario.Targeted
+		}
+	}
+	result := make([]Anchor, 0, len(tests))
+	for _, anchor := range tests {
+		if !targeted[anchor.ID] || (anchor.Target != "" && selection.includes(anchor.Target)) {
+			result = append(result, anchor)
+		}
+	}
+	return result
+}
 
 // behaviorCatalog lists what a scope declares, for resolving test targets.
 type behaviorCatalog struct {
@@ -211,7 +249,8 @@ func newBehaviorCatalog(parsed ParsedSpecs, plan LinkagePlan, tests []Anchor) be
 	return catalog
 }
 
-// resolve returns the scenarios, or the one evidence entry, a target selects.
+// resolve returns the scenarios, or the one evidence entry, a selection
+// selects.
 func (catalog behaviorCatalog) resolve(root string, parsed ParsedSpecs, target string) ([]string, string, error) {
 	switch {
 	case strings.HasPrefix(target, "req."):

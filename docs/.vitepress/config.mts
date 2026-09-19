@@ -30,6 +30,7 @@ export default defineConfig({
           { text: "Build a verified change", link: "/guide/verified-change" },
           { text: "Continuous integration", link: "/guide/continuous-integration" },
           { text: "Use Stele with OpenSpec", link: "/guide/openspec" },
+          { text: "Targets", link: "/guide/targets" },
           { text: "Use a local package", link: "/guide/local-package" },
           { text: "Editor integration", link: "/guide/editors" },
         ],

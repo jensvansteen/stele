@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -94,36 +96,44 @@ func TestAnnotationToleratesWhitespaceLineEndingsAndByteOrderMark(t *testing.T) 
 // @verifies scn.specannotation.6434ff2d493c.unit
 func TestAnnotationFieldsAreIgnoredWithAWarning(t *testing.T) {
 	plain := parseExample(t, "<!-- stele: spec v1 -->\n")
-	parsed := parseExample(t, "<!-- stele: spec v1; targets: vscode, zed; owner -->\n")
-	if annotation := onlyAnnotation(t, parsed); annotation.State != annotationAnnotated || annotation.Version != "v1" {
+	root := fixtureRoot(t)
+	writeFixture(t, root, exampleSpecPath, "<!-- stele: spec v1; targets: vscode, zed; owner -->\n"+annotatedSpecBody)
+	editors := map[string]string{"vscode": "vscode/**", "zed": "zed/**"}
+	parsed := parseTargetedScope(t, root, changeScope("example"), editors)
+	annotation := onlyAnnotation(t, parsed)
+	if annotation.State != annotationAnnotated || annotation.Version != "v1" ||
+		!slices.Equal(annotation.Targets, []string{"vscode", "zed"}) {
 		t.Fatalf("annotation with fields = %#v", annotation)
 	}
 	found := annotationDiagnostics(parsed)
-	if len(found) != 2 {
-		t.Fatalf("expected one warning per field, got %#v", found)
-	}
-	for index, field := range []string{`"owner"`, `"targets"`} {
-		if found[index].Code != "SPEC_ANNOTATION_FIELD_IGNORED" || found[index].Severity != "warning" ||
-			!strings.Contains(found[index].Message, field) {
-			t.Fatalf("warning %d = %#v", index, found[index])
-		}
+	if len(found) != 1 || found[0].Code != "SPEC_ANNOTATION_FIELD_IGNORED" || found[0].Severity != "warning" ||
+		!strings.Contains(found[0].Message, `"owner"`) {
+		t.Fatalf("expected one warning for owner and none for targets, got %#v", found)
 	}
 	if errors, _, verdict := diagnosticSummary(parsed.Diagnostics); errors != 0 || verdict != "pass" ||
 		len(parsed.Requirements) != len(plain.Requirements) ||
 		parsed.Requirements[0].Text != plain.Requirements[0].Text {
 		t.Fatalf("fields changed verification: %#v", parsed)
 	}
+	if scenario := parsed.Requirements[0].Scenarios[0]; !scenario.Targeted ||
+		!slices.Equal(scenario.Targets, []string{"vscode", "zed"}) {
+		t.Fatalf("the declared targets did not apply: %#v", scenario)
+	}
 
 	for line, want := range map[string]string{
-		"<!-- stele: spec v1; a: b -- c -->":         `"a: b -- c"`,
-		"<!-- stele: spec v1; ; Owner: me -->":       `""`,
-		"<!-- stele: spec v1;targets:x;targets:y-->": `"targets"`,
+		"<!-- stele: spec v1; a: b -- c -->":   `"a: b -- c"`,
+		"<!-- stele: spec v1; ; Owner: me -->": `""`,
 	} {
 		classifier := classifyAnnotation("spec.md", line)
 		if classifier.result().State != annotationAnnotated || len(classifier.fields) == 0 ||
 			!strings.Contains(classifier.diagnostics("fix")[0].Message, want) {
 			t.Fatalf("%q = %#v, %#v", line, classifier.result(), classifier.fields)
 		}
+	}
+	repeated := classifyAnnotation("spec.md", "<!-- stele: spec v1;targets:x;targets:y-->").diagnostics("fix")
+	if len(repeated) != 1 || repeated[0].Code != "SPEC_TARGETS_MALFORMED" ||
+		!strings.Contains(repeated[0].Message, "more than once") {
+		t.Fatalf("a repeated targets field = %#v", repeated)
 	}
 }
 
@@ -438,5 +448,123 @@ Verification-ID: `+ids[1]+`
 	specs, err := parseScopeSpecs(root, verificationScope{currentSpecs: true})
 	if err != nil || len(annotationDiagnostics(specs)) != 0 || len(specs.Requirements) != 3 {
 		t.Fatalf("the current specifications = %#v, %v", specs.Diagnostics, err)
+	}
+}
+
+// @verifies scn.specannotation.e419861e4e50.unit
+func TestAnnotateCopiesTheCapabilityTargetsIntoADeltaSpec(t *testing.T) {
+	root := fixtureRoot(t)
+	writeFixture(t, root, "openspec/specs/checkout/spec.md", "<!-- stele: spec v1; targets: api, web -->\r\n"+
+		"### Requirement: Promo contract\r\n")
+	writeFixture(t, root, "openspec/changes/promo/specs/checkout/spec.md", "## MODIFIED Requirements\r\n")
+	writeFixture(t, root, "openspec/changes/promo/specs/fresh/spec.md", "## ADDED Requirements\n")
+	if code, stdout, stderr := runAnnotate(t, "--root", root, "--change", "promo"); code != 0 {
+		t.Fatalf("annotate --change = %d, %q, %q", code, stdout, stderr)
+	}
+	if content := readTestFile(t, root, "openspec/changes/promo/specs/checkout/spec.md"); content !=
+		"<!-- stele: spec v1; targets: api, web -->\r\n## MODIFIED Requirements\r\n" {
+		t.Fatalf("delta spec = %q", content)
+	}
+	if content := readTestFile(t, root, "openspec/changes/promo/specs/fresh/spec.md"); content !=
+		annotationCanonical+"\n## ADDED Requirements\n" {
+		t.Fatalf("a new capability = %q", content)
+	}
+	if code, stdout, _ := runAnnotate(t, "--root", root, "--change", "promo"); code != 0 ||
+		!strings.Contains(stdout, "every specification file has a Stele annotation") {
+		t.Fatalf("a second run = %d, %q", code, stdout)
+	}
+}
+
+// @verifies scn.specannotation.0020f5fc5ce4.integration
+func TestArchiveRepairRestoresTargets(t *testing.T) {
+	root := openSpecOnlyProject(t)
+	steleInit(t, root)
+	writeFixture(t, root, "openspec/specs/share/spec.md", `<!-- stele: spec v1; targets: ios; owner: mobile -->
+# share Specification
+
+## Purpose
+Share lists from the mobile apps.
+
+## Requirements
+### Requirement: Share a list
+Verification-ID: req.share.111111111111
+The app SHALL share a list.
+
+#### Scenario: Share text
+Verification-ID: scn.share.222222222222
+- **WHEN** the user shares
+- **THEN** the text lists the items
+`)
+	writeFixture(t, root, "openspec/changes/grow/proposal.md", `## Why
+Bring sharing to Android and add a checkout split over the API and the web.
+
+## What Changes
+- Share on Android, and add checkout.
+`)
+	writeFixture(t, root, "openspec/changes/grow/tasks.md", "- [x] 1.1 Implement it\n")
+	for capability, spec := range map[string]string{
+		"share": `<!-- stele: spec v1; targets: ios, android -->
+## MODIFIED Requirements
+
+### Requirement: Share a list
+Verification-ID: req.share.111111111111
+The app SHALL share a list.
+
+#### Scenario: Share text
+Verification-ID: scn.share.222222222222
+- **WHEN** the user shares
+- **THEN** the text lists the items
+`,
+		"checkout": `<!-- stele: spec v1; targets: api, web -->
+## ADDED Requirements
+
+### Requirement: Promo contract
+Verification-ID: req.checkout.333333333333
+The checkout SHALL accept promo codes.
+
+#### Scenario: Apply a code
+Verification-ID: scn.checkout.444444444444
+- **WHEN** a valid code is submitted
+- **THEN** the discount applies
+`,
+	} {
+		writeFixture(t, root, "openspec/changes/grow/specs/"+capability+"/spec.md", spec)
+	}
+	openSpec(t, root, "archive", "grow", "--yes")
+	archives, err := filepath.Glob(filepath.Join(root, "openspec/changes/archive/*-grow"))
+	if err != nil || len(archives) != 1 {
+		t.Fatalf("archive directories = %v, %v", archives, err)
+	}
+	before := readTestFile(t, root, "openspec/specs/share/spec.md")
+	archive, _ := filepath.Rel(root, archives[0])
+	code, stdout, stderr := runAnnotate(t, "--root", root, "--specs", "--targets-from", archive)
+	if code != 0 || !strings.Contains(stdout, "annotated 2 specification files") {
+		t.Fatalf("annotate --targets-from = %d, %q, %q", code, stdout, stderr)
+	}
+	checkout := readTestFile(t, root, "openspec/specs/checkout/spec.md")
+	if !strings.HasPrefix(checkout, "<!-- stele: spec v1; targets: api, web -->\n") ||
+		strings.Count(checkout, "<!-- stele:") != 1 {
+		t.Fatalf("the new specification = %q", checkout)
+	}
+	share := readTestFile(t, root, "openspec/specs/share/spec.md")
+	_, rest, _ := strings.Cut(before, "\n")
+	if share != "<!-- stele: spec v1; targets: ios, android; owner: mobile -->\n"+rest {
+		t.Fatalf("the existing specification = %q", share)
+	}
+	if code, stdout, _ := runAnnotate(t, "--root", root, "--specs", "--targets-from", archive); code != 0 ||
+		strings.Contains(stdout, "annotated") && !strings.Contains(stdout, "every specification file") {
+		t.Fatalf("a second run = %d, %q", code, stdout)
+	}
+	if after := readTestFile(t, root, "openspec/specs/share/spec.md"); after != share {
+		t.Fatal("a second run changed the specification")
+	}
+	for arguments, want := range map[string]string{
+		"--change grow --targets-from x":          "--targets-from needs --specs",
+		"--specs --targets-from openspec/nowhere": "is not a directory",
+	} {
+		args := append([]string{"--root", root}, strings.Fields(arguments)...)
+		if code, _, stderr := runAnnotate(t, args...); code != 2 || !strings.Contains(stderr, want) {
+			t.Fatalf("annotate %s = %d, %q", arguments, code, stderr)
+		}
 	}
 }

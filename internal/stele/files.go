@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -126,6 +127,13 @@ func inputFiles(repo repoFiles, root string) []string {
 	for _, directory := range digestScanRoots {
 		files = append(files, repo.walk(filepath.Join(root, directory), digestSource)...)
 	}
+	// Target folders outside the conventional roots are inputs too; a target
+	// at the project root adds nothing, so generated artifacts stay out.
+	for _, directory := range configuredTargetRoots(repo, root) {
+		if directory != "." {
+			files = append(files, repo.walk(filepath.Join(root, directory), digestSource)...)
+		}
+	}
 	files = append(files, rootGoFiles(repo, root)...)
 	for _, name := range digestRootFiles {
 		path := filepath.Join(root, name)
@@ -134,7 +142,7 @@ func inputFiles(repo repoFiles, root string) []string {
 		}
 	}
 	sort.Strings(files)
-	return files
+	return slices.Compact(files)
 }
 
 // @implements req.execution.7e4755bd8f60

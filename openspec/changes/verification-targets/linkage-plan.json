@@ -1,0 +1,1490 @@
+{
+  "schemaVersion": 2,
+  "changeId": "verification-targets",
+  "scenarios": {
+    "scn.linkindex.094a437d7c9c": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.094a437d7c9c.unit",
+          "level": "unit",
+          "rationale": "`--all --target` could filter only one scope or be rejected as a conflict. In-process over temporary scopes.",
+          "placement": "internal/stele/scope_test.go or cli_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:5460d72a9e6cd1a4c16d3ca678ba9972eb62e8e51454bc13531211c57e64a19e",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.1f063f3c5e49": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.1f063f3c5e49.unit",
+          "level": "unit",
+          "rationale": "An untargeted evidence ID could be misparsed by the new grammar and select nothing. Pure selection logic.",
+          "placement": "internal/stele/runner_test.go (existing, stubbed runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:02434134ebde1dff9121e97bd86c7b3c43d41d7ebb7cec20bb1c44af7cb6c806",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.2bec33059b75": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.2bec33059b75.unit",
+          "level": "unit",
+          "rationale": "A `Targets:` line could leak into requirement text or become a scenario step. Pure parsing of fixture Markdown.",
+          "placement": "internal/stele/specs_test.go (existing, extended)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:49ba606b081c5b5f2032e2c8058031d09a801f21e55820db81bb4f632331ee70",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.30ab15bc8293": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.30ab15bc8293.unit",
+          "level": "unit",
+          "rationale": "Adding target fields could reorder or drop the existing requirement, anchor, and approval data of an untargeted change. In-process index over a temporary project.",
+          "placement": "internal/stele/index_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:3bf94177d0042bab90a40d1e4fb2e556233f36504ee49074340f0f5d07bd4643",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        },
+        {
+          "id": "scn.linkindex.30ab15bc8293.e2e",
+          "level": "e2e",
+          "rationale": "The shipped `stele index` could fail to emit the unchanged document for an untargeted change. Only the built CLI proves the command end to end.",
+          "placement": "tests/cli.test.mts (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:75c892b75cd75eeefcfc461f2ad64d64c04a95ee10dc009157ad9b9f24501bdd",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.331076ad0227": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.331076ad0227.unit",
+          "level": "unit",
+          "rationale": "Per-target outcomes could bypass the stale check. In-process with a stored evidence fixture.",
+          "placement": "internal/stele/index_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:b72a777cb795fc9828aea5d25edd325321caa8a8196c67e162d327460d34c022",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.34d29862cf10": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.34d29862cf10.unit",
+          "level": "unit",
+          "rationale": "Targets, declared and applicable lists, evidence targets, or matrix cells could be missing or wrong in the index. The index is an in-process component over temporary files.",
+          "placement": "internal/stele/index_test.go, beside the change index tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:221affdf5e34e8c6f53d5bd1924786837e63a3c91d1c69eef6b25e537231e169",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.352d7120ec6c": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.352d7120ec6c.unit",
+          "level": "unit",
+          "rationale": "Selection could change when evidence gains targets. Selection is pure planning with a stubbed runner.",
+          "placement": "internal/stele/runner_test.go (existing, stubbed runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:a773f2ac70b821bcc2d9abce9e32e0c004db3effd1e221c536bfe7da766c15e0",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.48b3c24773d9": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.48b3c24773d9.unit",
+          "level": "unit",
+          "rationale": "Target resolution per scope could mislabel current specifications. In-process index over temporary files.",
+          "placement": "internal/stele/index_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:e907463ec0b4da2face78e599380056036e93202ef0f79aa108339bb0a662306",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.49a524bcf0ac": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.49a524bcf0ac.unit",
+          "level": "unit",
+          "rationale": "A requirement selection could miss targeted scenarios. Pure selection logic.",
+          "placement": "internal/stele/runner_test.go (existing, stubbed runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:9fd4f57e9c5989706ba088eaee55a86be65e05baa0a09c2fb32144927bac9932",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.4d6ba51a47bc": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.4d6ba51a47bc.unit",
+          "level": "unit",
+          "rationale": "Allowing `--target` with `--all` could also let selections through. Argument parsing, in process.",
+          "placement": "internal/stele/cli_test.go (existing, extended)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:fb1bde3fbeb000f246697db713599fb19a9c86aa3f94affcba1516bf0cf1730d",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.560aeb5e3970": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.560aeb5e3970.unit",
+          "level": "unit",
+          "rationale": "The new targeted ID grammar could turn a targeted anchor with an unknown scenario into a declared one. In-process scan of temporary sources.",
+          "placement": "internal/stele/index_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:cfdf34202ae19d23faaf92ad21732af1378578bd94e510839d2371c7a076e238",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.57dcee8c30a8": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.57dcee8c30a8.unit",
+          "level": "unit",
+          "rationale": "The widened anchor grammar could give parameterized tests a partial selector. Pure scanner.",
+          "placement": "internal/stele/anchors_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:6a1e293d8e3e3c9b8c90b19443ba97fe50afd7ad96b89ef4c2057885bb867d42",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.5c91d0c168f0": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.5c91d0c168f0.unit",
+          "level": "unit",
+          "rationale": "The rename could change the exit code or message for an unknown selection. In-process CLI call.",
+          "placement": "internal/stele/cli_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:c39a7bf7109ac924c3cb38fdc571d5f3c4f007f625854eeb297b84678618ce33",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.6265c70bed70": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.6265c70bed70.unit",
+          "level": "unit",
+          "rationale": "The renamed selections could lose union and de-duplication. Pure selection logic.",
+          "placement": "internal/stele/runner_test.go (existing, stubbed runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:dc5ee40ff208ff54f83eabd2ec0c3caeaf1ae468160716e6f9429ee25c998688",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.7c1d78728036": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.7c1d78728036.unit",
+          "level": "unit",
+          "rationale": "Per-scope target handling could merge scope results. In-process over temporary scopes.",
+          "placement": "internal/stele/cli_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:8942d8a115162aa5026e92fd97af5bc0a7a89668992cbfa36578c4713cec3df8",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        },
+        {
+          "id": "scn.linkindex.7c1d78728036.e2e",
+          "level": "e2e",
+          "rationale": "The shipped `verify --all` could change its combined exit code. Built CLI.",
+          "placement": "tests/cli.test.mts (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:d778c03ab9cbc4cbe45b3a8daacbb0b0c840601475f949b4b654e2a6e0271cd7",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.bda4420352ef": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.bda4420352ef.unit",
+          "level": "unit",
+          "rationale": "Per-scope matrices could collide in `--all`. In-process index.",
+          "placement": "internal/stele/index_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:71eb99fa6ee00f6c164d2c1ca4b7a3cb574a393bf4c7769f4cefa11977629c38",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.c0e515c9575a": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.c0e515c9575a.e2e",
+          "level": "e2e",
+          "rationale": "Matrix maps or target lists could introduce map-order nondeterminism into the shipped output. Needs the built CLI run twice.",
+          "placement": "tests/cli.test.mts (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:b99cf7e7162984a45af29a154b257cbbc7d6256f0b801a3152064e2c401551d7",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.e0b21aa95623": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.e0b21aa95623.unit",
+          "level": "unit",
+          "rationale": "A file selection could pick up tests of another file through shared targets. Pure selection logic.",
+          "placement": "internal/stele/runner_test.go (existing, stubbed runner)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:82f981e763594281b7b455dd7fa960195319eced61c55e1530388d60e5d6f2d9",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.linkindex.e5c1d7ab73d5": {
+      "evidence": [
+        {
+          "id": "scn.linkindex.e5c1d7ab73d5.unit",
+          "level": "unit",
+          "rationale": "A targeted evidence ID could be parsed as scenario plus unknown suffix and run every target's tests. Pure selection with a stubbed runner.",
+          "placement": "internal/stele/runner_test.go, beside the evidence-entry selection test",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:96e597dbc08dbf82ef9b0fc419e77a5474063945887aab53c8df31c95e61fb29",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.0020f5fc5ce4": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.0020f5fc5ce4.integration",
+          "level": "integration",
+          "rationale": "OpenSpec's archive rewrites current specifications, so targets could be lost, duplicated, or mangled. Only a real `openspec archive` shows the files that `--targets-from` must repair.",
+          "placement": "internal/stele/annotation_test.go, beside the existing archive restoration test",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:3deef6986595cd3c67b35edd9eb8ca59a28f6351569e39be05fafd3d91baa13c",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.0d7c07caa518": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.0d7c07caa518.unit",
+          "level": "unit",
+          "rationale": "Field parsing could break BOM, CRLF, or whitespace tolerance. Pure parser.",
+          "placement": "internal/stele/annotation_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:927f8704de166de8c4ba7afa2cba4ce5ea5306a1dfe3cadccf011793cb75699c",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.0de8bd2cbe54": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.0de8bd2cbe54.unit",
+          "level": "unit",
+          "rationale": "Field parsing could break the canonical form. Pure parser.",
+          "placement": "internal/stele/annotation_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:af960d3a86cd790e9f422884ddd129cbf3bd998e2e2b94d18a06863b7370bcae",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.10178af5c550": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.10178af5c550.unit",
+          "level": "unit",
+          "rationale": "A field-aware grammar could accept malformed first lines. Pure parser.",
+          "placement": "internal/stele/annotation_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:01023b8fe2088a95a2d5b9c91d1f894b5f4daca562af5b025c88b9020f380f4d",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.1aaf0a9528b5": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.1aaf0a9528b5.unit",
+          "level": "unit",
+          "rationale": "`stele ids` could insert a bare annotation for a targeted capability, or rewrite it on a second run. Temporary files in process.",
+          "placement": "internal/stele/ids_test.go, beside the annotation-with-IDs test",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:601a3dc6e603b027ef10a9115b08f68e5c51c18f27f7e106f29ef2c4e75013f0",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.23d533778e10": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.23d533778e10.integration",
+          "level": "integration",
+          "rationale": "The merged archive guidance could lack `--targets-from`, or the merge could stop being idempotent. Runs openspec-extend.mjs with OpenSpec's yaml package.",
+          "placement": "internal/stele/workflowschema_test.go, beside TestMergeKeepsUserConfiguration (existing, updated)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:c3c63b6f3f5cde073f1570b5ecb8941bac2f0149db6a3753b794d04edcc5e076",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.2681b7fc2880": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.2681b7fc2880.unit",
+          "level": "unit",
+          "rationale": "A targeted annotation below the first line could escape `SPEC_ANNOTATION_MISPLACED`. Pure classifier.",
+          "placement": "internal/stele/annotation_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:6e4eb2628ccf8bd66a9854b34819427ba4fb748e4fe119429c41e0b91c584b61",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.3baa32066f7a": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.3baa32066f7a.unit",
+          "level": "unit",
+          "rationale": "The archive skill could omit `--targets-from` or run it after validation. The skill template is embedded text, checked in process.",
+          "placement": "internal/stele/init_test.go, beside TestArchiveSkillGatesOnValidation (existing, updated)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:802866a42adb88c854221e5f521d24548cf08a8cd35e5c0b3fc3a27a84959fc3",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.4432e2c478c1": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.4432e2c478c1.unit",
+          "level": "unit",
+          "rationale": "The files list could change shape for untargeted files. In-process index.",
+          "placement": "internal/stele/index_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:7022c92a7e0a85905e1204c4e4aecfe90a9096265656176f4388be9a9a6bb9b6",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.6434ff2d493c": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.6434ff2d493c.unit",
+          "level": "unit",
+          "rationale": "The `targets` field could still warn, or other fields could stop warning. Pure parser plus diagnostics over a fixture file.",
+          "placement": "internal/stele/annotation_test.go (existing, rewritten)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:8cb5b2d166ea2a55d62cbad304dc3f1504d12be9983e8fc92f4a2dc24640e21c",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.6bd9c9356646": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.6bd9c9356646.unit",
+          "level": "unit",
+          "rationale": "Copying targets could make a second run rewrite files. Temporary files in process.",
+          "placement": "internal/stele/annotation_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:c2bfb96f49770b002ecdfe97252f0abe3ca73fae6965b71cda2c859529960e41",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.7a12f1bf3cf0": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.7a12f1bf3cf0.unit",
+          "level": "unit",
+          "rationale": "Target copying could shift the reported ID line numbers. Temporary files in process.",
+          "placement": "internal/stele/ids_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:a40dd6739e86a59624f635b1a17215b079053f5140bcdbb737d78bc2ce51532b",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.a518efc1ddd8": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.a518efc1ddd8.unit",
+          "level": "unit",
+          "rationale": "`--check --json` could change shape. In process.",
+          "placement": "internal/stele/cli_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:04dfa353c1c10165bfe194c465f181d06dba5f28ba5238948e6d3796bb63a84d",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        },
+        {
+          "id": "scn.specannotation.a518efc1ddd8.e2e",
+          "level": "e2e",
+          "rationale": "The shipped check could change its exit code. Built CLI.",
+          "placement": "tests/cli.test.mts (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:2c939a5d436671206cc22a897d86c5bf6ee574111a92b9225b9d5e08a9bfe1a4",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.b7e05fe76741": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.b7e05fe76741.integration",
+          "level": "integration",
+          "rationale": "Untargeted archive restoration could regress. Needs a real OpenSpec archive.",
+          "placement": "internal/stele/annotation_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:f487f546cc660556c33c6c0d6d1991abf586052ab724ef1687fea27f3dccc5b7",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.c1a89d2bc235": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.c1a89d2bc235.unit",
+          "level": "unit",
+          "rationale": "Unchanged behavior next to a new field; regression only. Pure parser.",
+          "placement": "internal/stele/annotation_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:3e4ca1e51394d0401fc395490e1d48113785fa1430f076c5db9c7fd963693226",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.c1e6a83408c6": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.c1e6a83408c6.unit",
+          "level": "unit",
+          "rationale": "Target copying could alter bytes of other files. Temporary files in process.",
+          "placement": "internal/stele/annotation_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:e28d6b89c810742fb4f7d3961824aa965451ed4162d4bda80f94a6344294e3eb",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.db2f08beff7a": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.db2f08beff7a.unit",
+          "level": "unit",
+          "rationale": "A malformed targets field could be repaired silently. Temporary files in process.",
+          "placement": "internal/stele/annotation_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:b8c4b6f6a5c536282a13fe7b7eb04ec95717bb967076aae75dd41b944c5c62c2",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.e419861e4e50": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.e419861e4e50.unit",
+          "level": "unit",
+          "rationale": "A delta spec of a targeted capability could be annotated without its targets and then fail with `SPEC_TARGETS_MISMATCH`. Temporary change and current spec in process.",
+          "placement": "internal/stele/annotation_test.go, beside the annotate scope tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:d1a3cf0498ff99a16cc4beb3438e2f8d86fae6578685d06d6a2903749966b9ad",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.f0d8e6fbaa2d": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.f0d8e6fbaa2d.unit",
+          "level": "unit",
+          "rationale": "Policy handling is unchanged; regression only. In process.",
+          "placement": "internal/stele/ids_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:0f18ff7d13ac9a91fc1f9a2e3a3f77c1949bbbe081b9ddb34a2b90556e354a72",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.specannotation.f69cc0129044": {
+      "evidence": [
+        {
+          "id": "scn.specannotation.f69cc0129044.unit",
+          "level": "unit",
+          "rationale": "A file's targets could be missing, reordered, or emitted for untargeted files. In-process index.",
+          "placement": "internal/stele/index_test.go, beside the annotation index test",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:4ae13e92e60f9cdaee2dc83e7d2f6e1781ccb69cf176f53cd112bb2b9861c299",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.terminalreport.00fe379ba4b4": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.00fe379ba4b4.unit",
+          "level": "unit",
+          "rationale": "New target diagnostics could be put in the wrong stage line. Rendering in process.",
+          "placement": "internal/stele/report_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:c19d623c78950f9961f68de7b2c4a80b814a81f2cfbd9c846ededd3cfc481a4d",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.terminalreport.29b8400fc1b1": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.29b8400fc1b1.unit",
+          "level": "unit",
+          "rationale": "Matrix counts, marks, row selection, or truncation could be wrong or nondeterministic. The renderer is pure over a verification result.",
+          "placement": "internal/stele/report_test.go, beside the overview tests",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:5c827f56b74450b08050e902c0905b7f8a30d1445a8db587fc8824ed27ef3a50",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.terminalreport.33eebddcfa33": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.33eebddcfa33.unit",
+          "level": "unit",
+          "rationale": "An empty matrix section could appear in untargeted reports. Rendering in process; the byte comparison is covered by scn.verificationtargets.add73aad6d42.",
+          "placement": "internal/stele/report_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:7a1e3b7039c567afa8571a18c7c395e076df9d55ebfcf5513b3000d9c0df1c69",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.terminalreport.5b46740a15da": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.5b46740a15da.unit",
+          "level": "unit",
+          "rationale": "Per-target counting could change the execution line. Rendering with a fake clock.",
+          "placement": "internal/stele/report_test.go (existing, fake clock)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:0d46976a516055a60b5a1b7ddcb9445cd422f50f70861a6757570ed09b3bb685",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.terminalreport.99cec4c2f435": {
+      "evidence": [
+        {
+          "id": "scn.terminalreport.99cec4c2f435.unit",
+          "level": "unit",
+          "rationale": "The matrix section could displace or change the capability overview. Rendering in process.",
+          "placement": "internal/stele/report_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:613637122deaa27bb0013aa4fd4d9aee85e621ed6ec45e0cc7cf417ff246d895",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.159fc8c6d372": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.159fc8c6d372.unit",
+          "level": "unit",
+          "rationale": "Per-target entries, ordinals, and the target field could be validated or reported wrongly. Pure plan validation over fixtures.",
+          "placement": "internal/stele/plan_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:443f218464f0a96f702c942cbba85c59596f44ef2a68ce418aada4fdebbf6800",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.17786fd23375": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.17786fd23375.unit",
+          "level": "unit",
+          "rationale": "The approval step must stay intact. Embedded template text.",
+          "placement": "internal/stele/init_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:cc4181724ed3fe767cee7f1265577c308cd1d27c5cc02d3c5fb60198cd1fc610",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.1ca6af4620e9": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.1ca6af4620e9.unit",
+          "level": "unit",
+          "rationale": "The skill could omit where differences live, the targeted ID form, or one of the three patterns. Embedded template text, in process.",
+          "placement": "internal/stele/init_test.go, beside the stele-plan guidance test",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:64c8c1933586ed2a1ea94e47a311e277e26b6c96fef296c888e4c91b074cd926",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.2779f7f381d3": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.2779f7f381d3.unit",
+          "level": "unit",
+          "rationale": "The targeted ID grammar could reject complete untargeted plans. Pure plan validation.",
+          "placement": "internal/stele/plan_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:51d6bad9ac708dfabc42a40f7cdd14ea3aeca3f884c25640743d5670e9f45297",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.45a816cfbf7f": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.45a816cfbf7f.unit",
+          "level": "unit",
+          "rationale": "The widened ID grammar could accept a malformed untargeted ID. Pure plan validation.",
+          "placement": "internal/stele/plan_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:e3d81eea491e3f9e99eba1463ca43008e4d1f1694865b3ceb92ebc8467766b2c",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.509b8e9fab98": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.509b8e9fab98.unit",
+          "level": "unit",
+          "rationale": "A targeted evidence ID under the wrong scenario could escape `PLAN_UNKNOWN_ID`. Pure plan validation.",
+          "placement": "internal/stele/plan_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:3316395b44cdb0b20567cebae1e5ccd3d5c69b54f22ab0a4ea1474b069680bea",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.53e78ff15ea6": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.53e78ff15ea6.unit",
+          "level": "unit",
+          "rationale": "Evidence for a target narrowed away could be accepted or reported as `PLAN_UNKNOWN_ID`. Pure plan validation.",
+          "placement": "internal/stele/plan_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:14d9e622a80f72d7afad61950017d007583c7f5882c5ce75b7e0bd5e0143097e",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.8d540b6ad130": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.8d540b6ad130.unit",
+          "level": "unit",
+          "rationale": "A scenario with evidence for some targets could count as complete. Pure plan validation over a fixture with three targets.",
+          "placement": "internal/stele/plan_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:8dec375533a572910b202235d1748bc5b975fbae2e69d3a297dc59a6f7b2ed70",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.9dad8263a6c0": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.9dad8263a6c0.unit",
+          "level": "unit",
+          "rationale": "Refreshing the skill could overwrite project skills. Temporary project in process.",
+          "placement": "internal/stele/init_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:0e5c9f1887c280255c97622a5f19ea99ef746247b4f099ef1c77f999b3ab8c73",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.aef528d23484": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.aef528d23484.unit",
+          "level": "unit",
+          "rationale": "Untargeted completeness could regress. Pure plan validation.",
+          "placement": "internal/stele/plan_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:09df5e3d17f93ec387bbf7db6dd0f8c7d4b0606678b869f6f5bb601edfa4abae",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.ef89652e0e06": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.ef89652e0e06.unit",
+          "level": "unit",
+          "rationale": "A target field that disagrees with its ID, or a target in an untargeted plan, could pass. Pure plan validation.",
+          "placement": "internal/stele/plan_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:6e093ba3d4fbc729ff785e022d087db1cf88d1ad31de5045a109edf585162b59",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationstrategy.f60e81cbfa96": {
+      "evidence": [
+        {
+          "id": "scn.verificationstrategy.f60e81cbfa96.unit",
+          "level": "unit",
+          "rationale": "Adding target guidance could drop the existing sections. Embedded template text, in process.",
+          "placement": "internal/stele/init_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:63af1566c43b01ab7b9e235c27e659050af737a18315d6e2b3e10ca2e79b96ab",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.1a22d82ecf41": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.1a22d82ecf41.unit",
+          "level": "unit",
+          "rationale": "The anchor regexes stop at the level, so a targeted ID would be read as a bare scenario anchor. Pure scanners over fixture sources in both languages.",
+          "placement": "internal/stele/anchors_test.go and goanchors_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:872dbf4afee5eb04eeb777372ca4a6ec3dfb3df1fc55d1904ad6ee916c9e39df",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.250dbc097c43": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.250dbc097c43.unit",
+          "level": "unit",
+          "rationale": "A narrowed scenario could show `missing` instead of `n/a`. Pure matrix computation.",
+          "placement": "internal/stele/matrix_test.go (new)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:210756b11f66ed333e6bfb56121aef8c881ef4a206e8e3df37e982d1e972602f",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.258ffea7adf7": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.258ffea7adf7.integration",
+          "level": "integration",
+          "rationale": "The target filter must reach batch planning: a batch of another target could still run, or its stored outcomes could be discarded. Only real `go test` and `node --test` batches show which tests ran.",
+          "placement": "internal/stele/runner_test.go or batch_test.go, with Go and Node fixtures under ios/ and android/",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:f55cbada3f0926b8325bf06ff9cda2e8f8e858afdafc2c13b0bd8ed4add8b0bf",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.3574271b7f35": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.3574271b7f35.unit",
+          "level": "unit",
+          "rationale": "Overlapping paths or journeys could produce false errors. Linkage in process.",
+          "placement": "internal/stele/targets_test.go (new), with temporary sources",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:cb57a49831336d7d30680e9027ab3a3dd15d9ee15eb1e483142ce4430a26199e",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.35a9719d9446": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.35a9719d9446.unit",
+          "level": "unit",
+          "rationale": "The precedence could hide a failure behind another state. Pure matrix computation.",
+          "placement": "internal/stele/matrix_test.go (new)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:aa0882cc30d1f676e1dac42453701d339f9b489b2e4a32a387aff5aee26aa038",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.36d207a647d0": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.36d207a647d0.unit",
+          "level": "unit",
+          "rationale": "An invalid or reserved name, such as `e2e` colliding with a level, could be accepted and make evidence IDs ambiguous. Configuration validation and the exit code, in process.",
+          "placement": "internal/stele/targets_test.go (new) and cli_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:666b0eed71eff2ad6b4e6bd93b6ae75e935c8b5fa94c13d775d16c50e956490c",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.577d723898cd": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.577d723898cd.unit",
+          "level": "unit",
+          "rationale": "Narrowing could fail to apply, or apply to sibling scenarios. Pure resolution.",
+          "placement": "internal/stele/targets_test.go (new)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:25e303db25fd41bb3dd11acdf4400a110ab8ac125142fab157108d322fac194a",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.6616ae0098fb": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.6616ae0098fb.unit",
+          "level": "unit",
+          "rationale": "Requirement-level narrowing could fail to propagate to its scenarios. Pure resolution.",
+          "placement": "internal/stele/targets_test.go (new)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:823c0f00688ecdfc7e05f431b03a82f77d82c4b5241cde46a9f20638a6534cb7",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.7e8b768b3da0": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.7e8b768b3da0.unit",
+          "level": "unit",
+          "rationale": "A scenario could widen its requirement unnoticed. Pure validation.",
+          "placement": "internal/stele/targets_test.go (new)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:397c909b5c6991ea50530dcae1d9dc1637d575a2532a1f08bae193c61101000c",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.857e3746c99d": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.857e3746c99d.unit",
+          "level": "unit",
+          "rationale": "An unknown `--target` could silently select nothing and pass. Argument handling and exit codes, in process.",
+          "placement": "internal/stele/cli_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:7b22f0a95fee7a68a11bec12fcca9daa66612bc927960c7d23ee0e44159928e1",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.880647fbb533": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.880647fbb533.unit",
+          "level": "unit",
+          "rationale": "An agent copying tests between replicas could leave evidence under the wrong target. Path matching and linkage, in process.",
+          "placement": "internal/stele/targets_test.go (new), with temporary sources",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:fcf1862df79437e0775f8409891fc99c7653796fbe4dbda5aeac530267c0b45b",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.975c05dc71d9": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.975c05dc71d9.unit",
+          "level": "unit",
+          "rationale": "A typo in a target list could create a silent extra target. Pure parsing and validation.",
+          "placement": "internal/stele/targets_test.go (new)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:633233d37d2fd05da994d9067135a7622dc99df2a262ea472fdc555308708a59",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.add73aad6d42": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.add73aad6d42.e2e",
+          "level": "e2e",
+          "rationale": "Any shared code path (annotation, plans, anchors, index, report) could change untargeted output. Comparing the built CLI with the previous release, with only the version normalized, is the only convincing proof.",
+          "placement": "tests/cli.test.mts, running the built binary and the `stele-published` binary on the same fixture",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:41a514c806e3ba5d47d3a17a6eb5379d501a8c22927798b8af9d589354fb2ea3",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.bb95c914ccac": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.bb95c914ccac.unit",
+          "level": "unit",
+          "rationale": "Narrowing could invalidate approvals if the line entered the digest, or stale entries could pass. Pure digest and plan validation.",
+          "placement": "internal/stele/targets_test.go (new) and plan_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:1d68beee43254656ce2f4d76a10fbd25758ba6f046eeee952ee95d0d24682651",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.c3f36c37e37a": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.c3f36c37e37a.unit",
+          "level": "unit",
+          "rationale": "A replica without an implementation could pass because the global requirement rule is satisfied elsewhere. Linkage in process.",
+          "placement": "internal/stele/targets_test.go (new), with temporary sources",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:94d302d4d4e027abcd30abf9baaef8473927d9deacf9d6c0be20860d2385b1ef",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.ca80f845a9cc": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.ca80f845a9cc.unit",
+          "level": "unit",
+          "rationale": "A change could alter a capability's targets and leave current requirements unplanned, which would only surface after archiving. Needs change and current specs in process.",
+          "placement": "internal/stele/targets_test.go (new), with a temporary change and current specification",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:af9d45e48a0f3d6e41eb2301e5f6de416384501b71aa1bd4c04f7e1d81ae2596",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.db222c63967d": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.db222c63967d.e2e",
+          "level": "e2e",
+          "rationale": "The installed `stele check` could fail to pass `--target` through to validation, so a per-target CI job would fail on another target's gaps. Only the built CLI proves the pass-through end to end.",
+          "placement": "tests/cli.test.mts, beside the CI gate test",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:12f9fe14a6e5997b4e3632d7e7b42d9d404b7d930432c3057cfb3e33ec3aca82",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.e03ff09a1cd4": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.e03ff09a1cd4.unit",
+          "level": "unit",
+          "rationale": "The matrix could show a passing row while a replica has no evidence. Pure matrix computation.",
+          "placement": "internal/stele/matrix_test.go (new)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:24c7e3ce4cc6ccde20b5055e23a05dfe3805d0fba9c8d94f1d954ab4705808df",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.e324fcddf99b": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.e324fcddf99b.unit",
+          "level": "unit",
+          "rationale": "A `Targets:` line in prose or in an untargeted spec could be silently ignored or applied. Pure parsing.",
+          "placement": "internal/stele/targets_test.go (new) and specs_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:b50fc399ba79708345c3ed33c6a700d779eb546aca60d1b87abc4d7fbd560973",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.e8cd45d85205": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.e8cd45d85205.unit",
+          "level": "unit",
+          "rationale": "The default inheritance of a specification's targets could be wrong. Pure resolution over parsed specifications.",
+          "placement": "internal/stele/targets_test.go (new)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:1ff9237fbe96d8c3e8b4f0af2c106e7e4da5644b69698536f05a2e5b00bd1ef5",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.eb1c6810d349": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.eb1c6810d349.unit",
+          "level": "unit",
+          "rationale": "The configuration could be misread: order, paths, or `evidenceOnly`. Pure configuration loading over a temporary file.",
+          "placement": "internal/stele/targets_test.go (new)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:c1f307e795665eb00b646d33d54eebb77d64868597c436da9c279e3c4ceea99d",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verificationtargets.fc749b62bad7": {
+      "evidence": [
+        {
+          "id": "scn.verificationtargets.fc749b62bad7.unit",
+          "level": "unit",
+          "rationale": "`--target` could hide specification findings, or leak other targets' linkage findings. Verification in process.",
+          "placement": "internal/stele/targets_test.go (new) and verify_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:1605c78166d8cbe2196abf2985628dd97c12b13ddf8580c2141240a99f974a13",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verify.05d59c6b97af": {
+      "evidence": [
+        {
+          "id": "scn.verify.05d59c6b97af.unit",
+          "level": "unit",
+          "rationale": "Per-target verdicts could be computed from the wrong target's evidence or be missing from the report. In process.",
+          "placement": "internal/stele/verify_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:0d545286ec2f0837e9921b4e450396d37b338476893ba4e732fa2192ea8a5834",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verify.140b21cbc3f0": {
+      "evidence": [
+        {
+          "id": "scn.verify.140b21cbc3f0.unit",
+          "level": "unit",
+          "rationale": "Per-target verdicts could change the top-level verdicts. In process.",
+          "placement": "internal/stele/verify_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:859492fc592251d85edf2978ee3e301004835dcfeeb843a9457e9c07469c4070",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verify.14c6b4fe39bc": {
+      "evidence": [
+        {
+          "id": "scn.verify.14c6b4fe39bc.unit",
+          "level": "unit",
+          "rationale": "v1 plans must keep working; regression only. In process.",
+          "placement": "internal/stele/verify_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:bd6256a1d440dd3597eaf006cf9581c13c029e99906365563d68103616c6e47e",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verify.1bab272a56e4": {
+      "evidence": [
+        {
+          "id": "scn.verify.1bab272a56e4.unit",
+          "level": "unit",
+          "rationale": "Per-target rules could leak into untargeted specs, or miss the gap of one target. Verification in process over a mixed change.",
+          "placement": "internal/stele/verify_test.go",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:5ec1c85ff009c0800b28bae905b7abfc68e743d4bc0bc63cfd10ce4480d925e0",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verify.1d0f8685d8c6": {
+      "evidence": [
+        {
+          "id": "scn.verify.1d0f8685d8c6.unit",
+          "level": "unit",
+          "rationale": "Adding target paths could turn location into a diagnostic for untargeted specs. In process.",
+          "placement": "internal/stele/evidence_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:35c942d83f0fbfe7b738273d49f424c4000f0ef40b54e028922ac035f2f98e1a",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verify.a7ae8afade0a": {
+      "evidence": [
+        {
+          "id": "scn.verify.a7ae8afade0a.unit",
+          "level": "unit",
+          "rationale": "Same risk for the incomplete verdict. In process.",
+          "placement": "internal/stele/verify_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:3d4fbbff23fdf535284cf7428589691bcb5758a6db8d17aa0c339bfd50783faa",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    },
+    "scn.verify.c4db6a432869": {
+      "evidence": [
+        {
+          "id": "scn.verify.c4db6a432869.unit",
+          "level": "unit",
+          "rationale": "v1 plans must keep working; regression only. In process.",
+          "placement": "internal/stele/verify_test.go (existing)",
+          "approval": {
+            "approver": "jensvansteen",
+            "date": "2026-09-19",
+            "digest": "sha256:e54186c333a997b01040e1de19ac36d31125745a3831718f544b785c65447ec7",
+            "via": "cli",
+            "revision": "4cd190b8900f0082719ebfa3e44196319512dc31"
+          }
+        }
+      ]
+    }
+  }
+}

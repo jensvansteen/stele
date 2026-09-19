@@ -12,7 +12,7 @@ import (
 var (
 	anchorPattern = regexp.MustCompile(
 		`@(implements|verifies)\s+((?:req|scn)\.[a-z0-9]+\.[a-f0-9]{12})` +
-			`((?:\.(?:unit|integration|e2e)(?:\.[0-9]+)?\b)?)`,
+			`((?:\.(?:[a-z][a-z0-9-]*\.)?(?:unit|integration|e2e)(?:\.[0-9]+)?\b)?)`,
 	)
 	typeScriptTestPattern = regexp.MustCompile(
 		`^(?:(?:void|await)\s+)?(?:test|it)\(\s*(["'\x60])([^"'\x60]+)["'\x60]`,
@@ -120,6 +120,7 @@ func discoverAnchorFiles(repo repoFiles, root string) []anchorFile {
 			}
 		}
 	}
+	addTargetAnchorFiles(repo, root, codeSet, testSet)
 	for _, file := range rootGoFiles(repo, root) {
 		if isTestFile(file) {
 			testSet[file] = struct{}{}
@@ -152,6 +153,22 @@ func discoverAnchorFiles(repo repoFiles, root string) []anchorFile {
 	return files
 }
 
+// addTargetAnchorFiles adds the files below the targets' paths, which may lie
+// outside the conventional folders, such as ios/.
+func addTargetAnchorFiles(repo repoFiles, root string, codeSet, testSet map[string]struct{}) {
+	for _, directory := range configuredTargetRoots(repo, root) {
+		for _, file := range repo.walk(filepath.Join(root, directory), supportedSource) {
+			relative, _ := relativePath(root, file)
+			switch {
+			case isTestFile(file):
+				testSet[file] = struct{}{}
+			case !strings.HasPrefix(filepath.ToSlash(relative), "tests/"):
+				codeSet[file] = struct{}{}
+			}
+		}
+	}
+}
+
 func scanAnchorFile(repo repoFiles, root string, file anchorFile) ([]Anchor, error) {
 	content, err := repo.readFile(file.path)
 	if err != nil {
@@ -170,9 +187,10 @@ func scanAnchorFile(repo repoFiles, root string, file anchorFile) ([]Anchor, err
 	for lineIndex, comment := range typeScriptCommentText(lines) {
 		for _, match := range anchorPattern.FindAllStringSubmatch(comment, -1) {
 			selector, declarationLine := adjacentDeclaration(lines, lineIndex, file.kind)
-			evidence, level := anchorEvidence(match[2], match[3])
+			evidence, target, level := anchorEvidence(match[2], match[3])
 			anchors = append(anchors, Anchor{
 				EvidenceID:      evidence,
+				Target:          target,
 				Level:           level,
 				ID:              match[2],
 				Annotation:      match[1],
@@ -316,14 +334,20 @@ func (lexer *typeScriptLexer) closeTemplateBrace() {
 	}
 }
 
-// anchorEvidence splits an anchor's level suffix, such as ".e2e.2", into the
-// full evidence ID and its level. A bare identity has neither.
-func anchorEvidence(identity, suffix string) (string, string) {
+// anchorEvidence splits an anchor's evidence suffix, such as ".e2e.2" or
+// ".ios.unit", into the full evidence ID, its target, and its level. A bare
+// identity has none of them.
+//
+// @implements req.verificationtargets.d1ac12f01077
+func anchorEvidence(identity, suffix string) (string, string, string) {
 	if suffix == "" {
-		return "", ""
+		return "", "", ""
 	}
-	level, _, _ := strings.Cut(suffix[1:], ".")
-	return identity + suffix, level
+	parts := strings.Split(suffix[1:], ".")
+	if contains(evidenceLevels, parts[0]) {
+		return identity + suffix, "", parts[0]
+	}
+	return identity + suffix, parts[0], parts[1]
 }
 
 func anchorSortKey(anchor Anchor) string {

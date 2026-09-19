@@ -459,6 +459,146 @@ void test("runs the approved evidence workflow end to end", async (context: Test
   assert.deepEqual(evidence.scenarios, [{ id: scenario, outcome: "passed" }]);
 });
 
+// @verifies scn.verificationtargets.db222c63967d.e2e
+void test("checks one target in CI", async (context: TestContext): Promise<void> => {
+  const root: string = await fs.mkdtemp(path.join(os.tmpdir(), "stele-cli-target-"));
+  context.after((): Promise<void> => fs.rm(root, { recursive: true }));
+  const change = "openspec/changes/checkout-promo";
+  const scenario = "scn.checkout.abcdef012345";
+  await writeProjectFile(root, "package.json", ['{ "type": "module" }', ""]);
+  await writeProjectFile(root, "stele.config.json", [JSON.stringify({
+    schemaVersion: 1,
+    targets: { api: { paths: ["api/**"] }, web: { paths: ["web/**"] } },
+  }), ""]);
+  await writeProjectFile(root, "openspec/config.yaml", ["schema: spec-driven", ""]);
+  await writeProjectFile(root, `${change}/proposal.md`, [
+    "## Why", "", "Shoppers need to see a promo discount before they pay.", "",
+    "## What Changes", "", "- Accept promo codes on the API and show them on the web.", "",
+  ]);
+  await writeProjectFile(root, `${change}/tasks.md`, ["## 1. Work", "", "- [x] 1.1 Accept codes", ""]);
+  await writeProjectFile(root, `${change}/specs/checkout/spec.md`, [
+    "<!-" + "- stele: spec v1; targets: api, web -->",
+    "## ADDED Requirements", "",
+    "### Requirement: Promo contract", "Verification-ID: req.checkout.0123456789ab", "",
+    "The checkout SHALL return the discount of a valid promo code.", "",
+    "#### Scenario: Apply a valid code", `Verification-ID: ${scenario}`, "",
+    "- **WHEN** a valid code is submitted", "- **THEN** the discount is returned", "",
+  ]);
+  await writeProjectFile(root, `${change}/linkage-plan.json`, [JSON.stringify({
+    schemaVersion: 2,
+    changeId: "checkout-promo",
+    scenarios: {
+      [scenario]: {
+        evidence: [
+          { id: `${scenario}.api.integration`, target: "api", level: "integration", rationale: "The real handler." },
+          { id: `${scenario}.web.unit`, target: "web", level: "unit", rationale: "Parsing is pure logic." },
+        ],
+      },
+    },
+  }, null, 2), ""]);
+  await writeProjectFile(root, "web/promo.mts", [
+    "// @" + "implements req.checkout.0123456789ab",
+    "export function discountOf(body: { discount: number }): number { return body.discount; }",
+    "",
+  ]);
+  await writeProjectFile(root, "web/promo.test.mts", [
+    'import assert from "node:assert/strict";',
+    'import test from "node:test";',
+    'import { discountOf } from "./promo.mts";',
+    "// @" + `verifies ${scenario}.web.unit`,
+    'void test("reads the discount", (): void => { assert.equal(discountOf({ discount: 5 }), 5); });',
+    "",
+  ]);
+  const approved: SpawnSyncReturns<string> = cli([
+    "approve", "--root", root, "--change", "checkout-promo", "--evidence", `${scenario}.web.unit`,
+    "--all", "--yes", "--by", "Tester",
+  ]);
+  assert.equal(approved.status, 0, approved.stdout + approved.stderr);
+
+  const everything: SpawnSyncReturns<string> = cli(["check", "--all", "--root", root, "--json"]);
+  assert.equal(everything.status, 1, everything.stdout);
+
+  const web: SpawnSyncReturns<string> = cli(["check", "--all", "--target", "web", "--root", root, "--json"]);
+  assert.equal(web.status, 0, web.stdout + web.stderr);
+  const result: unknown = JSON.parse(web.stdout);
+  assert.ok(isRecord(result));
+  const steps: unknown = result.steps;
+  assert.ok(isList(steps));
+  assert.deepEqual(steps.map((step: unknown): unknown => isRecord(step) ? [step.step, step.exitCode] : null), [
+    ["ids", 0], ["annotate", 0], ["validate", 0],
+  ]);
+  assert.doesNotMatch(web.stdout, /PLAN_UNAPPROVED/v);
+  const human: SpawnSyncReturns<string> = cli(["check", "--all", "--target", "web", "--root", root, "--color", "never"]);
+  assert.equal(human.status, 0, human.stdout);
+  assert.match(human.stdout, /· change checkout-promo · target web\n/v);
+});
+
+// @verifies scn.verificationtargets.add73aad6d42.e2e
+void test("produces the output of the previous release without targets", async (context: TestContext): Promise<void> => {
+  const root: string = await fs.mkdtemp(path.join(os.tmpdir(), "stele-cli-compatible-"));
+  context.after((): Promise<void> => fs.rm(root, { recursive: true }));
+  const scenario = "scn.todo.abcdef012345";
+  const spec: readonly string[] = [
+    "<!-" + "- stele: spec v1 -->",
+    "# todo Specification", "",
+    "## Purpose", "Record the todos a user enters, so the user can manage the work later.", "",
+    "## Requirements",
+    "### Requirement: Add a todo", "Verification-ID: req.todo.0123456789ab", "",
+    "The application SHALL add a todo from entered text.", "",
+    "#### Scenario: Save entered text", `Verification-ID: ${scenario}`, "",
+    "- **WHEN** a user enters a todo", "- **THEN** the todo is saved", "",
+  ];
+  const archive = "openspec/changes/archive/2026-01-01-todo-basics";
+  await writeProjectFile(root, "package.json", ['{ "type": "module" }', ""]);
+  await writeProjectFile(root, "openspec/config.yaml", ["schema: spec-driven", ""]);
+  await writeProjectFile(root, "openspec/specs/todo/spec.md", spec);
+  await writeProjectFile(root, `${archive}/specs/todo/spec.md`, [
+    "<!-" + "- stele: spec v1 -->", "## ADDED Requirements", "", ...spec.slice(7),
+  ]);
+  await writeProjectFile(root, `${archive}/linkage-plan.json`, [JSON.stringify({
+    schemaVersion: 2,
+    changeId: "todo-basics",
+    scenarios: {
+      [scenario]: { evidence: [{ id: `${scenario}.unit`, level: "unit", rationale: "Pure logic." }] },
+    },
+  }, null, 2), ""]);
+  await writeProjectFile(root, "src/todo.mts", [
+    "// @" + "implements req.todo.0123456789ab",
+    "export function addTodo(text: string): { text: string } { return { text }; }",
+    "",
+  ]);
+  await writeProjectFile(root, "tests/todo.test.mts", [
+    'import assert from "node:assert/strict";',
+    'import test from "node:test";',
+    'import { addTodo } from "../src/todo.mts";',
+    "// @" + `verifies ${scenario}.unit`,
+    'void test("saves entered text", (): void => { assert.equal(addTodo("ship").text, "ship"); });',
+    "",
+  ]);
+  const published: string = path.join(ROOT, "node_modules/stele-published/dist/stele");
+  const run = (binary: string, args: readonly string[]): SpawnSyncReturns<string> =>
+    spawnSync(binary, [...args, "--root", root], { cwd: ROOT, encoding: "utf8", env: testEnvironment() });
+  const approved: SpawnSyncReturns<string> = run(published, ["approve", "--specs", "--all", "--yes", "--by", "Tester"]);
+  assert.equal(approved.status, 0, approved.stdout + approved.stderr);
+
+  const outputs = (binary: string): readonly string[] => {
+    const version: string = run(binary, ["--version"]).stdout.trim();
+    return [
+      run(binary, ["validate", "--specs", "--json"]),
+      run(binary, ["index", "--specs"]),
+      run(binary, ["verify", "--specs", "--color", "never"]),
+      run(binary, ["verify", "--specs", "--json"]),
+    ].map((result: SpawnSyncReturns<string>): string =>
+      `${String(result.status)}\n${result.stdout.replaceAll(version, "<version>")}`);
+  };
+  const previous: readonly string[] = outputs(published);
+  const current: readonly string[] = outputs(path.join(ROOT, "dist/stele"));
+  assert.deepEqual(current, previous);
+  assert.match(current[0] ?? "", /^0\n/v);
+  assert.match(current[3] ?? "", /"approval": "approved"/v);
+  assert.doesNotMatch(current.join("\n"), /"stale"|target/v);
+});
+
 interface LinkIndex {
   readonly scopes: readonly string[];
   readonly scenarioSteps: readonly string[];

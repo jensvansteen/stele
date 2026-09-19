@@ -218,7 +218,8 @@ func planSpecFile(
 		plan.content = []byte(insertIdentityLines(document.lines, insertAfter))
 	}
 	if annotate {
-		plan.content = []byte(insertAnnotation(string(plan.content)))
+		targets := capabilityTargets(root, scope, capability)
+		plan.content = []byte(insertTargetedAnnotation(string(plan.content), targets))
 		annotation.Changed = true
 	}
 	plan.annotation = annotation

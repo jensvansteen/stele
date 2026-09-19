@@ -70,8 +70,10 @@ func buildLSPViews(root string, view, saved repoFiles) (*lspBuild, error) {
 		Anchors: shared.anchors, Declared: shared.declared, Evidence: shared.evidence, InputDigest: shared.inputDigest,
 	}
 	checks := make([]lspScopeCheck, 0)
-	for _, scope := range everyScope(root, backend) {
-		scope.unannotated = config.UnannotatedSpecs
+	targets, _ := parseProjectTargets(config.Targets)
+	input.Targets = targets
+	base := verificationScope{backend: backend, unannotated: config.UnannotatedSpecs, targets: targets}
+	for _, scope := range everyScope(root, base) {
 		loaded, err := scopeVerifyInput(root, scope, "implementation", shared)
 		if err != nil {
 			return nil, err
