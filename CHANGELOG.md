@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-rc.6 — Release candidate
 
 - **Targets: one specification, several places that prove it.** Targets are optional; without them nothing changes. A project declares its targets in `stele.config.json` (`"targets": { "ios": { "paths": ["ios/**"] }, … }`, with an optional `"evidenceOnly": true` for an end-to-end suite), and a specification opts in on its first line: `<!-- stele: spec v1; targets: ios, android -->`. `targets` is the first field that format version 1 defines; other fields still warn with `SPEC_ANNOTATION_FIELD_IGNORED`. See the new [Targets](https://jensvansteen.github.io/stele/guide/targets) guide, with worked examples for replicas, a split front end and API, iOS and Android, and a `system` journey.
 - A requirement or scenario narrows its targets with a `Targets: a, b` line next to its `Verification-ID:`. It may only narrow. The line is metadata: it never enters the text, the steps, or an approval digest.
