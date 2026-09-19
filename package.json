@@ -71,12 +71,13 @@
     "test:coverage": "go run ./tools/goquality coverage",
     "test:node": "node --test --test-concurrency=1 --test-reporter=spec tests/cli.test.mts",
     "test:package": "go test -race -tags=integration ./tests",
-    "test": "npm run format:check && npm run typecheck && npm run type-coverage && npm run test:go && npm run test:coverage && npm run build && npm run test:node && npm run test:package",
+    "test": "npm run format:check && npm run typecheck && npm run type-coverage && npm run test:coverage && npm run build && npm run test:node && npm run test:package",
     "prepack": "npm run build",
     "stele": "npm run build --silent && ./dist/stele",
     "verify": "npm run lint && npm test",
     "stele:published": "stele",
-    "verify:self": "npm run build --silent && stele check --specs --annotations=never"
+    "verify:self": "npm run build --silent && stele check --specs",
+    "check:changes": "npm run build --silent && node scripts/check-changes.mjs"
   },
   "dependencies": {
     "@fission-ai/openspec": "1.13.0"

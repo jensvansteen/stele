@@ -25,7 +25,7 @@ Useful contributor commands:
 | `npm run lint` | Run the pinned Go and TypeScript lint policies |
 | `npm run typecheck` | Run Go vet and strict TypeScript checking |
 | `npm run type-coverage` | Require 100% TypeScript type coverage |
-| `npm run test:go` | Run Go tests with the race detector |
+| `npm run test:coverage` | Run every Go test once with the race detector, and require 100% core coverage |
 | `npm run test:node` | Test the installed CLI from Node |
 | `npm run test:package` | Test the packed-package boundary in Go |
 | `npm run verify` | Run the complete local CI gate |
@@ -44,9 +44,9 @@ Consumer fixtures use TypeScript or Go. Preserve their existing behavioral IDs. 
 1. Plan a change under `openspec/changes/<change>/`: proposal, delta specs with Verification-IDs, a design, tasks, and the change's own version 2 `linkage-plan.json` whose evidence entries the maintainer approved with `stele approve`. Check it with `npm run stele:published -- verify --stage proposal --change <change>`.
 2. Implement it on the same branch, and merge the change complete: approved, implemented, and passing. Review the plan on the branch or in a draft pull request. CI checks every active change at the implementation stage, so a plan-only or partly implemented change fails every pull request once it is on `main`. Until a release contains the behavior the change relies on, check it with the local build: `npm run stele -- check --change <change>`.
 3. Archive the change with the `stele-archive` skill once all its tasks are complete, usually in the pull request that finishes it: `npm run stele:published -- validate --change <change>`, then `npx openspec archive <change> --yes`, then `npm run stele:published -- annotate --specs` (OpenSpec drops the annotation line from newly created specifications), then `npm run stele:published -- validate --specs`. OpenSpec merges its specs into `openspec/specs/` and moves the change, including its linkage plan, to `openspec/changes/archive/`.
-4. CI runs two Stele gates on Linux, for pull requests and pushes to `main`, and runs the second even when the first fails:
-   - `npm run verify:self` builds the CLI under test and runs `stele check --specs --annotations=never` with the published package: IDs, annotations, and validation of all archived behavior, judged by a verifier the pull request cannot change. It writes no GitHub annotations, so findings on the archived specifications are annotated once, by the active-change gate below.
-   - `npm run stele -- check --all` runs the Stele built from the same commit over the current specifications and every active change: plan completeness and approval, IDs, annotations, anchors, removed behavior, and evidence. Only the local build understands a change that uses features the published package lacks; it grades itself until the next release moves the change under `verify:self`.
+4. CI runs two Stele gates on Linux, for pull requests and pushes to `main`, each as its own job in parallel with the tests, so one gate never hides the other:
+   - `npm run verify:self` builds the CLI under test and runs `stele check --specs` with the published package: IDs, annotations, and validation of all archived behavior, judged by a verifier the pull request cannot change.
+   - `npm run check:changes` runs `stele check --change <change>` with the Stele built from the same commit for every active change: plan completeness and approval, IDs, annotations, anchors, removed behavior, and evidence. Only the local build understands a change that uses features the published package lacks; it grades itself until the next release moves the change under `verify:self`. The current specifications are left to `verify:self`, so the two gates do not run the same tests twice.
 
    Run both locally before you push. In GitHub Actions, findings of both gates appear as annotations on the pull request diff.
 
