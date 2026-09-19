@@ -34,8 +34,9 @@ func TestRunRejectsInvalidCommands(t *testing.T) {
 func TestParseCoverage(t *testing.T) {
 	t.Parallel()
 
-	profile := strings.NewReader("mode: set\nexample.go:1.1,2.2 3 1\nexample.go:4.1,5.2 2 0\n")
-	covered, total, err := parseCoverage(profile)
+	profile := strings.NewReader("mode: atomic\ncore/example.go:1.1,2.2 3 1\ncore/example.go:4.1,5.2 2 0\n" +
+		"other/tool.go:1.1,2.2 7 0\n")
+	covered, total, err := parseCoverage(profile, "core/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +60,7 @@ func TestParseCoverageRejectsInvalidProfiles(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			if _, _, err := parseCoverage(strings.NewReader(test.profile)); err == nil {
+			if _, _, err := parseCoverage(strings.NewReader(test.profile), ""); err == nil {
 				t.Fatal("parseCoverage() error = nil, want an error")
 			}
 		})

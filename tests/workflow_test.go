@@ -16,13 +16,15 @@ import (
 // carry Stele anchors.
 
 const (
-	selfGateRun     = "run: npm run verify:self"
-	changeGateRun   = "run: npm run stele -- check --all"
-	guideCheckRun   = "run: npx stele check --all"
-	guideNodeLine   = "node-version: 24"
-	linuxCondition  = "matrix.os == 'ubuntu-latest'"
-	notCancelled    = "!cancelled()"
-	continueOnError = "continue-on-error"
+	selfGateRun   = "run: npm run verify:self"
+	changeGateRun = "run: npm run check:changes"
+	guideCheckRun = "run: npx stele check --all"
+	guideNodeLine = "node-version: 24"
+	linuxRunner   = "runs-on: ubuntu-latest"
+	selfGateJob   = "  self-verify:"
+	changeGateJob = "  check-changes:"
+	stepCondition = "if:"
+	continueOnErr = "continue-on-error"
 )
 
 func TestContinuousIntegrationRunsBothGates(t *testing.T) {
@@ -34,10 +36,16 @@ func TestContinuousIntegrationRunsBothGates(t *testing.T) {
 	for name, broken := range map[string]string{
 		"without verify:self":    strings.Replace(workflow, selfGateRun, "run: true", 1),
 		"without the check step": strings.Replace(workflow, changeGateRun, "run: true", 1),
-		"without !cancelled()":   strings.Replace(workflow, notCancelled+" && ", "", 1),
-		"on macOS too":           strings.Replace(workflow, "!cancelled() && "+linuxCondition, notCancelled, 1),
+		"without the self job":   strings.Replace(workflow, selfGateJob, "  other:", 1),
+		"without the check job":  strings.Replace(workflow, changeGateJob, "  other:", 1),
+		"on macOS":               replaceInJob(workflow, changeGateJob, linuxRunner, "runs-on: macos-14"),
+		"in a matrix":            replaceInJob(workflow, selfGateJob, linuxRunner, "runs-on: ${{ matrix.os }}"),
+		"with a job condition": replaceInJob(workflow, changeGateJob, linuxRunner,
+			linuxRunner+"\n    if: github.event_name == 'push'"),
 		"allowed to fail": strings.Replace(workflow, changeGateRun,
 			changeGateRun+"\n        continue-on-error: true", 1),
+		"skipped by a condition": strings.Replace(workflow, selfGateRun,
+			selfGateRun+"\n        if: github.event_name == 'push'", 1),
 		"without pull requests": strings.Replace(workflow, "  pull_request:", "  workflow_dispatch:", 1),
 		"without main pushes":   strings.Replace(workflow, "    branches: [main]", "    branches: [dev]", 1),
 	} {
@@ -51,9 +59,10 @@ func TestContinuousIntegrationRunsBothGates(t *testing.T) {
 	}
 	readJSONFile(t, filepath.Join(root, "package.json"), &manifest)
 	if manifest.Scripts["stele"] != "npm run build --silent && ./dist/stele" ||
-		manifest.Scripts["verify:self"] != "npm run build --silent && stele check --specs --annotations=never" {
-		t.Fatalf("package.json gate scripts: stele = %q, verify:self = %q",
-			manifest.Scripts["stele"], manifest.Scripts["verify:self"])
+		manifest.Scripts["verify:self"] != "npm run build --silent && stele check --specs" ||
+		manifest.Scripts["check:changes"] != "npm run build --silent && node scripts/check-changes.mjs" {
+		t.Fatalf("package.json gate scripts: stele = %q, verify:self = %q, check:changes = %q",
+			manifest.Scripts["stele"], manifest.Scripts["verify:self"], manifest.Scripts["check:changes"])
 	}
 }
 
@@ -73,7 +82,15 @@ func TestContinuousIntegrationGuideOffersTheGate(t *testing.T) {
 	}
 }
 
-// ciGateProblems lists what is missing from the two gates of ci.yml.
+// replaceInJob replaces the first occurrence of old within one job.
+func replaceInJob(workflow, job, old, replacement string) string {
+	original := strings.TrimRight(block(workflow, job), "\n")
+	return strings.Replace(workflow, original, strings.Replace(original, old, replacement, 1), 1)
+}
+
+// ciGateProblems lists what is missing from the two gates of ci.yml: each
+// runs in its own Linux job, for pull requests and pushes to main, and can
+// neither be skipped by a condition nor fail without failing its job.
 func ciGateProblems(workflow string) []string {
 	problems := make([]string, 0)
 	triggers := block(workflow, "on:")
@@ -83,32 +100,35 @@ func ciGateProblems(workflow string) []string {
 	if !strings.Contains(triggers, "  push:\n    branches: [main]\n") {
 		problems = append(problems, "no trigger for pushes to main")
 	}
-	steps := jobSteps(block(workflow, "  verify:"))
-	self, change := -1, -1
-	for index, step := range steps {
-		switch {
-		case containsLine(step, selfGateRun):
-			self = index
-			if !strings.Contains(step, "if: "+linuxCondition) {
-				problems = append(problems, "verify:self does not run on Linux only")
+	jobs := block(workflow, "jobs:")
+	for _, gate := range []struct{ job, run, name string }{
+		{selfGateJob, selfGateRun, "verify:self"},
+		{changeGateJob, changeGateRun, "the check"},
+	} {
+		job := block(jobs, gate.job)
+		if job == "" {
+			problems = append(problems, "no "+strings.TrimSpace(gate.job)+" job")
+			continue
+		}
+		if !containsLine(job, linuxRunner) || strings.Contains(job, "matrix") {
+			problems = append(problems, gate.name+" does not run on Linux only")
+		}
+		found := false
+		for _, step := range jobSteps(job) {
+			if !containsLine(step, gate.run) {
+				continue
 			}
-		case containsLine(step, changeGateRun):
-			change = index
-			if !strings.Contains(step, "if: ${{ "+notCancelled+" && "+linuxCondition+" }}") {
-				problems = append(problems, "the check step does not run on Linux under !cancelled()")
-			}
-			if strings.Contains(step, continueOnError) {
-				problems = append(problems, "the check step may fail without failing the job")
+			found = true
+			if strings.Contains(step, stepCondition) || strings.Contains(step, continueOnErr) {
+				problems = append(problems, gate.name+" may be skipped or fail without failing its job")
 			}
 		}
-	}
-	switch {
-	case self < 0:
-		problems = append(problems, "the verify job does not run npm run verify:self")
-	case change < 0:
-		problems = append(problems, "the verify job does not run npm run stele -- check --all")
-	case change < self:
-		problems = append(problems, "the check step runs before verify:self")
+		if !found {
+			problems = append(problems, "the "+strings.TrimSpace(gate.job)+" job does not "+gate.run)
+		}
+		if strings.Contains(strings.SplitN(job, "steps:", 2)[0], stepCondition) {
+			problems = append(problems, "the "+strings.TrimSpace(gate.job)+" job has a condition")
+		}
 	}
 	return problems
 }
