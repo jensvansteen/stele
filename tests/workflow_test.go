@@ -17,7 +17,7 @@ import (
 
 const (
 	selfGateRun   = "run: npm run verify:self"
-	changeGateRun = "run: npm run stele -- check --all"
+	changeGateRun = "run: npm run check:changes"
 	guideCheckRun = "run: npx stele check --all"
 	guideNodeLine = "node-version: 24"
 	linuxRunner   = "runs-on: ubuntu-latest"
@@ -59,9 +59,10 @@ func TestContinuousIntegrationRunsBothGates(t *testing.T) {
 	}
 	readJSONFile(t, filepath.Join(root, "package.json"), &manifest)
 	if manifest.Scripts["stele"] != "npm run build --silent && ./dist/stele" ||
-		manifest.Scripts["verify:self"] != "npm run build --silent && stele check --specs --annotations=never" {
-		t.Fatalf("package.json gate scripts: stele = %q, verify:self = %q",
-			manifest.Scripts["stele"], manifest.Scripts["verify:self"])
+		manifest.Scripts["verify:self"] != "npm run build --silent && stele check --specs" ||
+		manifest.Scripts["check:changes"] != "npm run build --silent && node scripts/check-changes.mjs" {
+		t.Fatalf("package.json gate scripts: stele = %q, verify:self = %q, check:changes = %q",
+			manifest.Scripts["stele"], manifest.Scripts["verify:self"], manifest.Scripts["check:changes"])
 	}
 }
 

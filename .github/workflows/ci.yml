@@ -87,7 +87,7 @@ jobs:
         run: npm run verify:self
 
   check-changes:
-    name: Check changes with the Stele built from this commit
+    name: Check active changes with the Stele built from this commit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -100,5 +100,5 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Check active changes and current specifications with the Stele built from this commit
-        run: npm run stele -- check --all
+      - name: Check every active change with the Stele built from this commit
+        run: npm run check:changes

@@ -76,7 +76,8 @@
     "stele": "npm run build --silent && ./dist/stele",
     "verify": "npm run lint && npm test",
     "stele:published": "stele",
-    "verify:self": "npm run build --silent && stele check --specs --annotations=never"
+    "verify:self": "npm run build --silent && stele check --specs",
+    "check:changes": "npm run build --silent && node scripts/check-changes.mjs"
   },
   "dependencies": {
     "@fission-ai/openspec": "1.13.0"
